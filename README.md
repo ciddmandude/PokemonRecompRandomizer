@@ -109,6 +109,11 @@ compatibility fingerprints, and missing-content fallbacks. Spoiler files are
 written only when the player selects the export action, so v0.14.0 declares
 the `filesystem` permission. It requires no engine patch.
 
+The current v0.14.1 package corrects the stock Farfetch'd registry ID and
+prevents visible trainer self-maps whenever another valid species exists.
+This fixes an all-trainers fallback that left ordinary parties vanilla even
+though the independently projected first rival starter was randomized.
+
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
 [Deterministic Foundation v1](docs/determinism-v1.md).
@@ -141,7 +146,7 @@ Race protection, validation, fallbacks, and budgets are defined in
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.14.0`
+- randomizer mod version: `0.14.1`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`

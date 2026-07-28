@@ -34,7 +34,7 @@ local Fixture = loadFactory("tests/species_fixture.lua")
 
 equal(#VanillaSpecies, 151, "vanilla species count")
 equal(VanillaSpecies[1], "BULBASAUR", "first vanilla id")
-equal(VanillaSpecies[83], "FARFETCH_D", "engine Farfetch'd id")
+equal(VanillaSpecies[83], "FARFETCHD", "engine Farfetch'd id")
 equal(VanillaSpecies[151], "MEW", "last vanilla id")
 
 local metadata = Metadata.new()

@@ -34,6 +34,7 @@ local entries = {
   entry("DELTA", 400, { "GRASS" }),
   entry("EPSILON", 450, { "PSYCHIC" }),
   entry("LEGEND", 600, { "PSYCHIC" }),
+  entry("FARFETCHD", 290, { "NORMAL", "FLYING" }),
 }
 local byId = {}
 for _, row in ipairs(entries) do byId[row.id] = row end
@@ -45,6 +46,20 @@ local trainers = {
         { species = "ALPHA", level = 12 },
         { species = "BETA", level = 14 },
       },
+    },
+  },
+  OPP_BUG_CATCHER = {
+    parties = {
+      {{ species = "ALPHA", level = 6 }},
+      {{ species = "BETA", level = 7 }},
+    },
+  },
+  OPP_BIRD_KEEPER = {
+    parties = {
+      {{ species = "ALPHA", level = 20 }},
+      {{ species = "BETA", level = 22 }},
+      {{ species = "GAMMA", level = 24 }},
+      {{ species = "FARFETCHD", level = 26 }},
     },
   },
   OPP_FIX = {
@@ -94,6 +109,29 @@ assert(#first.trainerParties.OPP_FIX[1] >= 1
   "pre-Brock-level party size must be limited to 1-3")
 assert(#first.trainerParties.OPP_RIVAL1[1] == 1,
   "first rival battle must remain a one-Pokemon party")
+assert(type(first.trainerParties.OPP_BUG_CATCHER[1][1].species) == "string",
+  "Viridian Forest Bug Catcher parties must be randomized")
+assert(type(first.trainerParties.OPP_BIRD_KEEPER[4][1].species) == "string",
+  "the stock Farfetch'd Bird Keeper party must remain eligible")
+
+local visiblyRandom = Category.generate(
+  manifest, { trainers = trainers }, {
+    trainer_pokemon = "by_slot",
+    trainer_levels = "unchanged",
+    boss_trainers = "include",
+    party_size = "unchanged",
+    progression_guard = "off",
+    duplicate_policy = "allow",
+    legendaries = "allow",
+  }, rngs("no-trainer-self-maps"))
+for partyIndex, sourceParty in ipairs(trainers.OPP_BUG_CATCHER.parties) do
+  for slotIndex, sourceSlot in ipairs(sourceParty) do
+    assert(visiblyRandom.trainerParties.OPP_BUG_CATCHER[
+        partyIndex][slotIndex].species ~= sourceSlot.species,
+      "trainer slots must avoid self-maps when alternatives exist")
+  end
+end
+
 for classId, classParties in pairs(first.trainerParties) do
   for partyIndex, party in pairs(classParties) do
     if type(partyIndex) == "number" then

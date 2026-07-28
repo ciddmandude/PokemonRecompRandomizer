@@ -136,6 +136,14 @@ return function(StableSort, SpeciesFilters)
     return output
   end
 
+  local function withoutSource(candidates, source)
+    local output = {}
+    for _, entry in ipairs(candidates) do
+      if entry.id ~= source then output[#output + 1] = entry end
+    end
+    return output
+  end
+
   local function choose(manifest, source, settings, theme, rng, used, early)
     local unique = settings.duplicate_policy == "one_to_one"
     local candidates, diagnostics = SpeciesFilters.candidates(
@@ -156,6 +164,20 @@ return function(StableSort, SpeciesFilters)
       candidates = earlyCandidates(candidates, early)
     end
     if #candidates == 0 then return nil, diagnostics end
+    -- A randomizer result that selects the source species is technically
+    -- valid but visibly indistinguishable from vanilla. Prefer a real
+    -- replacement whenever the active constraints leave any alternative.
+    local replacements = withoutSource(candidates, source)
+    if #replacements == 0 and unique then
+      local restarted = SpeciesFilters.candidates(
+        manifest, source, rules(settings, theme, nil, early))
+      restarted = earlyCandidates(restarted, early)
+      replacements = withoutSource(restarted, source)
+      if #replacements > 0 then
+        for id in pairs(used) do used[id] = nil end
+      end
+    end
+    if #replacements > 0 then candidates = replacements end
     local chosen = candidates[rng:nextInt(1, #candidates)].id
     if unique then used[chosen] = true end
     return chosen, diagnostics
@@ -226,7 +248,11 @@ return function(StableSort, SpeciesFilters)
               ((slotIndex - 1) % #sourceParty) + 1]
             assert(type(sourceSlot) == "table"
                 and manifest.byId[sourceSlot.species],
-              "trainer source species is not eligible")
+              ("trainer source species is not eligible: %s party %d "
+                .. "slot %d species %s"):format(
+                classId, partyIndex, slotIndex,
+                tostring(type(sourceSlot) == "table"
+                  and sourceSlot.species or nil)))
             local level = adjustedLevel(
               sourceSlot.level, maximum, settings.trainer_levels, rngs.levels)
             if classId == "OPP_RIVAL1" and maximum <= 5

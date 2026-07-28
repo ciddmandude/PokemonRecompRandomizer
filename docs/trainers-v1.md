@@ -4,6 +4,13 @@ Milestone 13 implements trainer randomization as a mod-only feature for
 gen1recomp v0.1.30. It uses the public `trainer.party` wrapper and requires no
 engine patch.
 
+The v0.14.0 compatibility correction uses the stock registry ID `FARFETCHD`.
+Earlier builds spelled that one manifest ID as `FARFETCH_D`, causing the
+Farfetch'd Bird Keeper record to reject the whole trainer category. The
+regression suite now covers that party and Viridian Forest Bug Catchers.
+Version 0.14.1 also prevents a trainer slot from visibly remaining vanilla
+through a random self-map whenever another valid candidate exists.
+
 ## Saved mapping
 
 Every randomized party variant is resolved when a new save is created and
@@ -35,6 +42,10 @@ copy it returns.
 The general Similar Strength, Legendary, Species Pool, and Duplicate Policy
 settings apply. With One-to-One enabled, destinations are not reused until the
 eligible pool is exhausted, at which point the pool deterministically restarts.
+Trainer selection excludes the source species whenever at least one other
+candidate satisfies the active constraints. A self-map is retained only when
+it is the sole valid candidate, preventing an enabled trainer slot or an entire
+small party from appearing unchanged merely by chance.
 
 ## Trainer levels
 

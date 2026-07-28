@@ -3,3 +3,7 @@ dist/pokemon_randomizer-0.11.0.zip
 dist/pokemon_randomizer-0.12.0.zip
 dist/pokemon_randomizer-0.13.0.zip
 dist/pokemon_randomizer-0.14.0.zip
+dist/pokemon_randomizer-0.14.1.zip
+
+# Local end-to-end harness imports engine test internals and is not mod code.
+tools/engine-trainer-integration.lua

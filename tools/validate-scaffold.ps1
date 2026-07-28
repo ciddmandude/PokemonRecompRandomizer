@@ -67,6 +67,7 @@ $requiredFiles = @(
   'tests/trainer_m13_test.lua',
   'tests/race_validation_m14_test.lua',
   'tools/test.ps1',
+  'tools/diagnose-live-trainers.lua',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
   'docs/save-lifecycle-v1.md',
@@ -113,11 +114,11 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.14.0') {
-  throw "manifest version must be 0.14.0 for milestone 14"
+if ($manifest.version -ne '0.14.1') {
+  throw "manifest version must be 0.14.1 for milestone 14"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.14\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.14.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.14\.1"') {
+  throw "constants MOD_VERSION must match manifest version 0.14.1"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"
