@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 9 are complete. The project now includes the API-2
+Milestones 1 through 10 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -50,6 +50,10 @@ species-pool pipeline:
 - a validated starter-offer contract and randomizer adapter;
 - a stock-v0.1.30 API-2 Oak's Lab compatibility override;
 - vanilla and transformed-offer parity coverage.
+- deterministic, saved, unique starter choices;
+- Basic Only and Type Triad generation with recorded fallback;
+- configured starter levels and all three rival counterpick modes;
+- saved counterpick projection across the RIVAL1, RIVAL2, and RIVAL3 teams.
 
 Global and area-slot walking, indoor, surfing, and optional fishing
 randomization are active. Encounter rates and probability buckets remain
@@ -58,7 +62,9 @@ engine-owned and unchanged.
 Milestone 9 uses the released recomp v0.1.30 API-2 `map_scripts` registry.
 The mod replaces only the three starter-ball talk handlers; every other
 Oak's Lab handler remains engine-owned. No engine patch or custom app build
-is required. Starter replacement generation itself is planned for M10.
+is required. Milestone 10 resolves the three saved starter offers through
+those handlers and projects the saved rival counterpick into later rival
+parties.
 
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
@@ -77,12 +83,14 @@ Area slots, rods, levels, and coverage are defined in
 [Wild Area, Fishing, and Levels v1](docs/wild-area-fishing-v1.md).
 The scoped starter compatibility override is defined in
 [Oak's Lab Starter Compatibility v1](docs/starter-compat-v1.md).
+Saved starter generation and rival projection are defined in
+[Starter Randomization v1](docs/starter-randomization-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.9.1`
+- randomizer mod version: `0.10.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -238,7 +246,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 9
+## Design guarantees established through milestone 10
 
 - Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -289,5 +297,13 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - Stock v0.1.30 receives only the three starter-ball talk overrides.
 - Oak, rival battles, parcel and Pokédex delivery, and lab movement remain
   engine-owned.
+- Three randomized player choices are unique and generated only once.
+- Basic Only never silently admits an evolved form.
+- Type Triad uses a directional primary-type effectiveness cycle or records
+  its deterministic fallback to Random.
+- The saved offer drives the preview, confirmation, gift, level, removed
+  balls, rival pickup, and all vanilla rival party branches.
+- Rival projection copies the prior trainer party and changes only its final
+  species; original levels, moves, and party sizes remain intact.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

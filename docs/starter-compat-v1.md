@@ -34,11 +34,10 @@ The resolved offer drives the Pokédex preview, confirmation text, received
 text, awarded species and level, projected choice flag, removed player ball,
 rival movement, removed rival ball, and rival received-species text.
 
-## Vanilla parity
+## Milestone 9 vanilla parity
 
-M9 does not generate starter replacements; that belongs to M10. Therefore the
-adapter returns a validated copy of the vanilla offer. The resulting command
-sequence retains:
+With no saved M10 mapping, the adapter returns a validated copy of the
+vanilla offer. The resulting command sequence retains:
 
 - Charmander, Squirtle, and Bulbasaur at level 5;
 - the original left/middle/right physical balls;
@@ -48,6 +47,14 @@ sequence retains:
 - the original early exits, nickname flow, movement, and object toggles.
 
 Invalid future mapping output falls back to the slot's complete vanilla offer.
+
+## Milestone 10 saved offers
+
+An active M10 run resolves each physical ball through the checksum-protected
+`mappings.starters` table. The same saved record drives the preview, question,
+gift species and level, choice flag, ball removal, rival pickup, and received
+text. Invalid or missing saved data falls back to the complete vanilla offer;
+it never rerolls at interaction time.
 
 ## Compatibility tradeoff
 

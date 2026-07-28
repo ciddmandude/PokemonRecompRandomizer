@@ -34,6 +34,8 @@ $requiredFiles = @(
   'src/wild_runtime.lua',
   'src/starter_offer.lua',
   'src/starter_compat.lua',
+  'src/starter_category.lua',
+  'src/starter_runtime.lua',
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
@@ -46,6 +48,7 @@ $requiredFiles = @(
   'tests/wild_global_test.lua',
   'tests/wild_m8_test.lua',
   'tests/starter_seam_test.lua',
+  'tests/starter_m10_test.lua',
   'tools/test.ps1',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
@@ -55,6 +58,7 @@ $requiredFiles = @(
   'docs/wild-global-v1.md',
   'docs/wild-area-fishing-v1.md',
   'docs/starter-compat-v1.md',
+  'docs/starter-randomization-v1.md',
   'docs/randomizer-spec.md'
 )
 
@@ -87,11 +91,11 @@ if (@($manifest.permissions).Count -ne 0) {
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.9.1') {
-  throw "manifest version must be 0.9.1 for milestone 9"
+if ($manifest.version -ne '0.10.0') {
+  throw "manifest version must be 0.10.0 for milestone 10"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.9\.1"') {
-  throw "constants MOD_VERSION must match manifest version 0.9.1"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.10\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.10.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

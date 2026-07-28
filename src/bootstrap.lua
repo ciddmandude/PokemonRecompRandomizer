@@ -2,7 +2,7 @@
 -- about the gen1recomp mod object.
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
-    Options, WildRuntime, StarterOffer, StarterCompat)
+    Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -101,6 +101,26 @@ return function(
       return records
     end
 
+    local function mergedTypeEffectiveness()
+      local registry = mod.content.type_chart
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local chart = {}
+      for id, record in registry:each() do
+        local attacking, defending
+        if type(id) == "string" then
+          attacking, defending = id:match("^([^>]+)>(.+)$")
+        end
+        if attacking and defending and type(record) == "table"
+            and type(record.multiplier) == "number" then
+          chart[attacking] = chart[attacking] or {}
+          chart[attacking][defending] = record.multiplier / 10
+        end
+      end
+      return chart
+    end
+
     local publicApi = {
       contractVersion = Constants.CONTRACT_VERSION,
       saveSchemaVersion = Constants.SAVE_SCHEMA_VERSION,
@@ -146,6 +166,7 @@ return function(
         return {
           encounters = mergedEncounterRecords(),
           field = mergedFieldRecords(),
+          typeEffectiveness = mergedTypeEffectiveness(),
         }
       end,
     })
@@ -303,6 +324,13 @@ return function(
           encounter, rod, mapId, candidates, lifecycle:activeRun())
       end)
 
+    mod.hooks:wrap("trainer.party",
+      function(nextFn, oppClass, partyIndex, party)
+        local resolved = nextFn(oppClass, partyIndex, party)
+        return StarterRuntime.party(
+          resolved, oppClass, partyIndex, lifecycle:activeRun())
+      end)
+
     mod.migrations:add(Constants.FIRST_MIGRATION_VERSION, function(namespace)
       local migrated = SaveState.migrate(namespace)
       if migrated == namespace then return end
@@ -356,7 +384,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 9 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 10 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

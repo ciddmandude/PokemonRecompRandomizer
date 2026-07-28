@@ -12,7 +12,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.9.1",
+  version = "0.10.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -58,6 +58,40 @@ local mod = {
               evolutions = {},
               spriteFront = "bulbasaur.png",
               spriteBack = "bulbasaurb.png",
+            },
+          },
+          {
+            "CHARMANDER",
+            {
+              id = "CHARMANDER",
+              dex = 4,
+              baseStats = {
+                hp = 39, attack = 52, defense = 43, speed = 65, special = 50,
+              },
+              types = { "FIRE" },
+              growthRate = "MEDIUM_SLOW",
+              level1Moves = {},
+              learnset = {},
+              evolutions = {},
+              spriteFront = "charmander.png",
+              spriteBack = "charmanderb.png",
+            },
+          },
+          {
+            "SQUIRTLE",
+            {
+              id = "SQUIRTLE",
+              dex = 7,
+              baseStats = {
+                hp = 44, attack = 48, defense = 65, speed = 43, special = 50,
+              },
+              types = { "WATER" },
+              growthRate = "MEDIUM_SLOW",
+              level1Moves = {},
+              learnset = {},
+              evolutions = {},
+              spriteFront = "squirtle.png",
+              spriteBack = "squirtleb.png",
             },
           },
         }
@@ -180,6 +214,7 @@ assert(type(hookCallbacks["ui.options.rows"]) == "function")
 assert(type(hookCallbacks["encounter.species"]) == "function")
 assert(type(hookCallbacks["encounter.roll"]) == "function")
 assert(type(hookCallbacks["encounter.fishing"]) == "function")
+assert(type(hookCallbacks["trainer.party"]) == "function")
 assert(type(mapScriptContributions.OAKS_LAB) == "table")
 assert(type(mapScriptContributions.OAKS_LAB.talk
   .TEXT_OAKSLAB_CHARMANDER_POKE_BALL) == "function")
@@ -204,7 +239,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 9 ready"))
+assert(logs[1]:match("milestone 10 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -231,9 +266,12 @@ assert(type(run) == "table")
 assert(run.schemaVersion == 1)
 assert(run.enabled == true)
 assert(run.checksum.version == "fnv1a32x4-save-v1")
-assert(run.mappings.wildGlobal.BULBASAUR == "BULBASAUR")
-assert(run.mappings.fishing.global.BULBASAUR == "BULBASAUR")
+assert(type(run.mappings.wildGlobal.BULBASAUR) == "string")
+assert(type(run.mappings.fishing.global.BULBASAUR) == "string")
 assert(#run.diagnostics.warnings == 0)
+assert(type(run.mappings.starters.LEFT) == "table")
+assert(type(run.mappings.starters.MIDDLE) == "table")
+assert(type(run.mappings.starters.RIGHT) == "table")
 assert(run.settings.randomizer == "on")
 assert(run.settings.preset == "standard")
 assert(run.settings.seed_text == "")
@@ -252,7 +290,7 @@ local resolvedEncounter = hookCallbacks["encounter.species"](
 assert(nextCalled, "encounter.species must call the next hook first")
 assert(resolvedEncounter ~= vanillaEncounter,
   "a mapped encounter must copy the prior hook result")
-assert(resolvedEncounter.species == "BULBASAUR")
+assert(resolvedEncounter.species == run.mappings.wildGlobal.BULBASAUR)
 assert(resolvedEncounter.level == 7 and resolvedEncounter.marker == true)
 
 local rollCalls = 0
@@ -263,7 +301,8 @@ local rolled = hookCallbacks["encounter.roll"](
   end,
   { grass = { slots = {{ species = "BULBASAUR", level = 5 }} } },
   { mapId = "TEST_MAP", terrain = "grass" })
-assert(rollCalls == 1 and rolled.species == "BULBASAUR",
+assert(rollCalls == 1
+  and rolled.species == "BULBASAUR",
   "unchanged global levels must preserve the vanilla roll exactly")
 
 local fishCalls = 0
@@ -273,7 +312,9 @@ local fish = hookCallbacks["encounter.fishing"](
     return { species = "BULBASAUR", level = 5 }
   end,
   "OLD_ROD", "TEST_MAP", nil)
-assert(fishCalls == 1 and fish.species == "BULBASAUR" and fish.level == 5)
+assert(fishCalls == 1
+  and fish.species == run.mappings.fishing.global.BULBASAUR
+  and fish.level == 5)
 
 local starterRows
 mapScriptContributions.OAKS_LAB.talk
@@ -281,7 +322,7 @@ mapScriptContributions.OAKS_LAB.talk
     save = save,
     data = {
       pokemon = {
-        CHARMANDER = {}, SQUIRTLE = {}, BULBASAUR = {},
+        CHARMANDER = {}, SQUIRTLE = {}, BULBASAUR = {}, TESTMON = {},
       },
     },
   }, {
@@ -289,9 +330,17 @@ mapScriptContributions.OAKS_LAB.talk
       run = function(_, rows) starterRows = rows end,
     },
   }, nil, function() end)
-assert(starterRows[5][3].species == "CHARMANDER")
-assert(starterRows[9][2] == "CHARMANDER" and starterRows[9][3] == 5)
-assert(starterRows[16][3] == "OAKSLAB_SQUIRTLE_POKE_BALL")
+local leftOffer = run.mappings.starters.LEFT
+assert(starterRows[5][3].species == leftOffer.species)
+assert(starterRows[9][2] == leftOffer.species
+  and starterRows[9][3] == leftOffer.level)
+assert(starterRows[16][3] == leftOffer.rivalBall)
+
+local rivalParty = hookCallbacks["trainer.party"](
+  function(_, _, party) return party end,
+  "OPP_RIVAL1", 1, {{ species = "SQUIRTLE", level = 5 }})
+assert(rivalParty[1].species == leftOffer.rivalSpecies)
+assert(rivalParty[1].level == 5)
 
 callbacks["save.loading"]({ raw = save })
 assert(mod.exports.save.status().phase == "loading")
@@ -300,7 +349,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.9.1", api = 2 },
+  { id = "pokemon_randomizer", version = "0.10.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

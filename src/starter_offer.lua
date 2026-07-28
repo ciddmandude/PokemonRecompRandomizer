@@ -1,6 +1,4 @@
--- Randomizer-side adapter for the API-2 starter.offer seam.
--- M9 deliberately preserves the resolved downstream offer; M10 will project
--- saved starter mappings through this validated boundary.
+-- Randomizer-side adapter for saved starter offers.
 local StarterOffer = {}
 
 local REQUIRED_STRINGS = {
@@ -36,8 +34,12 @@ end
 function StarterOffer.resolve(offer, context, run)
   local valid = StarterOffer.validate(offer)
   if not valid then return offer end
-  -- Keep M9 behavior vanilla even for an active randomizer save. M10 owns
-  -- generation and projection of starter mappings.
+  local mappings = type(run) == "table"
+      and type(run.mappings) == "table"
+      and run.mappings.starters
+  local resolved = type(mappings) == "table"
+      and mappings[offer.slotId] or nil
+  if StarterOffer.validate(resolved) then return copy(resolved) end
   return copy(offer)
 end
 

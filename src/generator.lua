@@ -1,5 +1,6 @@
 -- Public, pure generator boundary.
-return function(Constants, Contracts, Foundation, Species, WildCategory)
+return function(
+    Constants, Contracts, Foundation, Species, WildCategory, StarterCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -58,6 +59,37 @@ return function(Constants, Contracts, Foundation, Species, WildCategory)
           code = "WILD_GENERATION_FAILED",
           message = "wild category generation failed; wild encounters are vanilla",
         }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 1
+      end
+    end
+
+    if request.settings.starters ~= nil
+        and request.settings.starters ~= "off" then
+      local ok, category = pcall(StarterCategory.generate,
+        manifest, request.settings, {
+          starters = Foundation.Rng.fromSeed(
+            request.seed.canonical, "starters"),
+          rival = Foundation.Rng.fromSeed(
+            request.seed.canonical, "rival.counterpick"),
+        }, request.sources and request.sources.typeEffectiveness)
+      if ok then
+        result.mappings.starters = category.starters
+        result.mappings.starterFlags = category.starterFlags
+        for _, row in ipairs(category.warnings) do
+          result.diagnostics.warnings[
+            #result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + category.fallbackCount
+      else
+        result.mappings.starters = {}
+        result.mappings.starterFlags = {}
+        result.diagnostics.warnings[
+          #result.diagnostics.warnings + 1] = {
+            code = "STARTER_GENERATION_FAILED",
+            message = "starter category generation failed; starters are vanilla",
+          }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 1
       end

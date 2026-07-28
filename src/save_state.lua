@@ -176,11 +176,100 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     if type(value) ~= "table" then return end
     for key, child in pairs(value) do
       local childPath = path .. "." .. tostring(key)
-      if key == "species" or key == "give" or key == "get" then
+      if key == "species" or key == "rivalSpecies"
+          or key == "give" or key == "get" then
         checkSpeciesId(child, childPath, speciesSet, errors)
       else
         inspectMapping(child, childPath, speciesSet, errors,
           directSpecies == "all" and "all" or false)
+      end
+    end
+  end
+
+  local function validateStarterMappings(mappings, errors)
+    local starters = mappings.starters
+    local flags = mappings.starterFlags
+    if next(starters) == nil and next(flags) == nil then return end
+    local slots = { "LEFT", "MIDDLE", "RIGHT" }
+    local expected = {
+      LEFT = {
+        index = 1,
+        flag = "EVENT_CHOSE_CHARMANDER",
+        ball = "OAKSLAB_CHARMANDER_POKE_BALL",
+      },
+      MIDDLE = {
+        index = 2,
+        flag = "EVENT_CHOSE_SQUIRTLE",
+        ball = "OAKSLAB_SQUIRTLE_POKE_BALL",
+      },
+      RIGHT = {
+        index = 3,
+        flag = "EVENT_CHOSE_BULBASAUR",
+        ball = "OAKSLAB_BULBASAUR_POKE_BALL",
+      },
+    }
+    local seen = {}
+    for _, slotId in ipairs(slots) do
+      local offer = starters[slotId]
+      local path = "mappings.starters." .. slotId
+      if type(offer) ~= "table" then
+        addError(errors, path, "REQUIRED",
+          "all three saved starter offers are required")
+      else
+        if offer.slotId ~= slotId then
+          addError(errors, path .. ".slotId", "VALUE",
+            "saved starter slot identity does not match its key")
+        end
+        if offer.starterIndex ~= expected[slotId].index
+            or offer.choseFlag ~= expected[slotId].flag
+            or offer.ballObject ~= expected[slotId].ball then
+          addError(errors, path, "PROJECTION",
+            "saved starter must preserve its physical ball projection")
+        end
+        if type(offer.level) ~= "number" or offer.level % 1 ~= 0
+            or offer.level < 2 or offer.level > 20 then
+          addError(errors, path .. ".level", "VALUE",
+            "starter level must be an integer from 2 through 20")
+        end
+        if seen[offer.species] then
+          addError(errors, path .. ".species", "DUPLICATE",
+            "saved player starter choices must be unique")
+        elseif type(offer.species) == "string" then
+          seen[offer.species] = true
+        end
+        if offer.rivalSlot == slotId
+            or (offer.rivalSlot ~= "LEFT"
+              and offer.rivalSlot ~= "MIDDLE"
+              and offer.rivalSlot ~= "RIGHT") then
+          addError(errors, path .. ".rivalSlot", "VALUE",
+            "rival slot must be one of the other starter choices")
+        end
+        local rival = starters[offer.rivalSlot]
+        if type(rival) == "table"
+            and offer.rivalSpecies ~= rival.species then
+          addError(errors, path .. ".rivalSpecies", "MISMATCH",
+            "rival species must match the saved rival slot")
+        end
+        if type(rival) == "table"
+            and offer.rivalBall ~= rival.ballObject then
+          addError(errors, path .. ".rivalBall", "MISMATCH",
+            "rival ball must match the saved rival slot")
+        end
+      end
+    end
+    local offsets = type(flags) == "table" and flags.partyOffsetSlots
+    if not isDenseArray(offsets) or #offsets ~= 3
+        or offsets[1] ~= "LEFT" or offsets[2] ~= "MIDDLE"
+        or offsets[3] ~= "RIGHT" then
+      addError(errors, "mappings.starterFlags.partyOffsetSlots", "VALUE",
+        "rival party offsets must project LEFT, MIDDLE, RIGHT")
+    end
+    local choices = type(flags) == "table" and flags.choiceFlags
+    for _, slotId in ipairs(slots) do
+      if type(choices) ~= "table"
+          or choices[slotId] ~= expected[slotId].flag then
+        addError(errors, "mappings.starterFlags.choiceFlags." .. slotId,
+          "VALUE", "choice flag projection does not match the physical ball")
       end
     end
   end
@@ -205,6 +294,10 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
         inspectMapping(mappings[key], "mappings." .. key,
           speciesSet, errors, direct)
       end
+    end
+    if type(mappings.starters) == "table"
+        and type(mappings.starterFlags) == "table" then
+      validateStarterMappings(mappings, errors)
     end
   end
 
