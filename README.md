@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 10 are complete. The project now includes the API-2
+Milestones 1 through 11 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -54,6 +54,10 @@ species-pool pipeline:
 - Basic Only and Type Triad generation with recorded fallback;
 - configured starter levels and all three rival counterpick modes;
 - saved counterpick projection across the RIVAL1, RIVAL2, and RIVAL3 teams.
+- deterministic saved mappings for 14 named static encounters;
+- deterministic saved mappings for five safely overridable named gifts;
+- unchanged, scaled, and random static levels plus gift level modes;
+- unique-gift selection and storage-safe retry behavior.
 
 Global and area-slot walking, indoor, surfing, and optional fishing
 randomization are active. Encounter rates and probability buckets remain
@@ -65,6 +69,13 @@ Oak's Lab handler remains engine-owned. No engine patch or custom app build
 is required. Milestone 10 resolves the three saved starter offers through
 those handlers and projects the saved rival counterpick into later rival
 parties.
+
+Milestone 11 is deliberately partial on stock v0.1.30. It randomizes the
+Power Plant static set, Zapdos, Articuno, Moltres, Mewtwo, both Snorlax,
+Celadon Eevee, the Magikarp sale, both Fighting Dojo choices, and Silph
+Lapras. Fossil restoration, the Pokémon Tower ghost, generic object-event
+static battles, and the catching tutorial remain vanilla. Game Corner prizes
+remain assigned to M12. No engine patch is required.
 
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
@@ -85,12 +96,14 @@ The scoped starter compatibility override is defined in
 [Oak's Lab Starter Compatibility v1](docs/starter-compat-v1.md).
 Saved starter generation and rival projection are defined in
 [Starter Randomization v1](docs/starter-randomization-v1.md).
+The exact partial M11 scope is defined in
+[Static Encounters and Gifts v1](docs/static-gifts-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.10.0`
+- randomizer mod version: `0.11.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -246,7 +259,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 10
+## Design guarantees established through milestone 11
 
 - Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -305,5 +318,12 @@ sorting, and validates the repository without loading LÖVE or a ROM.
   balls, rival pickup, and all vanilla rival party branches.
 - Rival projection copies the prior trainer party and changes only its final
   species; original levels, moves, and party sizes remain intact.
+- Scoped static and gift mappings are generated once and stored with the save.
+- Static battle flags, object hiding, gift choice flags, payment, party/box
+  handling, and retries remain vanilla-compatible.
+- Magikarp payment and gift completion flags occur only after a successful
+  award, so full storage does not consume the offer.
+- Unsupported v0.1.30 static and gift paths remain completely vanilla rather
+  than receiving a late or inconsistent species substitution.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

@@ -141,13 +141,17 @@ The Pokédex preview, confirmation text, received species, ball removal, rival m
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
-| Static Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes fixed overworld or scripted battle encounters, including legendary birds, Mewtwo, Snorlax, and other data-defined one-time species. Each stable encounter ID resolves once and never rerolls after defeat, escape, capture, or reload. Legendary eligibility still follows the global Legendaries setting. |
+| Static Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | On stock v0.1.30, randomizes 14 named map-script encounters: eight Power Plant balls, Zapdos, Articuno, Moltres, Mewtwo, and both Snorlax. Each stable encounter ID resolves once. Generic object-event statics, ghost Marowak, and the catching tutorial remain vanilla. |
 | Static Levels | `UNCHANGED`, `SCALED`, `RANDOM ±5` | `UNCHANGED` | `UNCHANGED` preserves the encounter's level. `SCALED` compensates using `round(level × sqrt(sourceBST/destinationBST))`, clamped to 2–100. `RANDOM ±5` adds a saved deterministic offset from -5 through +5, clamped to 2–100. |
-| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes non-starter Pokémon permanently given or sold to the player, including Celadon Eevee, Silph Lapras, fossils, Fighting Dojo prizes, and the Route 4 Magikarp seller. Game Corner prizes and NPC trades remain controlled by their own settings. |
-| Gift Levels | `UNCHANGED`, `SCALED`, `FIXED 15` | `UNCHANGED` | `UNCHANGED` preserves each gift's original level. `SCALED` uses the BST compensation formula and clamps to 2–100. `FIXED 15` gives every eligible non-starter gift at level 15. Fossil restoration uses the resolved gift and level selected when the run was generated. |
-| Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | `UNIQUE GIFTS` prevents duplicate destinations among non-starter gifts while candidates remain. It does not make gifts unique relative to wild encounters, starters, trades, or prizes. Mutually exclusive choices such as the fossils and Fighting Dojo balls are generated separately but remain internally unique. |
+| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | On stock v0.1.30, randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, and the Route 4 Magikarp seller. Fossil restoration remains vanilla because the released API exposes no pre-dialogue gift-offer seam. Game Corner prizes and NPC trades remain controlled separately. |
+| Gift Levels | `UNCHANGED`, `SCALED`, `FIXED 15` | `UNCHANGED` | `UNCHANGED` preserves each supported gift's original level. `SCALED` uses the BST compensation formula and clamps to 2–100. `FIXED 15` gives every supported randomized gift at level 15. Excluded gifts remain completely vanilla. |
+| Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | `UNIQUE GIFTS` prevents duplicate destinations among the five supported gifts while candidates remain. It does not make gifts unique relative to wild encounters, starters, trades, or prizes. Both Fighting Dojo choices are generated and remain internally unique while candidates remain. |
 
-Static and gift mappings use stable content IDs rather than source species alone. Dialogue, preview sprites, purchase prompts, Pokédex updates, event flags, and the Pokémon actually awarded or battled must all use the same saved resolution.
+Supported static and gift mappings use stable catalog IDs rather than source
+species alone. Mapped names, cries after interaction, purchase prompts,
+Pokédex updates, event flags, and the Pokémon actually awarded or battled use
+the same saved resolution. Legendary overworld object sprites remain vanilla
+because v0.1.30 has no per-save object-sprite seam.
 
 ### 5.5 In-game trade settings
 
@@ -343,22 +347,20 @@ Requirements:
 | Fishing | Wrap `encounter.fishing`. |
 | Trainers | Wrap `trainer.party` and return the saved party for `(trainerClass, partyIndex)`. |
 | Oak's Lab starters | Register API-2 `map_scripts` winners for only the three starter-ball talk keys. Each handler resolves one offer record before building the preview, confirmation, gift, flags, ball removal, and rival counterpick rows. |
-| Gift creation | Listen to mutable `pokemon.before_give` as the final award seam. Resolve the species earlier through stable starter, gift, trade, or prize offer hooks so previews and dialogue agree with the awarded Pokémon. |
+| Scoped statics/gifts | Register namespaced commands that resolve saved stable IDs, then replace only the supported v0.1.30 `map_scripts` talk/wake handlers. Excluded paths remain entirely vanilla. |
 | Race unlock | Listen to Hall of Fame and credits completion events, validate the configured condition, persist the one-way unlock flag, and enable plaintext spoiler access only after unlock. |
 | Options entry | Wrap `ui.options.rows` and register a custom `screens` entry. |
 
 ### 8.2 Required small engine extensions
 
-The present hooks do not expose stable, save-aware seams for several requested
-features. Add these API-2-compatible hooks; when unused they must return
-vanilla data unchanged. Starters do not require an engine extension because
-the public API-2 `map_scripts` compose registry can replace the three ball
-handlers without taking ownership of the rest of Oak's Lab.
+The present hooks do not expose stable, save-aware seams for several features
+planned for later milestones. Add these API-2-compatible hooks when full
+coverage beyond the stock-v0.1.30 scope is revisited; when unused they must
+return vanilla data unchanged. Starters and the partial M11 catalog use
+public API-2 composition and do not require an engine extension.
 
 | New hook | Signature | Call site and purpose |
 |---|---|---|
-| `encounter.static` | `encounter, ctx -> encounter` where `ctx = { encounterId, mapId, save, game }` | Every fixed wild-battle call site before battle construction. `encounterId` must remain stable across saves and identify one-time flags separately from species. |
-| `pokemon.gift_offer` | `gift, ctx -> gift` where `gift = { giftId, species, level, price?, choiceGroup? }` | Every non-starter gift or Pokémon sale before preview/dialogue and payment. The resolved record then flows through `pokemon.before_give`. |
 | `trade.offer` | `trade, ctx -> trade` where `ctx = { tradeIndex, doneFlag, save, game }` | `Commands.trade`, immediately after reading `field.trades[tradeIndex]`. Return a copied record; never mutate merged data. |
 | `shop.pokemon_prizes` | `prizes, ctx -> prizes` where `ctx = { shopId = "GAME_CORNER", version, save, game }` | Game Corner prize menu before rows are built. Moves the version-specific Pokémon/TM prize lists into `field.gameCornerPrizes` or an equivalent registry-backed record, then exposes the runtime list. |
 
@@ -394,14 +396,19 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Validate that the requested species can be acquired before that trade when Catchability Guard and Trade Evolution Safety are on.
 - A trade offer must not change after it is viewed.
 
-### 9.4 Static encounters and gifts
+### 9.4 Partial mod-only static encounters and gifts
 
-- Enumerate static battles and gifts by stable IDs supplied by registry-backed data, never by dialogue text or source species.
-- Preserve one-time event flags, capture/defeat state, payment behavior, choice groups, nickname prompts, party/box handling, and Pokédex updates.
-- Generate all alternatives in mutually exclusive choice groups at New Game; selecting one never rerolls or rewrites the others.
-- Resolve static species and levels before battle setup and resolve gifts before any species name, sprite, price, or confirmation is shown.
-- The catching tutorial is explicitly excluded and remains vanilla.
-- A gift whose purchase is declined or whose destination storage is full retains the same saved offer on the next attempt.
+- Enumerate the 14 named static and five named gift records in
+  `static_gift_catalog.lua` by stable ID.
+- Preserve one-time event flags, capture/defeat state, payment behavior,
+  choice groups, nickname prompts, party/box handling, and Pokédex updates.
+- Generate both Dojo alternatives at New Game; selecting one never rerolls
+  or rewrites the other.
+- Resolve supported static species and levels before battle setup and
+  supported gifts before their mapped species name or confirmation appears.
+- Full storage or a declined purchase retains the same saved offer.
+- Fossil restoration, ghost Marowak, generic object-event statics, the
+  catching tutorial, and Game Corner prizes remain vanilla in M11.
 
 ### 9.5 Game Corner prizes
 
@@ -457,9 +464,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 `FR-18` The generator shall record deterministic fallback/relaxation warnings for review and tests.
 
-`FR-19` Static encounters shall use saved species and levels while preserving their stable encounter identity and one-time state.
+`FR-19` Each static encounter in the v0.1.30 partial catalog shall use saved species and levels while preserving its stable identity and one-time state; excluded static paths shall remain vanilla.
 
-`FR-20` Non-starter gifts and Pokémon sales shall use saved offers consistently across previews, dialogue, payment, choice state, and awards.
+`FR-20` Each gift in the v0.1.30 partial catalog shall use its saved offer consistently across mapped names, payment, choice state, and awards; fossil restoration and other excluded gifts shall remain vanilla.
 
 `FR-21` Race Mode shall hide mapping details and block plaintext spoiler export until its saved unlock condition is satisfied.
 
@@ -515,8 +522,11 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 - Sample every wild map/terrain and all fishing rods.
 - Inspect all three starter balls, pick each in separate runs, and verify rival behavior.
-- Trigger every registered static encounter and verify capture, defeat, escape, and reload behavior.
-- Accept, decline, retry, purchase, and exhaust storage for every registered non-starter gift; verify fossil and Fighting Dojo choice groups.
+- Trigger every static in the partial M11 catalog and verify capture, defeat,
+  escape, and reload behavior; verify each excluded static remains vanilla.
+- Accept, decline, retry, purchase, and exhaust storage for all five partial
+  M11 gifts; verify the Fighting Dojo choice group and confirm fossil
+  restoration remains vanilla.
 - Complete every NPC trade, including wrong-mon, cancel, and already-completed branches.
 - Buy every Game Corner Pokémon prize with insufficient funds, enough funds, full party, and full storage cases.
 - Instantiate every trainer party variant and complete required boss battles.
@@ -570,7 +580,10 @@ For at least 10,000 generated seeds per preset:
    through preview/gift/flags/rival movement, and prove stock-v0.1.30 vanilla
    parity without an engine patch.
 10. **Starter randomization** — Implement unique choices, basic-stage/type-triad rules, starter levels, saved rival counterpick projection, and three-choice end-to-end tests.
-11. **Static encounters and gifts** — Registry-back stable static/gift IDs, add/type-check `encounter.static` and `pokemon.gift_offer`, implement all species/level/uniqueness settings, and test legendary, fossil, Dojo, gift, and Pokémon-sale paths.
+11. **Partial mod-only static encounters and gifts** — Save stable mappings for
+    14 named static and five named gift scripts through public API-2 commands
+    and `map_scripts`; implement level/legendary/uniqueness settings, keep
+    unsupported v0.1.30 paths vanilla, and document the exclusions.
 12. **Trades and Game Corner prizes** — Add/type-check `trade.offer` and `shop.pokemon_prizes`, implement trade fairness plus prize species/level/price settings, preserve completion/payment/storage behavior, and test every offer.
 13. **Trainer randomization** — Implement global/slot/themed modes, level/party-size/boss/progression rules, special-move legality, all party variants, and O(1) saved lookup.
 14. **Race mode, validation, and compatibility** — Add spoiler locking, automatic/passphrase unlock, authenticated encrypted export, cross-category reachability, deterministic repair swaps, missing-content fallbacks, relevant-mod fingerprints, fuzzing, and performance/save-size budgets.
@@ -579,5 +592,8 @@ For at least 10,000 generated seeds per preset:
 ## 16. Resolved product decisions
 
 1. "Shop Pokémon" means only the Celadon Game Corner Prize Exchange; ordinary Poké Marts remain unchanged.
-2. Static encounters and non-starter gifts are included in version 1 as independently configurable categories.
+2. Static encounters and non-starter gifts are independently configurable,
+   but v0.11.0 coverage is limited to the explicit stock-v0.1.30 catalog in
+   Section 9.4. Excluded paths remain vanilla until public pre-battle and
+   pre-dialogue offer seams exist.
 3. Race-oriented spoiler locking and authenticated encrypted export are included. Race Mode is explicitly a local accidental-spoiler safeguard, not tamper-proof anti-cheat.

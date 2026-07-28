@@ -5,6 +5,13 @@ local migrations = {}
 local hookCallbacks = {}
 local screens = {}
 local mapScriptContributions = {}
+local commandRecords = {
+  show_text = function() end,
+  ask = function() end,
+  play_cry = function() end,
+  static_battle = function() end,
+  give_pokemon = function() end,
+}
 local optionSchema
 local pushedScreen
 local saveBucket = {}
@@ -12,7 +19,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.10.0",
+  version = "0.11.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -136,6 +143,13 @@ local mod = {
         return contribution
       end,
     },
+    commands = {
+      get = function(_, id) return commandRecords[id] end,
+      register = function(_, id, command)
+        commandRecords[id] = command
+        return command
+      end,
+    },
   },
   exports = {},
   events = {
@@ -216,6 +230,12 @@ assert(type(hookCallbacks["encounter.roll"]) == "function")
 assert(type(hookCallbacks["encounter.fishing"]) == "function")
 assert(type(hookCallbacks["trainer.party"]) == "function")
 assert(type(mapScriptContributions.OAKS_LAB) == "table")
+assert(type(mapScriptContributions.POWER_PLANT) == "table")
+assert(type(mapScriptContributions.CELADON_MANSION_ROOF_HOUSE) == "table")
+assert(type(commandRecords["pokemon_randomizer:static_m11_battle"])
+  == "function")
+assert(type(commandRecords["pokemon_randomizer:give_m11_pokemon"])
+  == "function")
 assert(type(mapScriptContributions.OAKS_LAB.talk
   .TEXT_OAKSLAB_CHARMANDER_POKE_BALL) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
@@ -239,7 +259,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 10 ready"))
+assert(logs[1]:match("milestone 11 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -268,7 +288,8 @@ assert(run.enabled == true)
 assert(run.checksum.version == "fnv1a32x4-save-v1")
 assert(type(run.mappings.wildGlobal.BULBASAUR) == "string")
 assert(type(run.mappings.fishing.global.BULBASAUR) == "string")
-assert(#run.diagnostics.warnings == 0)
+assert(#run.diagnostics.warnings >= 2,
+  "minimal fixture must record scoped M11 vanilla fallbacks")
 assert(type(run.mappings.starters.LEFT) == "table")
 assert(type(run.mappings.starters.MIDDLE) == "table")
 assert(type(run.mappings.starters.RIGHT) == "table")
@@ -349,7 +370,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.10.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.11.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

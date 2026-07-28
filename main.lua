@@ -56,9 +56,16 @@ return function(mod)
   local StarterCompat = loadModule(
     "src/starter_compat.lua", StarterOffer)
   local StarterRuntime = loadModule("src/starter_runtime.lua")
+  local StaticGiftCatalog = loadModule("src/static_gift_catalog.lua")
+  local StaticGiftCategory = loadModule(
+    "src/static_gift_category.lua",
+    StableSort, SpeciesFilters, StaticGiftCatalog)
+  local StaticGiftCompat = loadModule(
+    "src/static_gift_compat.lua", StaticGiftCatalog)
   local Generator = loadModule(
     "src/generator.lua",
-    Constants, Contracts, Foundation, Species, WildCategory, StarterCategory)
+    Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
+    StaticGiftCategory)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)
@@ -81,7 +88,8 @@ return function(mod)
   local Bootstrap = loadModule(
     "src/bootstrap.lua",
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
-    Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime)
+    Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
+    StaticGiftCompat)
 
   return Bootstrap.start(mod)
 end

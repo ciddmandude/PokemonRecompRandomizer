@@ -1,6 +1,7 @@
 -- Public, pure generator boundary.
 return function(
-    Constants, Contracts, Foundation, Species, WildCategory, StarterCategory)
+    Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
+    StaticGiftCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -92,6 +93,43 @@ return function(
           }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 1
+      end
+    end
+
+    if (request.settings.static_pokemon ~= nil
+          and request.settings.static_pokemon ~= "off")
+        or (request.settings.gift_pokemon ~= nil
+          and request.settings.gift_pokemon ~= "off") then
+      local ok, category = pcall(StaticGiftCategory.generate,
+        manifest, request.settings, {
+          staticSpecies = Foundation.Rng.fromSeed(
+            request.seed.canonical, "static.encounters"),
+          staticLevels = Foundation.Rng.fromSeed(
+            request.seed.canonical, "static.levels"),
+          giftSpecies = Foundation.Rng.fromSeed(
+            request.seed.canonical, "gifts"),
+          giftLevels = Foundation.Rng.fromSeed(
+            request.seed.canonical, "gift.levels"),
+        })
+      if ok then
+        result.mappings.staticEncounters = category.staticEncounters
+        result.mappings.gifts = category.gifts
+        for _, row in ipairs(category.warnings) do
+          result.diagnostics.warnings[
+            #result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + category.fallbackCount
+      else
+        result.mappings.staticEncounters = {}
+        result.mappings.gifts = {}
+        result.diagnostics.warnings[
+          #result.diagnostics.warnings + 1] = {
+            code = "STATIC_GIFT_GENERATION_FAILED",
+            message = "scoped M11 generation failed; statics and gifts are vanilla",
+          }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 2
       end
     end
     return result, nil

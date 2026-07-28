@@ -53,6 +53,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'starter_seam_test failed' }
   & $luaPath 'tests/starter_m10_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'starter_m10_test failed' }
+  & $luaPath 'tests/static_gift_m11_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'static_gift_m11_test failed' }
   & (Join-Path $ProjectRoot 'tools/validate-scaffold.ps1')
 } finally {
   Pop-Location
