@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 5 are complete. The project now includes the API-2
+Milestones 1 through 6 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -32,6 +32,12 @@ species-pool pipeline:
 - choice, number, and text editing with per-row help;
 - active-run lock/vanilla/quarantine status display;
 - confirmed, single-write reset-to-default behavior.
+- locked Casual, Standard, and Chaos preset bundles;
+- automatic custom-preset detection;
+- manual seed validation and 26-character Crockford auto seeds;
+- behavior-only settings hashes and compact run codes;
+- scrollable next-run review and active-seed transcription screens;
+- clipboard copying with an in-game fallback.
 
 Gameplay randomization is intentionally not active yet. The exported category
 generator continues to return `GENERATOR_UNAVAILABLE` until later milestones
@@ -47,12 +53,14 @@ Saved-state behavior is defined in
 [Save Lifecycle v1](docs/save-lifecycle-v1.md).
 Options UI and persistence behavior are defined in
 [Options Shell v1](docs/options-shell-v1.md).
+General setting semantics are defined in
+[General Settings and Presets v1](docs/general-settings-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=1.0.0 <2.0.0`
 - mod API: `2`
-- randomizer mod version: `0.5.0`
+- randomizer mod version: `0.6.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -99,6 +107,8 @@ active yet.
 │   ├── options_schema.lua     all persistent next-run option rows
 │   ├── preferences.lua        validated option storage and snapshots
 │   ├── options_screen.lua     paged in-game Randomizer screen
+│   ├── general_settings.lua   presets, seed resolution, and run identity
+│   ├── review_screen.lua      scrollable review/transcription screen
 │   ├── stable_sort.lua        stable sort and deterministic keys
 │   └── uint32.lua             exact unsigned-32-bit arithmetic
 ├── tests/
@@ -109,6 +119,7 @@ active yet.
 │   ├── species_manifest_test.lua manifest/filter integration tests
 │   ├── save_state_test.lua    schema/checksum/migration tests
 │   ├── options_ui_test.lua    preference and screen behavior tests
+│   ├── general_settings_test.lua preset/seed/lifecycle identity tests
 │   └── scaffold_test.lua      headless Lua contract smoke test
 ├── tools/
 │   ├── test.ps1               syntax and complete test runner
@@ -118,6 +129,7 @@ active yet.
     ├── species-manifest-v1.md species pool/filter specification
     ├── save-lifecycle-v1.md   save events and recovery contract
     ├── options-shell-v1.md    Options UI and persistence contract
+    ├── general-settings-v1.md preset, seed, and run-code contract
     └── randomizer-spec.md     product and technical specification
 ```
 
@@ -176,7 +188,11 @@ The mod publishes the following through `mod.exports`:
     schema = function() ... end,
     pages = function() ... end,
     snapshot = function() ... end,
+    preset = function(name) ... end,
+    detectPreset = function(settings) ... end,
+    behaviorSettings = function(settings) ... end,
   },
+  runCode = function(savedRun) ... end,
 }
 ```
 
@@ -201,7 +217,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 5
+## Design guarantees established through milestone 6
 
 - No gameplay hook is registered before deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -229,5 +245,12 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - Active-run data is read-only; edits target only the next New Game.
 - Invalid stored preferences fall back to declared defaults.
 - Reset defaults requires confirmation and persists as one options write.
+- Standard exactly equals the declared default snapshot.
+- Presets never overwrite master, seed, or race choices.
+- Manual seed errors disable generation atomically and remain reviewable.
+- Auto seeds are saved as deterministic 128-bit Crockford Base32 identities.
+- Run codes bind canonical seed, behavior settings, and eligible pool.
+- Settings-hash migration never rerolls an existing mapping.
+- Clipboard absence cannot hide the seed or run code from the player.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

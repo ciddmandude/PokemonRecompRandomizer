@@ -52,16 +52,21 @@ return function(mod)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)
+  local GeneralSettings = loadModule(
+    "src/general_settings.lua", SaveState)
   local SaveLifecycle = loadModule(
-    "src/save_lifecycle.lua", Constants, Generator, SaveState)
+    "src/save_lifecycle.lua", Constants, Generator, SaveState, GeneralSettings)
   local OptionsSchema = loadModule("src/options_schema.lua")
   local Preferences = loadModule(
-    "src/preferences.lua", Constants, OptionsSchema)
+    "src/preferences.lua", Constants, OptionsSchema, GeneralSettings)
   local OptionsScreen = loadModule("src/options_screen.lua", Constants)
+  local ReviewScreen = loadModule("src/review_screen.lua")
   local Options = {
     Schema = OptionsSchema,
     Preferences = Preferences,
     Screen = OptionsScreen,
+    ReviewScreen = ReviewScreen,
+    General = GeneralSettings,
   }
   local Bootstrap = loadModule(
     "src/bootstrap.lua",

@@ -127,7 +127,11 @@ return function(
       schema = function() return preferences:schema() end,
       pages = function() return preferences:pages() end,
       snapshot = function() return preferences:snapshot() end,
+      preset = Options.General.preset,
+      detectPreset = Options.General.detectPreset,
+      behaviorSettings = Options.General.behaviorSettings,
     }
+    publicApi.runCode = Options.General.runCode
 
     for key, value in pairs(publicApi) do mod.exports[key] = value end
 
@@ -139,8 +143,90 @@ return function(
 
     mod.content.screens:register(Constants.OPTIONS_SCREEN_ID, {
       new = function(game)
+        local function reviewNextRun(activeGame)
+          local lines = {}
+          local settings = preferences:snapshot(activeGame)
+          lines[#lines + 1] = "SEED: "
+            .. (settings.seed_mode == "auto"
+              and "AUTO" or (settings.seed_text ~= ""
+                and settings.seed_text or "(EMPTY)"))
+          for _, row in ipairs(preferences:schema()) do
+            lines[#lines + 1] =
+              row.label .. ": " .. preferences:display(row, activeGame)
+          end
+          local manifest = Generator.buildSpeciesManifest(
+            mergedSpeciesRecords(), {
+              poolMode = Options.General.poolMode(settings),
+              metadata = Species.Metadata:snapshot(),
+            })
+          lines[#lines + 1] = ("POOL: %d ELIGIBLE"):format(
+            manifest.diagnostics.counts.eligible)
+          if manifest.diagnostics.counts.excluded > 0 then
+            lines[#lines + 1] = ("POOL EXCLUDED: %d"):format(
+              manifest.diagnostics.counts.excluded)
+          end
+          for _, warning in ipairs(manifest.diagnostics.warnings) do
+            lines[#lines + 1] = "WARNING " .. warning.code
+          end
+          local warnings = Options.General.reviewWarnings(settings)
+          if #warnings == 0 then
+            lines[#lines + 1] = "VALIDATION: OK"
+          else
+            for _, warning in ipairs(warnings) do
+              lines[#lines + 1] =
+                "WARNING " .. warning.code .. ": " .. warning.message
+            end
+          end
+          mod.ui.push(activeGame, Constants.REVIEW_SCREEN_ID, {
+            title = "NEXT RUN",
+            lines = lines,
+          })
+        end
+
+        local function copyActiveSeed(activeGame)
+          local run = lifecycle:activeRun()
+          if not run then return "NO ACTIVE RUN" end
+          local code = Options.General.runCode(run)
+          local text = "SEED: " .. run.seed.canonical
+            .. "\nRUN CODE: " .. code
+          local copied = false
+          local system = love and love.system
+          if system and type(system.setClipboardText) == "function" then
+            local ok = pcall(system.setClipboardText, text)
+            copied = ok
+          end
+          mod.ui.push(activeGame, Constants.REVIEW_SCREEN_ID, {
+            title = "ACTIVE RUN",
+            lines = {
+              "SEED",
+              run.seed.canonical,
+              "RUN CODE",
+              code,
+              "ALGORITHM " .. run.algorithmVersion,
+              "RUN SETTINGS: LOCKED",
+              "WILD: " .. run.settings.wild_pokemon,
+              "STARTERS: " .. run.settings.starters,
+              "STATIC: " .. run.settings.static_pokemon,
+              "GIFTS: " .. run.settings.gift_pokemon,
+              "TRADES: " .. run.settings.in_game_trades,
+              "PRIZES: " .. run.settings.game_corner_pokemon,
+              "TRAINERS: " .. run.settings.trainer_pokemon,
+            },
+          })
+          return copied and "SEED COPIED" or "COPY UNAVAILABLE"
+        end
+
         return Options.Screen.new(
-          game, preferences, mod.ui, screenStatus)
+          game, preferences, mod.ui, screenStatus, {
+            review_next_run = reviewNextRun,
+            copy_active_seed = copyActiveSeed,
+          })
+      end,
+    })
+
+    mod.content.screens:register(Constants.REVIEW_SCREEN_ID, {
+      new = function(game, model)
+        return Options.ReviewScreen.new(game, model, mod.ui)
       end,
     })
 
@@ -163,6 +249,11 @@ return function(
     mod.migrations:add(Constants.FIRST_MIGRATION_VERSION, function(namespace)
       local migrated = SaveState.migrate(namespace)
       if migrated == namespace then return end
+      if type(migrated.settings) == "table"
+          and type(migrated.compatibility) == "table" then
+        migrated.compatibility.settingsHash =
+          SaveState.hashBehaviorSettings(migrated.settings)
+      end
       local stamped, errors = SaveState.stamp(migrated)
       if not stamped then
         error(("schema migration failed validation (%d issue%s)"):format(
@@ -171,6 +262,26 @@ return function(
       for key in pairs(namespace) do namespace[key] = nil end
       for key, value in pairs(stamped) do namespace[key] = value end
     end)
+
+    mod.migrations:add(
+      Constants.SETTINGS_HASH_MIGRATION_VERSION, function(namespace)
+        if type(namespace) ~= "table"
+            or namespace.schemaVersion ~= Constants.SAVE_SCHEMA_VERSION
+            or type(namespace.settings) ~= "table"
+            or type(namespace.compatibility) ~= "table" then
+          return
+        end
+        local migrated = SaveState.clone(namespace)
+        migrated.compatibility.settingsHash =
+          SaveState.hashBehaviorSettings(migrated.settings)
+        local stamped, errors = SaveState.stamp(migrated)
+        if not stamped then
+          error(("settings-hash migration failed validation (%d issue%s)")
+            :format(#errors, #errors == 1 and "" or "s"))
+        end
+        for key in pairs(namespace) do namespace[key] = nil end
+        for key, value in pairs(stamped) do namespace[key] = value end
+      end)
 
     mod.events:on("save.created", function(event)
       lifecycle:onCreated(event)
@@ -188,7 +299,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 5 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 6 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

@@ -27,6 +27,8 @@ $requiredFiles = @(
   'src/options_schema.lua',
   'src/preferences.lua',
   'src/options_screen.lua',
+  'src/general_settings.lua',
+  'src/review_screen.lua',
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
@@ -35,11 +37,13 @@ $requiredFiles = @(
   'tests/species_manifest_test.lua',
   'tests/save_state_test.lua',
   'tests/options_ui_test.lua',
+  'tests/general_settings_test.lua',
   'tools/test.ps1',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
   'docs/save-lifecycle-v1.md',
   'docs/options-shell-v1.md',
+  'docs/general-settings-v1.md',
   'docs/randomizer-spec.md'
 )
 
@@ -72,11 +76,11 @@ if (@($manifest.permissions).Count -ne 0) {
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.5.0') {
-  throw "manifest version must be 0.5.0 for milestone 5"
+if ($manifest.version -ne '0.6.0') {
+  throw "manifest version must be 0.6.0 for milestone 6"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.5\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.5.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.6\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.6.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"
@@ -98,6 +102,9 @@ if ($constants -notmatch 'SAVE_CHECKSUM_VERSION\s*=\s*"fnv1a32x4-save-v1"') {
 }
 if ($constants -notmatch 'OPTIONS_SCREEN_ID\s*=\s*"PokemonRandomizerOptions"') {
   throw "unexpected options screen id"
+}
+if ($constants -notmatch 'REVIEW_SCREEN_ID\s*=\s*"PokemonRandomizerReview"') {
+  throw "unexpected review screen id"
 }
 
 $milestones = @(

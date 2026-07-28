@@ -11,7 +11,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.5.0",
+  version = "0.6.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -116,13 +116,16 @@ assert(type(mod.exports.preferences.snapshot) == "function")
 assert(#mod.exports.preferences.schema() == 34)
 assert(#optionSchema == 34)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
+assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(hookCallbacks["ui.options.rows"]) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
 assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
 assert(type(callbacks["save.loaded"]) == "function")
 assert(type(callbacks["save.writing"]) == "function")
-assert(#migrations == 1 and migrations[1].since == "0.4.0")
+assert(#migrations == 2)
+assert(migrations[1].since == "0.4.0")
+assert(migrations[2].since == "0.6.0")
 
 mod.exports.registerSpeciesMeta("TESTMON", { legendary = true })
 local manifest = mod.exports.species.buildManifest({ poolMode = "merged" })
@@ -136,7 +139,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 5 ready"))
+assert(logs[1]:match("milestone 6 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -167,6 +170,8 @@ assert(run.diagnostics.warnings[1].code == "GENERATOR_UNAVAILABLE")
 assert(run.settings.randomizer == "on")
 assert(run.settings.preset == "standard")
 assert(run.settings.seed_text == "")
+assert(#run.seed.canonical == 26)
+assert(type(mod.exports.runCode(run)) == "string")
 
 callbacks["save.loading"]({ raw = save })
 assert(mod.exports.save.status().phase == "loading")
@@ -175,7 +180,7 @@ assert(mod.exports.save.status().phase == "loaded-vanilla")
 assert(mod.exports.save.activeRun() == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.5.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.6.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })
@@ -220,5 +225,11 @@ assert(legacy.schemaVersion == 1)
 assert(legacy.seed.canonical == "LEGACY")
 assert(legacy.futureField == "keep")
 assert(type(legacy.checksum.value) == "string")
+local legacyHash = legacy.compatibility.settingsHash
+migrations[2].callback(legacy)
+assert(type(legacy.compatibility.settingsHash) == "string")
+assert(legacy.compatibility.settingsHash == legacyHash)
+local migratedValid = mod.exports.save.validate(legacy, nil, true)
+assert(migratedValid)
 
 io.write("bootstrap_test: ok\n")

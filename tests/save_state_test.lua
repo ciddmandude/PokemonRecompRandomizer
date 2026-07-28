@@ -30,7 +30,7 @@ equal(#seed.hash128, 32, "seed hash length")
 local autoA = SaveState.makeAutoSeed("fixed entropy")
 local autoB = SaveState.makeAutoSeed("fixed entropy")
 equal(autoA.canonical, autoB.canonical, "auto seed determinism")
-equal(#autoA.canonical, 32, "auto seed width")
+equal(#autoA.canonical, 26, "auto seed width")
 
 local settings = {
   randomizer = "on",
@@ -94,7 +94,7 @@ local tampered = SaveState.clone(namespace)
 tampered.settings.wild = "area_slots"
 valid, errors = SaveState.validate(tampered, set, true)
 assert(not valid)
-equal(errors[#errors].code, "CHECKSUM_MISMATCH", "tamper detection")
+equal(errors[#errors].code, "HASH_MISMATCH", "settings tamper detection")
 
 local missing = SaveState.clone(namespace)
 missing.mappings.wildGlobal.BULBASAUR = "MISSINGMON"
@@ -115,6 +115,22 @@ for _, key in ipairs(SaveState.mappingKeys()) do
 end
 valid, errors = SaveState.validate(disabled, set, true)
 assert(valid, errors[1] and errors[1].message)
+
+local switchedOff, offReport = SaveState.create({
+  seed = seed,
+  settings = settings,
+  compatibility = compatibility,
+  species = species,
+  speciesSet = set,
+  sources = {},
+  enabled = false,
+}, function()
+  error("disabled generation must not run")
+end)
+assert(switchedOff and not switchedOff.enabled)
+assert(offReport.disabled and not offReport.error)
+equal(#switchedOff.diagnostics.warnings, 0, "master-off warnings")
+equal(switchedOff.diagnostics.fallbackCount, 0, "master-off fallback count")
 
 local legacy = SaveState.clone(namespace)
 legacy.schemaVersion = 0

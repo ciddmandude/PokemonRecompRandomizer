@@ -103,7 +103,17 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     end
   end
 
-  local function validateCompatibility(value, errors)
+  local function behaviorSettings(settings)
+    local result = {}
+    for key, value in pairs(settings or {}) do
+      if key ~= "preset" and key ~= "seed_mode" and key ~= "seed_text" then
+        result[key] = clone(value)
+      end
+    end
+    return result
+  end
+
+  local function validateCompatibility(value, settings, errors)
     if type(value) ~= "table" then
       addError(errors, "compatibility", "TYPE",
         "compatibility must be a table")
@@ -120,6 +130,12 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     if value.modApi ~= Constants.MOD_API then
       addError(errors, "compatibility.modApi", "UNSUPPORTED_VERSION",
         ("expected mod API %d"):format(Constants.MOD_API))
+    end
+    if type(settings) == "table" and type(value.settingsHash) == "string"
+        and value.settingsHash
+          ~= hashValue("settings-v1", behaviorSettings(settings)) then
+      addError(errors, "compatibility.settingsHash", "HASH_MISMATCH",
+        "settings hash does not match behavior-affecting settings")
     end
     if not isDenseArray(value.relevantMods) then
       addError(errors, "compatibility.relevantMods", "TYPE",
@@ -215,6 +231,14 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     return hashValue("settings-v1", settings)
   end
 
+  function SaveState.behaviorSettings(settings)
+    return behaviorSettings(settings)
+  end
+
+  function SaveState.hashBehaviorSettings(settings)
+    return hashValue("settings-v1", behaviorSettings(settings))
+  end
+
   function SaveState.checksum(namespace)
     return hashValue("save-checksum-v1", checksumPayload(namespace))
   end
@@ -233,8 +257,25 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
   function SaveState.makeAutoSeed(entropy)
     assert(type(entropy) == "string" and entropy ~= "",
       "auto seed entropy must be a non-empty string")
-    local canonical = Hash128.digest(
+    local hex = Hash128.digest(
       "pokemon_randomizer\0auto-seed-v1\0" .. entropy).hex
+    local alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+    -- Treat the digest as a 128-bit integer. Two leading zero padding bits
+    -- make the conventional 26-character Crockford representation.
+    local bits = { 0, 0 }
+    for index = 1, #hex do
+      local nibble = tonumber(hex:sub(index, index), 16)
+      for shift = 3, 0, -1 do
+        bits[#bits + 1] = math.floor(nibble / (2 ^ shift)) % 2
+      end
+    end
+    local encoded = {}
+    for first = 1, #bits, 5 do
+      local value = 0
+      for offset = 0, 4 do value = value * 2 + bits[first + offset] end
+      encoded[#encoded + 1] = alphabet:sub(value + 1, value + 1)
+    end
+    local canonical = table.concat(encoded)
     return {
       mode = "auto",
       display = canonical,
@@ -262,7 +303,7 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
       addError(errors, "enabled", "TYPE", "enabled must be boolean")
     end
     validateSeed(namespace.seed, errors)
-    validateCompatibility(namespace.compatibility, errors)
+    validateCompatibility(namespace.compatibility, namespace.settings, errors)
     validateMappings(namespace.mappings, speciesSet, errors)
     validateAuxiliary(namespace, errors)
 
@@ -315,14 +356,15 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     return result
   end
 
-  function SaveState.compatibility(save, poolHash, settings, modRows)
+  function SaveState.compatibility(
+      save, poolHash, settings, modRows, settingsHash)
     return {
       gameVersion = tostring(save and save.version or "unknown"),
       engineVersion = tostring(
         save and save.meta and save.meta.engine or "unknown"),
       modApi = Constants.MOD_API,
       poolHash = poolHash,
-      settingsHash = SaveState.hashSettings(settings),
+      settingsHash = settingsHash or SaveState.hashBehaviorSettings(settings),
       relevantMods = relevantMods(modRows),
     }
   end
@@ -359,6 +401,36 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
   function SaveState.create(input, generate)
     assert(type(input) == "table", "save creation input must be a table")
     assert(type(generate) == "function", "generate callback must be a function")
+
+    if input.enabled == false then
+      local warningRows = {}
+      local fallbackCount = 0
+      if input.disableReason then
+        warningRows[1] = clone(input.disableReason)
+        fallbackCount = 1
+      end
+      local namespace = baseNamespace(input, false, emptyMappings(), {
+        warnings = warningRows,
+        fallbackCount = fallbackCount,
+      })
+      local stamped, errors = SaveState.stamp(namespace, input.speciesSet)
+      if not stamped then
+        return nil, {
+          generated = false,
+          disabled = true,
+          error = {
+            code = "INVALID_DISABLED_CONFIGURATION",
+            message = "disabled run configuration failed validation",
+            details = errors,
+          },
+        }
+      end
+      return stamped, {
+        generated = false,
+        disabled = true,
+        error = input.disableReason and clone(input.disableReason) or nil,
+      }
+    end
 
     local request = {
       contractVersion = Constants.CONTRACT_VERSION,

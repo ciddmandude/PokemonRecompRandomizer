@@ -24,12 +24,13 @@ return function(Constants)
     return input and input.wasPressed and input:wasPressed(action)
   end
 
-  function Screen.new(game, preferences, ui, saveStatus)
+  function Screen.new(game, preferences, ui, saveStatus, actions)
     local self = setmetatable({
       game = game,
       preferences = preferences,
       ui = ui,
       saveStatus = saveStatus,
+      actions = actions or {},
       pages = preferences:pages(),
       page = 1,
       row = 1,
@@ -85,6 +86,12 @@ return function(Constants)
   function Screen:edit(row)
     if row.kind == "action" and row.key == "reset_defaults" then
       self:confirmReset()
+    elseif row.kind == "action" then
+      local action = self.actions[row.key]
+      if action then
+        local notice = action(self.game)
+        if type(notice) == "string" then self.notice = notice end
+      end
     elseif row.type == "choice" then
       self.preferences:step(row, 1, self.game)
     elseif row.type == "number" then

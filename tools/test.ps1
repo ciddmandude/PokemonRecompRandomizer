@@ -43,6 +43,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'save_state_test failed' }
   & $luaPath 'tests/options_ui_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'options_ui_test failed' }
+  & $luaPath 'tests/general_settings_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'general_settings_test failed' }
   & (Join-Path $ProjectRoot 'tools/validate-scaffold.ps1')
 } finally {
   Pop-Location

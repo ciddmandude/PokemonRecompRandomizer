@@ -1,5 +1,5 @@
 -- Engine save-event adapter. All schema logic remains in save_state.lua.
-return function(Constants, Generator, SaveState)
+return function(Constants, Generator, SaveState, General)
   local Lifecycle = {}
   Lifecycle.__index = Lifecycle
 
@@ -40,9 +40,9 @@ return function(Constants, Generator, SaveState)
     }, Lifecycle)
   end
 
-  function Lifecycle:manifest()
+  function Lifecycle:manifest(settings)
     return Generator.buildSpeciesManifest(self.records(), {
-      poolMode = "vanilla151",
+      poolMode = General.poolMode(settings or {}),
       metadata = self.metadata(),
     })
   end
@@ -50,20 +50,27 @@ return function(Constants, Generator, SaveState)
   function Lifecycle:onCreated(event)
     assert(type(event) == "table" and type(event.save) == "table",
       "save.created requires event.save")
-    local manifest = self:manifest()
     local settings = SaveState.clone(self.settings())
-    local seed = self.seed and self.seed(event.save)
-      or SaveState.makeAutoSeed(entropy(event.save))
+    local manifest = self:manifest(settings)
+    local seed, seedError
+    if self.seed then
+      seed, seedError = self.seed(event.save, settings)
+    else
+      seed, seedError = General.resolveSeed(settings, entropy(event.save))
+    end
     local set = speciesSet(manifest)
     local input = {
       seed = seed,
       settings = settings,
       compatibility = SaveState.compatibility(
         event.save, manifest.poolHash, settings,
-        event.save.meta and event.save.meta.mods),
+        event.save.meta and event.save.meta.mods,
+        General.settingsHash(settings)),
       species = manifest.entries,
       speciesSet = set,
       sources = {},
+      enabled = settings.randomizer == "on" and seedError == nil,
+      disableReason = seedError,
     }
     local namespace, report = SaveState.create(input, Generator.generate)
     if not namespace then
@@ -80,8 +87,13 @@ return function(Constants, Generator, SaveState)
     self.session.active = namespace.enabled and SaveState.clone(namespace) or nil
     self.session.report = report
     self.session.phase = namespace.enabled and "created" or "created-vanilla"
-    if not namespace.enabled then
-      self.log:warn("randomizer generation unavailable; new save uses vanilla")
+    if not namespace.enabled and report.error then
+      if report.error.code == "INVALID_MANUAL_SEED" then
+        self.log:warn("manual seed is invalid; new save uses vanilla")
+      else
+        self.log:warn(
+          "randomizer generation unavailable; new save uses vanilla")
+      end
     end
     return namespace, report
   end
@@ -105,7 +117,7 @@ return function(Constants, Generator, SaveState)
       return true, self.session.report
     end
 
-    local manifest = self:manifest()
+    local manifest = self:manifest(namespace.settings)
     local valid, errors = SaveState.validate(
       namespace, speciesSet(manifest), true)
     if not valid then
@@ -135,7 +147,7 @@ return function(Constants, Generator, SaveState)
       and event.save.modData[Constants.MOD_ID]
     if namespace == nil then return true, nil end
 
-    local manifest = self:manifest()
+    local manifest = self:manifest(namespace.settings)
     local set = speciesSet(manifest)
     local currentValid, currentErrors =
       SaveState.validate(namespace, set, true)

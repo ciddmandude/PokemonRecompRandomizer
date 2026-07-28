@@ -1,5 +1,5 @@
 -- Validated adapter over options.modOptions[pokemon_randomizer].
-return function(Constants, Schema)
+return function(Constants, Schema, General)
   local Preferences = {}
   Preferences.__index = Preferences
 
@@ -52,12 +52,26 @@ return function(Constants, Schema)
     end
     pages[#pages + 1] = {
       name = "ACTIONS",
-      rows = {{
-        kind = "action",
-        key = "reset_defaults",
-        label = "RESET DEFAULTS",
-        help = "RESTORE STANDARD; CLEAR SEED TEXT.",
-      }},
+      rows = {
+        {
+          kind = "action",
+          key = "review_next_run",
+          label = "REVIEW NEXT RUN",
+          help = "SHOW SETTINGS AND WARNINGS.",
+        },
+        {
+          kind = "action",
+          key = "copy_active_seed",
+          label = "COPY ACTIVE SEED",
+          help = "COPY OR SHOW SEED AND RUN CODE.",
+        },
+        {
+          kind = "action",
+          key = "reset_defaults",
+          label = "RESET DEFAULTS",
+          help = "RESTORE STANDARD; CLEAR SEED TEXT.",
+        },
+      },
     }
     return rows, byKey, pages
   end
@@ -119,7 +133,22 @@ return function(Constants, Schema)
     if not validValue(row, value) then return nil, "invalid option value" end
     assert(type(game) == "table" and type(game.save) == "table",
       "setting an option requires a live game")
-    persist(self, game, key, value, false)
+    if key == "preset" and value ~= "custom" then
+      local expanded = General.applyPreset(self:snapshot(game), value)
+      for _, presetKey in ipairs(General.presetKeys()) do
+        persist(self, game, presetKey, expanded[presetKey], true)
+      end
+      persist(self, game, "preset", value, true)
+      if game.writeOptions then game:writeOptions() end
+      return value, nil
+    end
+
+    persist(self, game, key, value, true)
+    if General.isPresetKey(key) then
+      local detected = General.detectPreset(self:snapshot(game))
+      persist(self, game, "preset", detected, true)
+    end
+    if game.writeOptions then game:writeOptions() end
     return value, nil
   end
 

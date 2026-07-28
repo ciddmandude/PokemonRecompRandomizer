@@ -15,9 +15,11 @@ end
 
 local Constants = loadFactory("src/constants.lua")
 local Schema = loadFactory("src/options_schema.lua")
+local General = loadFactory("src/general_settings.lua", {})
 local Preferences = loadFactory(
-  "src/preferences.lua", Constants, Schema)
+  "src/preferences.lua", Constants, Schema, General)
 local Screen = loadFactory("src/options_screen.lua", Constants)
+local Review = loadFactory("src/review_screen.lua")
 
 local stored = {}
 local defined
@@ -87,6 +89,18 @@ equal(writes, beforeReset + 1, "reset writes once")
 equal(reset.randomizer, "on", "reset randomizer")
 equal(reset.seed_text, "", "reset clears manual seed")
 equal(reset.preset, "standard", "reset restores standard")
+
+local beforePreset = writes
+preferences:set("preset", "chaos", game)
+equal(writes, beforePreset + 1, "preset applies in one write")
+equal(preferences:get("preset", game), "chaos", "chaos selected")
+equal(preferences:get("species_pool", game), "merged", "chaos pool")
+equal(preferences:get("progression_guard", game), "off", "chaos guard")
+preferences:set("wild_pokemon", "global_map", game)
+equal(preferences:get("preset", game), "custom", "bundle edit is custom")
+preferences:set("wild_pokemon", "area_slots", game)
+equal(preferences:get("preset", game), "chaos", "matching bundle detected")
+preferences:reset(game)
 
 local pressed = {}
 game.input = {
@@ -208,5 +222,24 @@ equal(rectangles[1][1], "fill", "screen background fill")
 equal(rectangles[1][4], 160, "screen background width")
 equal(rectangles[1][5], 144, "screen background height")
 assert(#drawn > 8, "screen draws header, rows, help, and controls")
+
+local wrapped = Review.wrap(
+  "R1-01234567-AABBCCDD-99887766")
+assert(#wrapped >= 2, "long run code wraps for transcription")
+local reviewLines = {}
+for index = 1, 20 do reviewLines[index] = "LINE " .. index end
+local review = Review.new(game, {
+  title = "NEXT RUN",
+  lines = reviewLines,
+}, ui)
+pressed.down = true
+review:update()
+pressed = {}
+equal(review.scroll, 1, "review scrolls down")
+pressed.right = true
+review:update()
+pressed = {}
+assert(review.scroll > 1, "review page-scrolls")
+review:draw()
 
 io.write("options_ui_test: ok\n")

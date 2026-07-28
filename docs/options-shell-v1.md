@@ -98,10 +98,9 @@ The shell stores and displays every preference specified in Section 5 of the
 product specification. Its complete normalized snapshot is now written into a
 new save by the Milestone 4 lifecycle.
 
-Milestone 5 does not activate category gameplay hooks. Preset expansion,
-custom-state detection, manual-seed generation behavior, and run review belong
-to Milestone 6. Each gameplay category consumes its stored fields in its
-corresponding later milestone.
+Milestone 6 now supplies preset expansion, custom-state detection, seed
+resolution, run identity, and review/copy actions. Category gameplay hooks
+remain assigned to their corresponding later milestones.
 
 ## Exported preference API
 
