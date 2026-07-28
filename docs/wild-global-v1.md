@@ -41,8 +41,9 @@ The original record, level, slot metadata, encounter rate, and probability
 buckets are unchanged. Missing mappings, malformed values, disabled runs, and
 non-wild terrain return the prior hook result unchanged.
 
-Fishing is deliberately excluded. `encounter.fishing`, area-slot mappings,
-wild level adjustment, and catchability validation belong to milestone 8.
+Fishing is deliberately excluded from this global-mapping module. Milestone 8
+adds `encounter.fishing`, area-slot mappings, wild-level adjustment, and
+catchability validation as a higher-level wild-category pipeline.
 
 ## Determinism and save behavior
 

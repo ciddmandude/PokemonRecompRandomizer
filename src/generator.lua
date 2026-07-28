@@ -1,5 +1,5 @@
 -- Public, pure generator boundary.
-return function(Constants, Contracts, Foundation, Species, WildGlobal)
+return function(Constants, Contracts, Foundation, Species, WildCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -30,36 +30,37 @@ return function(Constants, Contracts, Foundation, Species, WildGlobal)
       manifest.byId[entry.id] = entry
     end
 
-    if request.settings.wild_pokemon == "global_map" then
-      local ok, category = pcall(
-        WildGlobal.generate,
-        manifest,
-        request.sources and request.sources.encounters,
-        request.settings,
-        Foundation.Rng.fromSeed(request.seed.canonical, "wild.global"))
-      if not ok then
-        result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
-          code = "WILD_GENERATION_FAILED",
-          message = "wild category generation failed; wild encounters are vanilla",
-        }
-        result.diagnostics.fallbackCount =
-          result.diagnostics.fallbackCount + 1
-      else
-        result.mappings.wildGlobal = category.mapping
+    if request.settings.wild_pokemon ~= "off" then
+      local ok, category = pcall(WildCategory.generate,
+        manifest, request.sources or {}, request.settings, {
+          global = Foundation.Rng.fromSeed(
+            request.seed.canonical, "wild.global"),
+          area = Foundation.Rng.fromSeed(
+            request.seed.canonical, "wild.area"),
+          levels = Foundation.Rng.fromSeed(
+            request.seed.canonical, "wild.levels"),
+        })
+      if ok then
+        result.mappings.wildGlobal = category.wildGlobal
+        result.mappings.wildAreaSlots = category.wildAreaSlots
+        result.mappings.fishing = category.fishing
         for _, row in ipairs(category.warnings) do
           result.diagnostics.warnings[
             #result.diagnostics.warnings + 1] = row
         end
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + category.fallbackCount
+      else
+        result.mappings.wildGlobal = {}
+        result.mappings.wildAreaSlots = {}
+        result.mappings.fishing = {}
+        result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
+          code = "WILD_GENERATION_FAILED",
+          message = "wild category generation failed; wild encounters are vanilla",
+        }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 1
       end
-    elseif request.settings.wild_pokemon == "area_slots" then
-      result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
-        code = "WILD_AREA_SLOTS_UNAVAILABLE",
-        message = "area-slot wild mapping is scheduled for milestone 8",
-      }
-      result.diagnostics.fallbackCount =
-        result.diagnostics.fallbackCount + 1
     end
     return result, nil
   end

@@ -49,6 +49,8 @@ return function(
     assertFunction(mod.migrations, "add", "mod.migrations:add")
     assertFunction(mod.content.screens, "register",
       "mod.content.screens:register")
+    assertFunction(mod.content.field, "get",
+      "mod.content.field:get")
     assertFunction(mod.log, "info", "mod.log:info")
     assertFunction(mod.log, "warn", "mod.log:warn")
     assertFunction(mod.log, "error", "mod.log:error")
@@ -81,6 +83,19 @@ return function(
         "mod API 2 is missing mod.content.encounters:each")
       local records = {}
       for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
+    local function mergedFieldRecords()
+      local registry = mod.content.field
+      local fishing = registry:get("fishing")
+      local records = { fishing = fishing }
+      for _, definition in pairs(fishing or {}) do
+        if type(definition) == "table"
+            and type(definition.perMap) == "string" then
+          records[definition.perMap] = registry:get(definition.perMap)
+        end
+      end
       return records
     end
 
@@ -126,7 +141,10 @@ return function(
       log = mod.log,
       settings = function() return preferences:snapshot() end,
       sources = function()
-        return { encounters = mergedEncounterRecords() }
+        return {
+          encounters = mergedEncounterRecords(),
+          field = mergedFieldRecords(),
+        }
       end,
     })
     publicApi.save = {
@@ -266,6 +284,19 @@ return function(
           resolved, context, lifecycle:activeRun())
       end)
 
+    mod.hooks:wrap("encounter.roll",
+      function(nextFn, encounterDefinition, context)
+        return WildRuntime.roll(
+          nextFn, encounterDefinition, context, lifecycle:activeRun())
+      end)
+
+    mod.hooks:wrap("encounter.fishing",
+      function(nextFn, rod, mapId, candidates)
+        local encounter = nextFn(rod, mapId, candidates)
+        return WildRuntime.fishing(
+          encounter, rod, mapId, candidates, lifecycle:activeRun())
+      end)
+
     mod.migrations:add(Constants.FIRST_MIGRATION_VERSION, function(namespace)
       local migrated = SaveState.migrate(namespace)
       if migrated == namespace then return end
@@ -319,7 +350,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 7 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 8 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

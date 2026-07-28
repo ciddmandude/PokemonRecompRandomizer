@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 7 are complete. The project now includes the API-2
+Milestones 1 through 8 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -43,9 +43,14 @@ species-pool pipeline:
 - saved `wildGlobal` mappings consumed through `encounter.species`;
 - one-to-one destination selection with deterministic pool exhaustion;
 - category-isolated `wild.global` RNG and headless runtime tests.
+- deterministic per-map/terrain/slot wild mappings;
+- saved Old, Good, and Super Rod mappings without changing bite odds;
+- unchanged, ±2, and BST-scaled saved wild levels;
+- post-generation pre-League catchability repair and diagnostics.
 
-Global walking and surfing randomization is now active when `Wild Pokemon` is
-`GLOBAL MAP`. Fishing and `AREA SLOTS` remain vanilla until milestone 8.
+Global and area-slot walking, indoor, surfing, and optional fishing
+randomization are active. Encounter rates and probability buckets remain
+engine-owned and unchanged.
 
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
@@ -60,12 +65,14 @@ General setting semantics are defined in
 [General Settings and Presets v1](docs/general-settings-v1.md).
 Global grass and surf behavior is defined in
 [Wild Global Mapping v1](docs/wild-global-v1.md).
+Area slots, rods, levels, and coverage are defined in
+[Wild Area, Fishing, and Levels v1](docs/wild-area-fishing-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=1.0.0 <2.0.0`
 - mod API: `2`
-- randomizer mod version: `0.7.0`
+- randomizer mod version: `0.8.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -221,7 +228,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 7
+## Design guarantees established through milestone 8
 
 - Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -261,5 +268,10 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - M7 never changes wild levels, encounter rates, slot odds, or fishing.
 - One-to-one wild destinations remain unique until the eligible pool exhausts.
 - The `wild.global` stream cannot perturb future category RNG streams.
+- Area selection calls the vanilla encounter roll once and draws no extra RNG.
+- Ambiguous modded slot identities safely remain vanilla.
+- Fishing no-bite behavior and rod candidate odds remain engine-owned.
+- Wild levels are generated once, saved, clamped, and used by repel filtering.
+- Catchability repair swaps destinations without changing rates or slot odds.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

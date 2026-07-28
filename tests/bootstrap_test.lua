@@ -11,7 +11,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.7.0",
+  version = "0.8.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -81,6 +81,18 @@ local mod = {
             },
           }
         end
+      end,
+    },
+    field = {
+      get = function(_, key)
+        if key == "fishing" then
+          return {
+            OLD_ROD = {
+              always = { species = "BULBASAUR", level = 5 },
+            },
+          }
+        end
+        return nil
       end,
     },
   },
@@ -159,6 +171,8 @@ assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(hookCallbacks["ui.options.rows"]) == "function")
 assert(type(hookCallbacks["encounter.species"]) == "function")
+assert(type(hookCallbacks["encounter.roll"]) == "function")
+assert(type(hookCallbacks["encounter.fishing"]) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
 assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
@@ -180,7 +194,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 7 ready"))
+assert(logs[1]:match("milestone 8 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -208,6 +222,7 @@ assert(run.schemaVersion == 1)
 assert(run.enabled == true)
 assert(run.checksum.version == "fnv1a32x4-save-v1")
 assert(run.mappings.wildGlobal.BULBASAUR == "BULBASAUR")
+assert(run.mappings.fishing.global.BULBASAUR == "BULBASAUR")
 assert(#run.diagnostics.warnings == 0)
 assert(run.settings.randomizer == "on")
 assert(run.settings.preset == "standard")
@@ -230,6 +245,26 @@ assert(resolvedEncounter ~= vanillaEncounter,
 assert(resolvedEncounter.species == "BULBASAUR")
 assert(resolvedEncounter.level == 7 and resolvedEncounter.marker == true)
 
+local rollCalls = 0
+local rolled = hookCallbacks["encounter.roll"](
+  function()
+    rollCalls = rollCalls + 1
+    return { species = "BULBASAUR", level = 5 }
+  end,
+  { grass = { slots = {{ species = "BULBASAUR", level = 5 }} } },
+  { mapId = "TEST_MAP", terrain = "grass" })
+assert(rollCalls == 1 and rolled.species == "BULBASAUR",
+  "unchanged global levels must preserve the vanilla roll exactly")
+
+local fishCalls = 0
+local fish = hookCallbacks["encounter.fishing"](
+  function()
+    fishCalls = fishCalls + 1
+    return { species = "BULBASAUR", level = 5 }
+  end,
+  "OLD_ROD", "TEST_MAP", nil)
+assert(fishCalls == 1 and fish.species == "BULBASAUR" and fish.level == 5)
+
 callbacks["save.loading"]({ raw = save })
 assert(mod.exports.save.status().phase == "loading")
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
@@ -237,7 +272,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.7.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.8.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

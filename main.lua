@@ -47,10 +47,12 @@ return function(mod)
   }
   local WildGlobal = loadModule(
     "src/wild_global.lua", StableSort, SpeciesFilters)
+  local WildCategory = loadModule(
+    "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal)
   local WildRuntime = loadModule("src/wild_runtime.lua")
   local Generator = loadModule(
     "src/generator.lua",
-    Constants, Contracts, Foundation, Species, WildGlobal)
+    Constants, Contracts, Foundation, Species, WildCategory)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)

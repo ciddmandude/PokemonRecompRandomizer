@@ -99,8 +99,14 @@ local vanilla = { species = "BULBASAUR", level = 3, slot = 2 }
 local run = {
   enabled = true,
   settings = { wild_pokemon = "global_map" },
-  mappings = { wildGlobal = first.mapping },
+  mappings = {
+    wildGlobal = first.mapping,
+    wildAreaSlots = {
+      ROUTE_1 = { grass = { [2] = { level = 3 } } },
+    },
+  },
 }
+vanilla.slotIndex = 2
 local resolved = WildRuntime.resolve(
   vanilla, { terrain = "grass", mapId = "ROUTE_1" }, run)
 assert(resolved ~= vanilla, "mapped records must be copied")
