@@ -1,7 +1,8 @@
 -- Engine-facing bootstrap. This is the only milestone-1 module that knows
 -- about the gen1recomp mod object.
 return function(
-    Constants, Contracts, Generator, Species, SaveState, SaveLifecycle)
+    Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
+    Options)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -11,6 +12,7 @@ return function(
     "save",
     "options",
     "migrations",
+    "ui",
     "log",
     "exports",
   }
@@ -45,6 +47,8 @@ return function(
     assertFunction(mod.options, "define", "mod.options:define")
     assertFunction(mod.options, "get", "mod.options:get")
     assertFunction(mod.migrations, "add", "mod.migrations:add")
+    assertFunction(mod.content.screens, "register",
+      "mod.content.screens:register")
     assertFunction(mod.log, "info", "mod.log:info")
     assertFunction(mod.log, "warn", "mod.log:warn")
     assertFunction(mod.log, "error", "mod.log:error")
@@ -103,13 +107,14 @@ return function(
       },
     }
 
+    local preferences = Options.Preferences.new(mod)
+    preferences:define()
+
     local lifecycle = SaveLifecycle.new({
       records = mergedSpeciesRecords,
       metadata = function() return Species.Metadata:snapshot() end,
       log = mod.log,
-      -- Milestones 5 and 6 replace this empty normalized snapshot with
-      -- persisted Options-menu preferences and preset expansion.
-      settings = function() return {} end,
+      settings = function() return preferences:snapshot() end,
     })
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
@@ -118,10 +123,44 @@ return function(
       activeRun = function() return lifecycle:activeRun() end,
       status = function() return lifecycle:status() end,
     }
+    publicApi.preferences = {
+      schema = function() return preferences:schema() end,
+      pages = function() return preferences:pages() end,
+      snapshot = function() return preferences:snapshot() end,
+    }
 
     for key, value in pairs(publicApi) do mod.exports[key] = value end
 
-    mod.migrations:add(Constants.MOD_VERSION, function(namespace)
+    local function screenStatus()
+      local status = lifecycle:status()
+      status.run = lifecycle:activeRun()
+      return status
+    end
+
+    mod.content.screens:register(Constants.OPTIONS_SCREEN_ID, {
+      new = function(game)
+        return Options.Screen.new(
+          game, preferences, mod.ui, screenStatus)
+      end,
+    })
+
+    mod.hooks:wrap("ui.options.rows", function(nextFn, game, rows)
+      local output = nextFn(game, rows)
+      if type(output) ~= "table" then return output end
+      output[#output + 1] = {
+        id = "pokemon_randomizer",
+        label = "RANDOMIZER",
+        value = function()
+          return screenStatus().active and "LOCKED" or "OPEN"
+        end,
+        activate = function(activeGame)
+          mod.ui.push(activeGame, Constants.OPTIONS_SCREEN_ID)
+        end,
+      }
+      return output
+    end)
+
+    mod.migrations:add(Constants.FIRST_MIGRATION_VERSION, function(namespace)
       local migrated = SaveState.migrate(namespace)
       if migrated == namespace then return end
       local stamped, errors = SaveState.stamp(migrated)
@@ -149,7 +188,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 4 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 5 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

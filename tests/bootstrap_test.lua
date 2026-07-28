@@ -2,15 +2,25 @@
 local callbacks = {}
 local logs = {}
 local migrations = {}
+local hookCallbacks = {}
+local screens = {}
+local optionSchema
+local pushedScreen
 local saveBucket = {}
 local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.4.0",
+  version = "0.5.0",
   path = ".",
   manifest = { api = 2 },
   content = {
+    screens = {
+      register = function(_, id, record)
+        screens[id] = record
+        return record
+      end,
+    },
     pokemon = {
       each = function()
         local yielded = false
@@ -47,7 +57,10 @@ local mod = {
     end,
   },
   hooks = {
-    wrap = function() return function() end end,
+    wrap = function(_, name, callback)
+      hookCallbacks[name] = callback
+      return function() hookCallbacks[name] = nil end
+    end,
   },
   save = {
     get = function(_, key, default)
@@ -58,8 +71,11 @@ local mod = {
     set = function(_, key, value) saveBucket[key] = value end,
   },
   options = {
-    define = function() end,
+    define = function(_, schema) optionSchema = schema return schema end,
     get = function(_, key) return options[key] end,
+  },
+  ui = {
+    push = function(_, id) pushedScreen = id end,
   },
   migrations = {
     add = function(_, since, callback)
@@ -96,6 +112,11 @@ assert(mod.exports.generator.foundationAvailable == true)
 assert(type(mod.exports.registerSpeciesMeta) == "function")
 assert(mod.exports.species.manifestVersion == 1)
 assert(mod.exports.save.checksumVersion == "fnv1a32x4-save-v1")
+assert(type(mod.exports.preferences.snapshot) == "function")
+assert(#mod.exports.preferences.schema() == 34)
+assert(#optionSchema == 34)
+assert(type(screens.PokemonRandomizerOptions.new) == "function")
+assert(type(hookCallbacks["ui.options.rows"]) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
 assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
@@ -115,12 +136,20 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 4 ready"))
+assert(logs[1]:match("milestone 5 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
 end)
 assert(not late)
+
+local optionRows = hookCallbacks["ui.options.rows"](
+  function(_, rows) return rows end, {}, {})
+assert(#optionRows == 1)
+assert(optionRows[1].label == "RANDOMIZER")
+assert(optionRows[1].value() == "OPEN")
+optionRows[1].activate({})
+assert(pushedScreen == "PokemonRandomizerOptions")
 
 local save = {
   version = "red",
@@ -135,6 +164,9 @@ assert(run.schemaVersion == 1)
 assert(run.enabled == false)
 assert(run.checksum.version == "fnv1a32x4-save-v1")
 assert(run.diagnostics.warnings[1].code == "GENERATOR_UNAVAILABLE")
+assert(run.settings.randomizer == "on")
+assert(run.settings.preset == "standard")
+assert(run.settings.seed_text == "")
 
 callbacks["save.loading"]({ raw = save })
 assert(mod.exports.save.status().phase == "loading")
@@ -143,7 +175,7 @@ assert(mod.exports.save.status().phase == "loaded-vanilla")
 assert(mod.exports.save.activeRun() == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.4.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.5.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

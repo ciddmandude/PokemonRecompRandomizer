@@ -40,8 +40,9 @@ local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
-assert(Constants.MOD_VERSION == "0.4.0")
+assert(Constants.MOD_VERSION == "0.5.0")
 assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
+assert(Constants.OPTIONS_SCREEN_ID == "PokemonRandomizerOptions")
 assert(Generator.available == false)
 assert(Generator.foundationAvailable == true)
 assert(Generator.algorithmVersion == "1.0.0-dev")

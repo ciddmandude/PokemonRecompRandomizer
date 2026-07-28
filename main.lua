@@ -54,9 +54,19 @@ return function(mod)
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)
   local SaveLifecycle = loadModule(
     "src/save_lifecycle.lua", Constants, Generator, SaveState)
+  local OptionsSchema = loadModule("src/options_schema.lua")
+  local Preferences = loadModule(
+    "src/preferences.lua", Constants, OptionsSchema)
+  local OptionsScreen = loadModule("src/options_screen.lua", Constants)
+  local Options = {
+    Schema = OptionsSchema,
+    Preferences = Preferences,
+    Screen = OptionsScreen,
+  }
   local Bootstrap = loadModule(
     "src/bootstrap.lua",
-    Constants, Contracts, Generator, Species, SaveState, SaveLifecycle)
+    Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
+    Options)
 
   return Bootstrap.start(mod)
 end

@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 4 are complete. The project now includes the API-2
+Milestones 1 through 5 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -27,6 +27,11 @@ species-pool pipeline:
 - load-time mapped-species validation and session-only quarantine;
 - pre-write validation that cannot re-checksum damaged state;
 - ordered migration registration with an atomic schema-0 harness.
+- a native `RANDOMIZER` Options entry and custom paged screen;
+- 34 validated, persistent next-run preference fields;
+- choice, number, and text editing with per-row help;
+- active-run lock/vanilla/quarantine status display;
+- confirmed, single-write reset-to-default behavior.
 
 Gameplay randomization is intentionally not active yet. The exported category
 generator continues to return `GENERATOR_UNAVAILABLE` until later milestones
@@ -40,12 +45,14 @@ Species eligibility and filtering are defined in
 [Species Manifest v1](docs/species-manifest-v1.md).
 Saved-state behavior is defined in
 [Save Lifecycle v1](docs/save-lifecycle-v1.md).
+Options UI and persistence behavior are defined in
+[Options Shell v1](docs/options-shell-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=1.0.0 <2.0.0`
 - mod API: `2`
-- randomizer mod version: `0.4.0`
+- randomizer mod version: `0.5.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -89,6 +96,9 @@ active yet.
 │   ├── species_filters.lua    candidate rules and relaxation
 │   ├── save_state.lua         pure schema, checksum, and migration logic
 │   ├── save_lifecycle.lua     save-event adapter and session quarantine
+│   ├── options_schema.lua     all persistent next-run option rows
+│   ├── preferences.lua        validated option storage and snapshots
+│   ├── options_screen.lua     paged in-game Randomizer screen
 │   ├── stable_sort.lua        stable sort and deterministic keys
 │   └── uint32.lua             exact unsigned-32-bit arithmetic
 ├── tests/
@@ -98,6 +108,7 @@ active yet.
 │   ├── species_fixture.lua    synthetic ROM-independent species data
 │   ├── species_manifest_test.lua manifest/filter integration tests
 │   ├── save_state_test.lua    schema/checksum/migration tests
+│   ├── options_ui_test.lua    preference and screen behavior tests
 │   └── scaffold_test.lua      headless Lua contract smoke test
 ├── tools/
 │   ├── test.ps1               syntax and complete test runner
@@ -106,6 +117,7 @@ active yet.
     ├── determinism-v1.md      exact hash/PRNG specification
     ├── species-manifest-v1.md species pool/filter specification
     ├── save-lifecycle-v1.md   save events and recovery contract
+    ├── options-shell-v1.md    Options UI and persistence contract
     └── randomizer-spec.md     product and technical specification
 ```
 
@@ -160,6 +172,11 @@ The mod publishes the following through `mod.exports`:
     activeRun = function() ... end,
     status = function() ... end,
   },
+  preferences = {
+    schema = function() ... end,
+    pages = function() ... end,
+    snapshot = function() ... end,
+  },
 }
 ```
 
@@ -184,7 +201,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 4
+## Design guarantees established through milestone 5
 
 - No gameplay hook is registered before deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -207,5 +224,10 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - Pre-write validation refuses to replace a namespace whose existing checksum
   is invalid.
 - Migrations preserve unknown fields and never regenerate mappings.
+- Options use the engine's native namespaced persistence and screen registry.
+- The Options hook decorates the rows returned by earlier handlers.
+- Active-run data is read-only; edits target only the next New Game.
+- Invalid stored preferences fall back to declared defaults.
+- Reset defaults requires confirmation and persists as one options write.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.
