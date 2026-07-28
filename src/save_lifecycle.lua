@@ -69,7 +69,7 @@ return function(Constants, Generator, SaveState, General)
         General.settingsHash(settings)),
       species = manifest.entries,
       speciesSet = set,
-      sources = self.sources(),
+      sources = self.sources(event.save, settings),
       enabled = settings.randomizer == "on" and seedError == nil,
       disableReason = seedError,
     }

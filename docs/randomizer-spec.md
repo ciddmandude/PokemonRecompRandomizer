@@ -161,7 +161,10 @@ because v0.1.30 has no per-save object-sprite seam.
 | Trade Fairness | `ANY`, `SIMILAR STRENGTH`, `NO DOWNGRADE` | `SIMILAR STRENGTH` | `ANY` uses the common pool rules. `SIMILAR STRENGTH` applies the global strength band between requested and received species. `NO DOWNGRADE` requires received BST to be at least requested BST minus 5%; relax deterministically only if no candidate exists. |
 | Trade Evolution Safety | `OFF`, `ON` | `ON` | Prevents offers that require giving the same species received, and prevents impossible request species under Catchability Guard. Trade-evolution species remain legal; the normal in-game trade itself does not trigger a link evolution unless the base engine does so. |
 
-Each NPC trade is generated once by stable trade index and stored. Completion flags remain vanilla so a trade cannot be repeated.
+Each of the nine NPC-wired trades is generated once by stable trade index and
+stored. Completion flags remain vanilla so a trade cannot be repeated. The
+imported CHIKUCHIKU table row at index 3 has no NPC script in stock Red or
+Blue and is not a player-accessible offer.
 
 ### 5.6 Shop Pokémon settings
 
@@ -348,16 +351,17 @@ Requirements:
 | Trainers | Wrap `trainer.party` and return the saved party for `(trainerClass, partyIndex)`. |
 | Oak's Lab starters | Register API-2 `map_scripts` winners for only the three starter-ball talk keys. Each handler resolves one offer record before building the preview, confirmation, gift, flags, ball removal, and rival counterpick rows. |
 | Scoped statics/gifts | Register namespaced commands that resolve saved stable IDs, then replace only the supported v0.1.30 `map_scripts` talk/wake handlers. Excluded paths remain entirely vanilla. |
+| NPC trades | Replace only the nine stock talk handlers with a namespaced command. Temporarily install a copied saved offer at its original trade index, delegate to the stock `trade` command, then restore the exact merged record. |
+| Game Corner prizes | Replace the three shared prize-counter talk handlers with a public `screens`/`mod.ui.ListMenu` implementation that resolves the active version's six saved Pokémon rows and preserves all three TM rows. |
 | Race unlock | Listen to Hall of Fame and credits completion events, validate the configured condition, persist the one-way unlock flag, and enable plaintext spoiler access only after unlock. |
 | Options entry | Wrap `ui.options.rows` and register a custom `screens` entry. |
 
-### 8.2 Required small engine extensions
+### 8.2 Optional future upstream seams
 
-The present hooks do not expose stable, save-aware seams for several features
-planned for later milestones. Add these API-2-compatible hooks when full
-coverage beyond the stock-v0.1.30 scope is revisited; when unused they must
-return vanilla data unchanged. Starters and the partial M11 catalog use
-public API-2 composition and do not require an engine extension.
+Version 0.12.0 requires no engine extension. The following hooks would make
+future total-conversion interoperability simpler, but the stock-v0.1.30
+implementation uses only public API-2 composition. If added upstream, unused
+hooks must return vanilla data unchanged.
 
 | New hook | Signature | Call site and purpose |
 |---|---|---|
@@ -414,6 +418,11 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 - Preserve the active version's Pokémon slot count and all TM prize rows.
 - Save resolved species, level, and cost per original prize index.
+- Select the Red or Blue six-slot source list from the new save's version.
+- For mapped Pokémon, award successfully before deducting the displayed
+  price; a full party and full boxes consume no coins.
+- When no valid mapping exists, preserve the stock v0.1.30 prize record and
+  operation order.
 - Do not reroll after purchase.
 - Preserve the Coin Case requirement, coin cap, insufficient-funds behavior, party/box-full behavior, and Pokédex updates.
 
@@ -584,7 +593,11 @@ For at least 10,000 generated seeds per preset:
     14 named static and five named gift scripts through public API-2 commands
     and `map_scripts`; implement level/legendary/uniqueness settings, keep
     unsupported v0.1.30 paths vanilla, and document the exclusions.
-12. **Trades and Game Corner prizes** — Add/type-check `trade.offer` and `shop.pokemon_prizes`, implement trade fairness plus prize species/level/price settings, preserve completion/payment/storage behavior, and test every offer.
+12. **Mod-only trades and Game Corner prizes** — Save mappings for all nine
+    wired NPC trades and the active version's six Pokémon prize slots;
+    delegate scoped trades to the stock command, provide a public API-2 prize
+    screen, preserve flags/dialogue/animation/TM rows/payment/storage
+    behavior, and document the unwired trade-table row.
 13. **Trainer randomization** — Implement global/slot/themed modes, level/party-size/boss/progression rules, special-move legality, all party variants, and O(1) saved lookup.
 14. **Race mode, validation, and compatibility** — Add spoiler locking, automatic/passphrase unlock, authenticated encrypted export, cross-category reachability, deterministic repair swaps, missing-content fallbacks, relevant-mod fingerprints, fuzzing, and performance/save-size budgets.
 15. **Release qualification** — Complete Red/Blue regression passes, controller/touch accessibility review, vanilla-disabled parity suite, migration rehearsal, documentation, packaging validation, and a release candidate with reproducible checksums.
@@ -593,7 +606,8 @@ For at least 10,000 generated seeds per preset:
 
 1. "Shop Pokémon" means only the Celadon Game Corner Prize Exchange; ordinary Poké Marts remain unchanged.
 2. Static encounters and non-starter gifts are independently configurable,
-   but v0.11.0 coverage is limited to the explicit stock-v0.1.30 catalog in
+   and v0.12.0 static/gift coverage remains limited to the explicit
+   stock-v0.1.30 catalog in
    Section 9.4. Excluded paths remain vanilla until public pre-battle and
    pre-dialogue offer seams exist.
 3. Race-oriented spoiler locking and authenticated encrypted export are included. Race Mode is explicitly a local accidental-spoiler safeguard, not tamper-proof anti-cheat.

@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 11 are complete. The project now includes the API-2
+Milestones 1 through 12 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -58,6 +58,11 @@ species-pool pipeline:
 - deterministic saved mappings for five safely overridable named gifts;
 - unchanged, scaled, and random static levels plus gift level modes;
 - unique-gift selection and storage-safe retry behavior.
+- deterministic saved mappings for all nine wired NPC trades;
+- received-only and both-sides trade modes with fairness and safety rules;
+- deterministic Red/Blue Game Corner Pokemon prize mappings;
+- unchanged, fixed, and scaled prize levels plus strength/random prices;
+- storage-safe mapped prize purchases through a public API-2 screen.
 
 Global and area-slot walking, indoor, surfing, and optional fishing
 randomization are active. Encounter rates and probability buckets remain
@@ -76,6 +81,12 @@ Celadon Eevee, the Magikarp sale, both Fighting Dojo choices, and Silph
 Lapras. Fossil restoration, the Pokémon Tower ghost, generic object-event
 static battles, and the catching tutorial remain vanilla. Game Corner prizes
 remain assigned to M12. No engine patch is required.
+
+Milestone 12 remains mod-only. It randomizes all nine player-accessible NPC
+trades and the active version's six Celadon Game Corner Pokemon prize slots.
+The unused CHIKUCHIKU trade-table row has no NPC script and remains
+unmapped. TM prizes remain vanilla. No engine patch or custom app build is
+required.
 
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
@@ -98,12 +109,14 @@ Saved starter generation and rival projection are defined in
 [Starter Randomization v1](docs/starter-randomization-v1.md).
 The exact partial M11 scope is defined in
 [Static Encounters and Gifts v1](docs/static-gifts-v1.md).
+The mod-only trade and prize implementation is defined in
+[NPC Trades and Game Corner Prizes v1](docs/trades-prizes-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.11.0`
+- randomizer mod version: `0.12.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -259,7 +272,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 11
+## Design guarantees established through milestone 12
 
 - Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -308,6 +321,10 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - A resolved starter offer drives preview, confirmation, award, and rival flow.
 - Invalid starter-offer output falls back to the original complete offer.
 - Stock v0.1.30 receives only the three starter-ball talk overrides.
+- NPC trade replacement delegates to the stock trade command and restores
+  the exact merged trade record after every interaction.
+- Game Corner TM rows and active-version prize ordering remain unchanged.
+- A failed mapped Pokemon prize award never consumes coins.
 - Oak, rival battles, parcel and Pokédex delivery, and lab movement remain
   engine-owned.
 - Three randomized player choices are unique and generated only once.

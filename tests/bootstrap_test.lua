@@ -11,6 +11,7 @@ local commandRecords = {
   play_cry = function() end,
   static_battle = function() end,
   give_pokemon = function() end,
+  trade = function() end,
 }
 local optionSchema
 local pushedScreen
@@ -19,7 +20,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.11.0",
+  version = "0.12.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -236,6 +237,10 @@ assert(type(commandRecords["pokemon_randomizer:static_m11_battle"])
   == "function")
 assert(type(commandRecords["pokemon_randomizer:give_m11_pokemon"])
   == "function")
+assert(type(commandRecords["pokemon_randomizer:trade_m12"])
+  == "function")
+assert(type(screens.PokemonRandomizerGameCornerPrizes.new) == "function")
+assert(type(mapScriptContributions.GAME_CORNER_PRIZE_ROOM) == "table")
 assert(type(mapScriptContributions.OAKS_LAB.talk
   .TEXT_OAKSLAB_CHARMANDER_POKE_BALL) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
@@ -259,7 +264,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 11 ready"))
+assert(logs[1]:match("milestone 12 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -370,7 +375,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.11.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.12.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

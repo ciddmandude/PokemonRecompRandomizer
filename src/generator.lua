@@ -1,7 +1,7 @@
 -- Public, pure generator boundary.
 return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory)
+    StaticGiftCategory, TradePrizeCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -127,6 +127,61 @@ return function(
           #result.diagnostics.warnings + 1] = {
             code = "STATIC_GIFT_GENERATION_FAILED",
             message = "scoped M11 generation failed; statics and gifts are vanilla",
+          }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 2
+      end
+    end
+
+    if (request.settings.in_game_trades ~= nil
+          and request.settings.in_game_trades ~= "off")
+        or (request.settings.game_corner_pokemon ~= nil
+          and request.settings.game_corner_pokemon ~= "off") then
+      local reachable = {}
+      for _, species in pairs(result.mappings.wildGlobal) do
+        if type(species) == "string" then reachable[species] = true end
+      end
+      local function collectMapped(value)
+        if type(value) == "string" then
+          if manifest.byId[value] then reachable[value] = true end
+          return
+        end
+        if type(value) ~= "table" then return end
+        if type(value.species) == "string" then
+          reachable[value.species] = true
+        end
+        for _, child in pairs(value) do collectMapped(child) end
+      end
+      collectMapped(result.mappings.wildAreaSlots)
+      collectMapped(result.mappings.fishing)
+      collectMapped(result.mappings.starters)
+      collectMapped(result.mappings.staticEncounters)
+      collectMapped(result.mappings.gifts)
+
+      local ok, category = pcall(TradePrizeCategory.generate,
+        manifest, request.sources or {}, request.settings, {
+          trades = Foundation.Rng.fromSeed(
+            request.seed.canonical, "trades"),
+          prizes = Foundation.Rng.fromSeed(
+            request.seed.canonical, "prizes"),
+        }, reachable)
+      if ok then
+        result.mappings.trades = category.trades
+        result.mappings.prizes = category.prizes
+        for _, row in ipairs(category.warnings) do
+          result.diagnostics.warnings[
+            #result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + category.fallbackCount
+      else
+        result.mappings.trades = {}
+        result.mappings.prizes = {}
+        result.diagnostics.warnings[
+          #result.diagnostics.warnings + 1] = {
+            code = "TRADE_PRIZE_GENERATION_FAILED",
+            message = "mod-only M12 generation failed; "
+              .. "trades and prizes are vanilla",
           }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 2

@@ -55,6 +55,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'starter_m10_test failed' }
   & $luaPath 'tests/static_gift_m11_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'static_gift_m11_test failed' }
+  & $luaPath 'tests/trade_prize_m12_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'trade_prize_m12_test failed' }
   & (Join-Path $ProjectRoot 'tools/validate-scaffold.ps1')
 } finally {
   Pop-Location

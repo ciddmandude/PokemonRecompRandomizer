@@ -3,7 +3,7 @@
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat)
+    StaticGiftCompat, TradePrizeCompat)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -93,17 +93,20 @@ return function(
       return records
     end
 
-    local function mergedFieldRecords()
+    local function mergedFieldRecords(save)
       local registry = mod.content.field
       local fishing = registry:get("fishing")
-      local records = { fishing = fishing }
+      local records = {
+        fishing = fishing,
+        trades = registry:get("trades"),
+      }
       for _, definition in pairs(fishing or {}) do
         if type(definition) == "table"
             and type(definition.perMap) == "string" then
           records[definition.perMap] = registry:get(definition.perMap)
         end
       end
-      return records
+      return records, save and save.version or "red"
     end
 
     local function mergedTypeEffectiveness()
@@ -167,10 +170,12 @@ return function(
       metadata = function() return Species.Metadata:snapshot() end,
       log = mod.log,
       settings = function() return preferences:snapshot() end,
-      sources = function()
+      sources = function(save)
+        local field, version = mergedFieldRecords(save)
         return {
           encounters = mergedEncounterRecords(),
-          field = mergedFieldRecords(),
+          field = field,
+          gameVersion = version,
           typeEffectiveness = mergedTypeEffectiveness(),
         }
       end,
@@ -180,6 +185,8 @@ return function(
       StarterCompat.contribution(
         function() return lifecycle:activeRun() end))
     StaticGiftCompat.install(
+      mod, function() return lifecycle:activeRun() end)
+    TradePrizeCompat.install(
       mod, function() return lifecycle:activeRun() end)
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
@@ -391,7 +398,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 11 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 12 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

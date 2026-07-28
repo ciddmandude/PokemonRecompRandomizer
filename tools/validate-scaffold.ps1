@@ -39,6 +39,9 @@ $requiredFiles = @(
   'src/static_gift_catalog.lua',
   'src/static_gift_category.lua',
   'src/static_gift_compat.lua',
+  'src/trade_prize_catalog.lua',
+  'src/trade_prize_category.lua',
+  'src/trade_prize_compat.lua',
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
@@ -53,6 +56,7 @@ $requiredFiles = @(
   'tests/starter_seam_test.lua',
   'tests/starter_m10_test.lua',
   'tests/static_gift_m11_test.lua',
+  'tests/trade_prize_m12_test.lua',
   'tools/test.ps1',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
@@ -64,6 +68,7 @@ $requiredFiles = @(
   'docs/starter-compat-v1.md',
   'docs/starter-randomization-v1.md',
   'docs/static-gifts-v1.md',
+  'docs/trades-prizes-v1.md',
   'docs/randomizer-spec.md'
 )
 
@@ -96,11 +101,11 @@ if (@($manifest.permissions).Count -ne 0) {
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.11.0') {
-  throw "manifest version must be 0.11.0 for milestone 11"
+if ($manifest.version -ne '0.12.0') {
+  throw "manifest version must be 0.12.0 for milestone 12"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.11\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.11.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.12\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.12.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"
