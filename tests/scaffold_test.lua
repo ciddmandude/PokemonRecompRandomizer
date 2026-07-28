@@ -10,12 +10,25 @@ local function loadFactory(path, ...)
 end
 
 local Constants = loadFactory("src/constants.lua")
+local UInt32 = loadFactory("src/uint32.lua")
+local Seed = loadFactory("src/seed.lua")
+local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
+local StableSort = loadFactory("src/stable_sort.lua")
+local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Contracts = loadFactory("src/contracts.lua", Constants)
-local Generator = loadFactory("src/generator.lua", Constants, Contracts)
+local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
+  UInt32 = UInt32,
+  Seed = Seed,
+  Hash128 = Hash128,
+  StableSort = StableSort,
+  Rng = Rng,
+})
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
 assert(Generator.available == false)
+assert(Generator.foundationAvailable == true)
+assert(Generator.algorithmVersion == "1.0.0-dev")
 
 local request = {
   contractVersion = 1,
@@ -49,5 +62,10 @@ assert(#errors == 2)
 local empty = Generator.emptyResult()
 valid, errors = Contracts.validateGenerationResult(empty)
 assert(valid, errors[1] and errors[1].message)
+
+local canonical = Generator.normalizeSeed(" milestone   two ")
+assert(canonical == "MILESTONE TWO")
+local stream = Generator.newStream(canonical, "wild.global")
+assert(type(stream:nextU32()) == "number")
 
 io.write("scaffold_test: ok\n")

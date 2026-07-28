@@ -54,6 +54,8 @@ return function(Constants, Contracts, Generator)
       contractVersion = Constants.CONTRACT_VERSION,
       saveSchemaVersion = Constants.SAVE_SCHEMA_VERSION,
       algorithmVersion = Constants.ALGORITHM_VERSION,
+      hashVersion = Constants.HASH_VERSION,
+      prngVersion = Constants.PRNG_VERSION,
       gameVersionRange = Constants.GAME_VERSION_RANGE,
       generator = Generator,
       contracts = {
@@ -67,10 +69,11 @@ return function(Constants, Contracts, Generator)
 
     mod.events:once("mods.loaded", function()
       mod.log:info(
-        "milestone 1 ready (contract=%d, generator=%s, game=%s)",
+        "milestone 2 ready (contract=%d, algorithm=%s, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.ALGORITHM_VERSION,
-        Constants.GAME_VERSION_RANGE)
+        Constants.HASH_VERSION,
+        Constants.PRNG_VERSION)
     end)
 
     return publicApi

@@ -20,8 +20,21 @@ return function(mod)
   end
 
   local Constants = loadModule("src/constants.lua")
+  local UInt32 = loadModule("src/uint32.lua")
+  local Seed = loadModule("src/seed.lua")
+  local Hash128 = loadModule("src/hash128.lua", Constants, UInt32)
+  local StableSort = loadModule("src/stable_sort.lua")
+  local Rng = loadModule("src/rng.lua", Constants, UInt32, Hash128)
   local Contracts = loadModule("src/contracts.lua", Constants)
-  local Generator = loadModule("src/generator.lua", Constants, Contracts)
+  local Foundation = {
+    UInt32 = UInt32,
+    Seed = Seed,
+    Hash128 = Hash128,
+    StableSort = StableSort,
+    Rng = Rng,
+  }
+  local Generator =
+    loadModule("src/generator.lua", Constants, Contracts, Foundation)
   local Bootstrap = loadModule("src/bootstrap.lua", Constants, Contracts, Generator)
 
   return Bootstrap.start(mod)
