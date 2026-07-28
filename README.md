@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 6 are complete. The project now includes the API-2
+Milestones 1 through 7 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -38,11 +38,14 @@ species-pool pipeline:
 - behavior-only settings hashes and compact run codes;
 - scrollable next-run review and active-seed transcription screens;
 - clipboard copying with an in-game fallback.
+- deterministic global grass and surf species mappings;
+- unchanged wild levels, encounter rates, and probability slots;
+- saved `wildGlobal` mappings consumed through `encounter.species`;
+- one-to-one destination selection with deterministic pool exhaustion;
+- category-isolated `wild.global` RNG and headless runtime tests.
 
-Gameplay randomization is intentionally not active yet. The exported category
-generator continues to return `GENERATOR_UNAVAILABLE` until later milestones
-can build and validate complete per-save mappings. This prevents an unfinished
-category implementation from creating a run that cannot be reproduced.
+Global walking and surfing randomization is now active when `Wild Pokemon` is
+`GLOBAL MAP`. Fishing and `AREA SLOTS` remain vanilla until milestone 8.
 
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
@@ -55,12 +58,14 @@ Options UI and persistence behavior are defined in
 [Options Shell v1](docs/options-shell-v1.md).
 General setting semantics are defined in
 [General Settings and Presets v1](docs/general-settings-v1.md).
+Global grass and surf behavior is defined in
+[Wild Global Mapping v1](docs/wild-global-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=1.0.0 <2.0.0`
 - mod API: `2`
-- randomizer mod version: `0.6.0`
+- randomizer mod version: `0.7.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -80,8 +85,7 @@ Place this repository's directory under either gen1recomp mod location:
 
 The directory must contain `manifest.json` and `main.lua` at its root. Enable
 **Pokémon Gen 1 Randomizer** in the in-game mod manager. A successful load
-writes a readiness message to the game log. Category gameplay hooks are not
-active yet.
+writes a readiness message to the game log.
 
 ## Project layout
 
@@ -158,7 +162,7 @@ The mod publishes the following through `mod.exports`:
     metadataFrozen = function() ... end,
   },
   generator = {
-    available = false,
+    available = true,
     foundationAvailable = true,
     validate = function(request) ... end,
     generate = function(request) ... end,
@@ -217,9 +221,9 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 6
+## Design guarantees established through milestone 7
 
-- No gameplay hook is registered before deterministic generation exists.
+- Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
 - Generator request validation does not mutate its input.
 - Seed, hash, PRNG, sorting, and shuffle behavior is independent of platform
@@ -252,5 +256,10 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - Run codes bind canonical seed, behavior settings, and eligible pool.
 - Settings-hash migration never rerolls an existing mapping.
 - Clipboard absence cannot hide the seed or run code from the player.
+- A source wild species resolves consistently across every grass and surf map.
+- Wild runtime replacement calls the prior hook first and copies its result.
+- M7 never changes wild levels, encounter rates, slot odds, or fishing.
+- One-to-one wild destinations remain unique until the eligible pool exhausts.
+- The `wild.global` stream cannot perturb future category RNG streams.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

@@ -1,12 +1,9 @@
 -- Public, pure generator boundary.
---
--- Deterministic primitives and species pools are available. Category
--- generation remains unavailable until its later gameplay milestones.
-return function(Constants, Contracts, Foundation, Species)
+return function(Constants, Contracts, Foundation, Species, WildGlobal)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
-    available = false,
+    available = true,
     foundationAvailable = true,
     hashVersion = Constants.HASH_VERSION,
     prngVersion = Constants.PRNG_VERSION,
@@ -16,9 +13,6 @@ return function(Constants, Contracts, Foundation, Species)
     return Contracts.validateGenerationRequest(request)
   end
 
-  -- Returns result, nil on success or nil, structuredError on failure.
-  -- Valid requests fail explicitly instead of producing data that could be
-  -- mistaken for a complete randomized run.
   function Generator.generate(request)
     local valid, validationErrors =
       Contracts.validateGenerationRequest(request)
@@ -30,11 +24,44 @@ return function(Constants, Contracts, Foundation, Species)
       }
     end
 
-    return nil, {
-      code = "GENERATOR_UNAVAILABLE",
-      message = "category generation is not available yet",
-      details = {},
-    }
+    local result = Contracts.newGenerationResult()
+    local manifest = { entries = request.species, byId = {} }
+    for _, entry in ipairs(request.species) do
+      manifest.byId[entry.id] = entry
+    end
+
+    if request.settings.wild_pokemon == "global_map" then
+      local ok, category = pcall(
+        WildGlobal.generate,
+        manifest,
+        request.sources and request.sources.encounters,
+        request.settings,
+        Foundation.Rng.fromSeed(request.seed.canonical, "wild.global"))
+      if not ok then
+        result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
+          code = "WILD_GENERATION_FAILED",
+          message = "wild category generation failed; wild encounters are vanilla",
+        }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 1
+      else
+        result.mappings.wildGlobal = category.mapping
+        for _, row in ipairs(category.warnings) do
+          result.diagnostics.warnings[
+            #result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + category.fallbackCount
+      end
+    elseif request.settings.wild_pokemon == "area_slots" then
+      result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
+        code = "WILD_AREA_SLOTS_UNAVAILABLE",
+        message = "area-slot wild mapping is scheduled for milestone 8",
+      }
+      result.diagnostics.fallbackCount =
+        result.diagnostics.fallbackCount + 1
+    end
+    return result, nil
   end
 
   function Generator.emptyResult()

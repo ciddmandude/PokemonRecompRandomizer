@@ -29,6 +29,8 @@ $requiredFiles = @(
   'src/options_screen.lua',
   'src/general_settings.lua',
   'src/review_screen.lua',
+  'src/wild_global.lua',
+  'src/wild_runtime.lua',
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
@@ -38,12 +40,14 @@ $requiredFiles = @(
   'tests/save_state_test.lua',
   'tests/options_ui_test.lua',
   'tests/general_settings_test.lua',
+  'tests/wild_global_test.lua',
   'tools/test.ps1',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
   'docs/save-lifecycle-v1.md',
   'docs/options-shell-v1.md',
   'docs/general-settings-v1.md',
+  'docs/wild-global-v1.md',
   'docs/randomizer-spec.md'
 )
 
@@ -76,11 +80,11 @@ if (@($manifest.permissions).Count -ne 0) {
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.6.0') {
-  throw "manifest version must be 0.6.0 for milestone 6"
+if ($manifest.version -ne '0.7.0') {
+  throw "manifest version must be 0.7.0 for milestone 7"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.6\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.6.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.7\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.7.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

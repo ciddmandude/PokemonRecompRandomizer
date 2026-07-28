@@ -1,7 +1,5 @@
 -- Pokémon Gen 1 Randomizer entry point.
 --
--- This file only assembles milestone-1 modules. Gameplay hooks are
--- intentionally deferred until their deterministic implementations exist.
 return function(mod)
   local function loadModule(relative, ...)
     local source, readErr = mod:read(relative)
@@ -47,8 +45,12 @@ return function(mod)
     Filters = SpeciesFilters,
     VanillaSpecies = VanillaSpecies,
   }
+  local WildGlobal = loadModule(
+    "src/wild_global.lua", StableSort, SpeciesFilters)
+  local WildRuntime = loadModule("src/wild_runtime.lua")
   local Generator = loadModule(
-    "src/generator.lua", Constants, Contracts, Foundation, Species)
+    "src/generator.lua",
+    Constants, Contracts, Foundation, Species, WildGlobal)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)
@@ -71,7 +73,7 @@ return function(mod)
   local Bootstrap = loadModule(
     "src/bootstrap.lua",
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
-    Options)
+    Options, WildRuntime)
 
   return Bootstrap.start(mod)
 end

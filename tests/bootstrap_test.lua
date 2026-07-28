@@ -11,7 +11,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.6.0",
+  version = "0.7.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -23,23 +23,62 @@ local mod = {
     },
     pokemon = {
       each = function()
+        local index = 0
+        local rows = {
+          {
+            "TESTMON",
+            {
+              id = "TESTMON",
+              dex = 1001,
+              baseStats = {
+                hp = 50, attack = 50, defense = 50, speed = 50, special = 50,
+              },
+              types = { "NORMAL" },
+              growthRate = "MEDIUM",
+              level1Moves = {},
+              learnset = {},
+              evolutions = {},
+              spriteFront = "front.png",
+              spriteBack = "back.png",
+            },
+          },
+          {
+            "BULBASAUR",
+            {
+              id = "BULBASAUR",
+              dex = 1,
+              baseStats = {
+                hp = 45, attack = 49, defense = 49, speed = 45, special = 65,
+              },
+              types = { "GRASS", "POISON" },
+              growthRate = "MEDIUM_SLOW",
+              level1Moves = {},
+              learnset = {},
+              evolutions = {},
+              spriteFront = "bulbasaur.png",
+              spriteBack = "bulbasaurb.png",
+            },
+          },
+        }
+        return function()
+          index = index + 1
+          local row = rows[index]
+          if not row then return nil end
+          return row[1], row[2]
+        end
+      end,
+    },
+    encounters = {
+      each = function()
         local yielded = false
         return function()
           if yielded then return nil end
           yielded = true
-          return "TESTMON", {
-            id = "TESTMON",
-            dex = 1001,
-            baseStats = {
-              hp = 50, attack = 50, defense = 50, speed = 50, special = 50,
+          return "TEST_MAP", {
+            grass = {
+              rate = 30,
+              slots = {{ level = 5, species = "BULBASAUR" }},
             },
-            types = { "NORMAL" },
-            growthRate = "MEDIUM",
-            level1Moves = {},
-            learnset = {},
-            evolutions = {},
-            spriteFront = "front.png",
-            spriteBack = "back.png",
           }
         end
       end,
@@ -109,6 +148,7 @@ assert(mod.exports.algorithmVersion == "1.0.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
+assert(mod.exports.generator.available == true)
 assert(type(mod.exports.registerSpeciesMeta) == "function")
 assert(mod.exports.species.manifestVersion == 1)
 assert(mod.exports.save.checksumVersion == "fnv1a32x4-save-v1")
@@ -118,6 +158,7 @@ assert(#optionSchema == 34)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(hookCallbacks["ui.options.rows"]) == "function")
+assert(type(hookCallbacks["encounter.species"]) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
 assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
@@ -139,7 +180,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 6 ready"))
+assert(logs[1]:match("milestone 7 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -164,23 +205,39 @@ callbacks["save.created"]({ save = save })
 local run = save.modData.pokemon_randomizer
 assert(type(run) == "table")
 assert(run.schemaVersion == 1)
-assert(run.enabled == false)
+assert(run.enabled == true)
 assert(run.checksum.version == "fnv1a32x4-save-v1")
-assert(run.diagnostics.warnings[1].code == "GENERATOR_UNAVAILABLE")
+assert(run.mappings.wildGlobal.BULBASAUR == "BULBASAUR")
+assert(#run.diagnostics.warnings == 0)
 assert(run.settings.randomizer == "on")
 assert(run.settings.preset == "standard")
 assert(run.settings.seed_text == "")
 assert(#run.seed.canonical == 26)
 assert(type(mod.exports.runCode(run)) == "string")
 
+local nextCalled = false
+local vanillaEncounter = { species = "BULBASAUR", level = 7, marker = true }
+local resolvedEncounter = hookCallbacks["encounter.species"](
+  function(encounter, context)
+    nextCalled = context.terrain == "grass"
+    return encounter
+  end,
+  vanillaEncounter,
+  { mapId = "TEST_MAP", terrain = "grass" })
+assert(nextCalled, "encounter.species must call the next hook first")
+assert(resolvedEncounter ~= vanillaEncounter,
+  "a mapped encounter must copy the prior hook result")
+assert(resolvedEncounter.species == "BULBASAUR")
+assert(resolvedEncounter.level == 7 and resolvedEncounter.marker == true)
+
 callbacks["save.loading"]({ raw = save })
 assert(mod.exports.save.status().phase == "loading")
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
-assert(mod.exports.save.status().phase == "loaded-vanilla")
-assert(mod.exports.save.activeRun() == nil)
+assert(mod.exports.save.status().phase == "loaded")
+assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.6.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.7.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

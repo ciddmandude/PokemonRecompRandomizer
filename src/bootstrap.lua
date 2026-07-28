@@ -2,7 +2,7 @@
 -- about the gen1recomp mod object.
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
-    Options)
+    Options, WildRuntime)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -74,6 +74,16 @@ return function(
       return records
     end
 
+    local function mergedEncounterRecords()
+      local registry = mod.content.encounters
+      assert(type(registry) == "table"
+          and type(registry.each) == "function",
+        "mod API 2 is missing mod.content.encounters:each")
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
     local publicApi = {
       contractVersion = Constants.CONTRACT_VERSION,
       saveSchemaVersion = Constants.SAVE_SCHEMA_VERSION,
@@ -115,6 +125,9 @@ return function(
       metadata = function() return Species.Metadata:snapshot() end,
       log = mod.log,
       settings = function() return preferences:snapshot() end,
+      sources = function()
+        return { encounters = mergedEncounterRecords() }
+      end,
     })
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
@@ -246,6 +259,13 @@ return function(
       return output
     end)
 
+    mod.hooks:wrap("encounter.species",
+      function(nextFn, encounter, context)
+        local resolved = nextFn(encounter, context)
+        return WildRuntime.resolve(
+          resolved, context, lifecycle:activeRun())
+      end)
+
     mod.migrations:add(Constants.FIRST_MIGRATION_VERSION, function(namespace)
       local migrated = SaveState.migrate(namespace)
       if migrated == namespace then return end
@@ -299,7 +319,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 6 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 7 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

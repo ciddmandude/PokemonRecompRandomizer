@@ -2,7 +2,7 @@
 -- dependencies and is safe to load in headless tests.
 return {
   MOD_ID = "pokemon_randomizer",
-  MOD_VERSION = "0.6.0",
+  MOD_VERSION = "0.7.0",
   MOD_API = 2,
   GAME_VERSION_RANGE = ">=1.0.0 <2.0.0",
 
@@ -15,8 +15,7 @@ return {
   OPTIONS_SCREEN_ID = "PokemonRandomizerOptions",
   REVIEW_SCREEN_ID = "PokemonRandomizerReview",
 
-  -- The category generator is still incomplete, but its deterministic
-  -- foundation is versioned and locked by golden vectors.
+  -- The algorithm contract is locked while category implementations land.
   ALGORITHM_VERSION = "1.0.0-dev",
   HASH_VERSION = "fnv1a32x4-v1",
   PRNG_VERSION = "xoshiro128ss-v1",

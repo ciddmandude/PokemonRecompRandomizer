@@ -31,6 +31,7 @@ return function(Constants, Generator, SaveState, General)
       metadata = dependencies.metadata,
       log = dependencies.log,
       settings = dependencies.settings or function() return {} end,
+      sources = dependencies.sources or function() return {} end,
       seed = dependencies.seed,
       session = {
         active = nil,
@@ -68,7 +69,7 @@ return function(Constants, Generator, SaveState, General)
         General.settingsHash(settings)),
       species = manifest.entries,
       speciesSet = set,
-      sources = {},
+      sources = self.sources(),
       enabled = settings.randomizer == "on" and seedError == nil,
       disableReason = seedError,
     }

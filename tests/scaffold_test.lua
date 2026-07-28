@@ -22,6 +22,8 @@ local SpeciesManifest = loadFactory("src/species_manifest.lua",
   Constants, StableSort, Canonical, Hash128, VanillaSpecies)
 local SpeciesFilters = loadFactory("src/species_filters.lua")
 local Contracts = loadFactory("src/contracts.lua", Constants)
+local WildGlobal = loadFactory(
+  "src/wild_global.lua", StableSort, SpeciesFilters)
 local SaveState = loadFactory("src/save_state.lua",
   Constants, Seed, Hash128, Canonical, StableSort, Contracts)
 local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
@@ -36,15 +38,15 @@ local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
   Manifest = SpeciesManifest,
   Filters = SpeciesFilters,
   VanillaSpecies = VanillaSpecies,
-})
+}, WildGlobal)
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
-assert(Constants.MOD_VERSION == "0.6.0")
+assert(Constants.MOD_VERSION == "0.7.0")
 assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
 assert(Constants.OPTIONS_SCREEN_ID == "PokemonRandomizerOptions")
 assert(Constants.REVIEW_SCREEN_ID == "PokemonRandomizerReview")
-assert(Generator.available == false)
+assert(Generator.available == true)
 assert(Generator.foundationAvailable == true)
 assert(Generator.algorithmVersion == "1.0.0-dev")
 assert(type(SaveState.validate) == "function")
@@ -64,9 +66,9 @@ local request = {
 local valid, errors = Generator.validate(request)
 assert(valid, errors[1] and errors[1].message)
 
-local result, unavailable = Generator.generate(request)
-assert(result == nil)
-assert(unavailable.code == "GENERATOR_UNAVAILABLE")
+local result, generationError = Generator.generate(request)
+assert(result ~= nil and generationError == nil)
+assert(type(result.mappings.wildGlobal) == "table")
 
 local invalid = {
   contractVersion = 1,
