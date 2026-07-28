@@ -49,8 +49,14 @@ return function(mod)
   }
   local Generator = loadModule(
     "src/generator.lua", Constants, Contracts, Foundation, Species)
+  local SaveState = loadModule(
+    "src/save_state.lua",
+    Constants, Seed, Hash128, Canonical, StableSort, Contracts)
+  local SaveLifecycle = loadModule(
+    "src/save_lifecycle.lua", Constants, Generator, SaveState)
   local Bootstrap = loadModule(
-    "src/bootstrap.lua", Constants, Contracts, Generator, Species)
+    "src/bootstrap.lua",
+    Constants, Contracts, Generator, Species, SaveState, SaveLifecycle)
 
   return Bootstrap.start(mod)
 end

@@ -1,6 +1,7 @@
 -- Engine-facing bootstrap. This is the only milestone-1 module that knows
 -- about the gen1recomp mod object.
-return function(Constants, Contracts, Generator, Species)
+return function(
+    Constants, Contracts, Generator, Species, SaveState, SaveLifecycle)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -9,6 +10,7 @@ return function(Constants, Contracts, Generator, Species)
     "hooks",
     "save",
     "options",
+    "migrations",
     "log",
     "exports",
   }
@@ -42,6 +44,7 @@ return function(Constants, Contracts, Generator, Species)
     assertFunction(mod.save, "set", "mod.save:set")
     assertFunction(mod.options, "define", "mod.options:define")
     assertFunction(mod.options, "get", "mod.options:get")
+    assertFunction(mod.migrations, "add", "mod.migrations:add")
     assertFunction(mod.log, "info", "mod.log:info")
     assertFunction(mod.log, "warn", "mod.log:warn")
     assertFunction(mod.log, "error", "mod.log:error")
@@ -94,18 +97,61 @@ return function(Constants, Contracts, Generator, Species)
       },
       contracts = {
         categoryKeys = Contracts.categoryKeys,
+        mappingKeys = Contracts.mappingKeys,
         validateGenerationRequest = Contracts.validateGenerationRequest,
         validateGenerationResult = Contracts.validateGenerationResult,
       },
     }
 
+    local lifecycle = SaveLifecycle.new({
+      records = mergedSpeciesRecords,
+      metadata = function() return Species.Metadata:snapshot() end,
+      log = mod.log,
+      -- Milestones 5 and 6 replace this empty normalized snapshot with
+      -- persisted Options-menu preferences and preset expansion.
+      settings = function() return {} end,
+    })
+    publicApi.save = {
+      checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
+      validate = SaveState.validate,
+      checksum = SaveState.checksum,
+      activeRun = function() return lifecycle:activeRun() end,
+      status = function() return lifecycle:status() end,
+    }
+
     for key, value in pairs(publicApi) do mod.exports[key] = value end
+
+    mod.migrations:add(Constants.MOD_VERSION, function(namespace)
+      local migrated = SaveState.migrate(namespace)
+      if migrated == namespace then return end
+      local stamped, errors = SaveState.stamp(migrated)
+      if not stamped then
+        error(("schema migration failed validation (%d issue%s)"):format(
+          #errors, #errors == 1 and "" or "s"))
+      end
+      for key in pairs(namespace) do namespace[key] = nil end
+      for key, value in pairs(stamped) do namespace[key] = value end
+    end)
+
+    mod.events:on("save.created", function(event)
+      lifecycle:onCreated(event)
+    end)
+    mod.events:on("save.loading", function(event)
+      lifecycle:onLoading(event)
+    end)
+    mod.events:on("save.loaded", function(event)
+      lifecycle:onLoaded(event)
+    end)
+    mod.events:on("save.writing", function(event)
+      lifecycle:onWriting(event)
+    end)
 
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 3 ready (contract=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 4 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
+        Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,
         Constants.HASH_VERSION,
         Constants.PRNG_VERSION)

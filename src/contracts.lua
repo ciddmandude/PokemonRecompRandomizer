@@ -13,6 +13,20 @@ return function(Constants)
     "trainers",
   }
 
+  -- Serialized mapping buckets from saved-data contract Section 7.
+  local MAPPING_KEYS = {
+    "wildGlobal",
+    "wildAreaSlots",
+    "fishing",
+    "starters",
+    "starterFlags",
+    "staticEncounters",
+    "gifts",
+    "trades",
+    "prizes",
+    "trainerParties",
+  }
+
   local function addError(errors, path, code, message)
     errors[#errors + 1] = {
       path = path,
@@ -39,6 +53,12 @@ return function(Constants)
   function Contracts.categoryKeys()
     local copy = {}
     for index, key in ipairs(CATEGORY_KEYS) do copy[index] = key end
+    return copy
+  end
+
+  function Contracts.mappingKeys()
+    local copy = {}
+    for index, key in ipairs(MAPPING_KEYS) do copy[index] = key end
     return copy
   end
 
@@ -108,7 +128,7 @@ return function(Constants)
   -- deliberately unspecified until their milestones define them.
   function Contracts.newGenerationResult()
     local mappings = {}
-    for _, key in ipairs(CATEGORY_KEYS) do mappings[key] = {} end
+    for _, key in ipairs(MAPPING_KEYS) do mappings[key] = {} end
     return {
       contractVersion = Constants.CONTRACT_VERSION,
       algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -137,7 +157,7 @@ return function(Constants)
     if type(result.mappings) ~= "table" then
       addError(errors, "mappings", "TYPE", "mappings must be a table")
     else
-      for _, key in ipairs(CATEGORY_KEYS) do
+      for _, key in ipairs(MAPPING_KEYS) do
         if type(result.mappings[key]) ~= "table" then
           addError(errors, "mappings." .. key, "TYPE",
             "category mapping must be a table")

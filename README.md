@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 3 are complete. The project now includes the API-2
+Milestones 1 through 4 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -22,6 +22,11 @@ species-pool pipeline:
 - stable species and pool fingerprints;
 - hard/soft candidate filters with recorded relaxation;
 - a pre-generation inter-mod species metadata API.
+- atomic per-save run creation and whole-run vanilla fallback;
+- deterministic saved-state checksums and tamper detection;
+- load-time mapped-species validation and session-only quarantine;
+- pre-write validation that cannot re-checksum damaged state;
+- ordered migration registration with an atomic schema-0 harness.
 
 Gameplay randomization is intentionally not active yet. The exported category
 generator continues to return `GENERATOR_UNAVAILABLE` until later milestones
@@ -33,12 +38,14 @@ The byte-level algorithm is locked in
 [Deterministic Foundation v1](docs/determinism-v1.md).
 Species eligibility and filtering are defined in
 [Species Manifest v1](docs/species-manifest-v1.md).
+Saved-state behavior is defined in
+[Save Lifecycle v1](docs/save-lifecycle-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=1.0.0 <2.0.0`
 - mod API: `2`
-- randomizer mod version: `0.3.0`
+- randomizer mod version: `0.4.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -57,9 +64,9 @@ Place this repository's directory under either gen1recomp mod location:
 - the LÖVE save directory's `mods/` directory.
 
 The directory must contain `manifest.json` and `main.lua` at its root. Enable
-**Pokémon Gen 1 Randomizer** in the in-game mod manager. At milestone 1, a
-successful load writes a readiness message to the game log but changes no
-gameplay.
+**Pokémon Gen 1 Randomizer** in the in-game mod manager. A successful load
+writes a readiness message to the game log. Category gameplay hooks are not
+active yet.
 
 ## Project layout
 
@@ -80,6 +87,8 @@ gameplay.
 │   ├── species_metadata.lua   validated inter-mod metadata
 │   ├── species_manifest.lua   eligibility, stages, and fingerprints
 │   ├── species_filters.lua    candidate rules and relaxation
+│   ├── save_state.lua         pure schema, checksum, and migration logic
+│   ├── save_lifecycle.lua     save-event adapter and session quarantine
 │   ├── stable_sort.lua        stable sort and deterministic keys
 │   └── uint32.lua             exact unsigned-32-bit arithmetic
 ├── tests/
@@ -88,6 +97,7 @@ gameplay.
 │   ├── bootstrap_test.lua     headless mod entry integration test
 │   ├── species_fixture.lua    synthetic ROM-independent species data
 │   ├── species_manifest_test.lua manifest/filter integration tests
+│   ├── save_state_test.lua    schema/checksum/migration tests
 │   └── scaffold_test.lua      headless Lua contract smoke test
 ├── tools/
 │   ├── test.ps1               syntax and complete test runner
@@ -95,6 +105,7 @@ gameplay.
 └── docs/
     ├── determinism-v1.md      exact hash/PRNG specification
     ├── species-manifest-v1.md species pool/filter specification
+    ├── save-lifecycle-v1.md   save events and recovery contract
     └── randomizer-spec.md     product and technical specification
 ```
 
@@ -104,7 +115,7 @@ logic can be tested headlessly.
 
 ## Public inter-mod API
 
-Milestone 1 publishes the following through `mod.exports`:
+The mod publishes the following through `mod.exports`:
 
 ```lua
 {
@@ -138,8 +149,16 @@ Milestone 1 publishes the following through `mod.exports`:
   },
   contracts = {
     categoryKeys = function() ... end,
+    mappingKeys = function() ... end,
     validateGenerationRequest = function(request) ... end,
     validateGenerationResult = function(result) ... end,
+  },
+  save = {
+    checksumVersion = "fnv1a32x4-save-v1",
+    validate = function(namespace, speciesSet, requireChecksum) ... end,
+    checksum = function(namespace) ... end,
+    activeRun = function() ... end,
+    status = function() ... end,
   },
 }
 ```
@@ -165,7 +184,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 3
+## Design guarantees established through milestone 4
 
 - No gameplay hook is registered before deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -179,5 +198,14 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - Strength/type relaxation is ordered, bounded, and recorded; hard stage and
   legendary rules never relax silently.
 - Inter-mod metadata is validated and freezes before play.
+- A namespace is assigned on New Game only after complete validation and
+  checksum stamping.
+- Generator failures create an all-vanilla run, never partial mappings.
+- Continue reads behavior state only from the validated saved snapshot.
+- Missing or damaged state is quarantined for the session without overwriting
+  recovery data.
+- Pre-write validation refuses to replace a namespace whose existing checksum
+  is invalid.
+- Migrations preserve unknown fields and never regenerate mappings.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

@@ -1,7 +1,7 @@
 -- Public, pure generator boundary.
 --
--- Milestone 2 supplies deterministic seed normalization, hashing, named
--- streams, sorting, and a PRNG. Category generation remains unavailable.
+-- Deterministic primitives and species pools are available. Category
+-- generation remains unavailable until its later gameplay milestones.
 return function(Constants, Contracts, Foundation, Species)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
@@ -17,8 +17,8 @@ return function(Constants, Contracts, Foundation, Species)
   end
 
   -- Returns result, nil on success or nil, structuredError on failure.
-  -- Until milestone 2, valid requests fail explicitly instead of producing
-  -- data that could be mistaken for a randomized run.
+  -- Valid requests fail explicitly instead of producing data that could be
+  -- mistaken for a complete randomized run.
   function Generator.generate(request)
     local valid, validationErrors =
       Contracts.validateGenerationRequest(request)
@@ -32,7 +32,7 @@ return function(Constants, Contracts, Foundation, Species)
 
     return nil, {
       code = "GENERATOR_UNAVAILABLE",
-      message = "deterministic generation begins in milestone 2",
+      message = "category generation is not available yet",
       details = {},
     }
   end

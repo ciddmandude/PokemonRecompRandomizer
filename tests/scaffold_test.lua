@@ -22,6 +22,8 @@ local SpeciesManifest = loadFactory("src/species_manifest.lua",
   Constants, StableSort, Canonical, Hash128, VanillaSpecies)
 local SpeciesFilters = loadFactory("src/species_filters.lua")
 local Contracts = loadFactory("src/contracts.lua", Constants)
+local SaveState = loadFactory("src/save_state.lua",
+  Constants, Seed, Hash128, Canonical, StableSort, Contracts)
 local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
   UInt32 = UInt32,
   Seed = Seed,
@@ -38,10 +40,12 @@ local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
-assert(Constants.MOD_VERSION == "0.3.0")
+assert(Constants.MOD_VERSION == "0.4.0")
+assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
 assert(Generator.available == false)
 assert(Generator.foundationAvailable == true)
 assert(Generator.algorithmVersion == "1.0.0-dev")
+assert(type(SaveState.validate) == "function")
 
 local request = {
   contractVersion = 1,
