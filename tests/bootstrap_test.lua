@@ -20,7 +20,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.12.0",
+  version = "0.13.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -121,6 +121,24 @@ local mod = {
             grass = {
               rate = 30,
               slots = {{ level = 5, species = "BULBASAUR" }},
+            },
+          }
+        end
+      end,
+    },
+    trainers = {
+      each = function()
+        local yielded = false
+        return function()
+          if yielded then return nil end
+          yielded = true
+          return "OPP_FIX_YOUNGSTER", {
+            id = "OPP_FIX_YOUNGSTER",
+            parties = {
+              {
+                { species = "BULBASAUR", level = 5 },
+                { species = "CHARMANDER", level = 6 },
+              },
             },
           }
         end
@@ -264,7 +282,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 12 ready"))
+assert(logs[1]:match("milestone 13 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -375,7 +393,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.12.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.13.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

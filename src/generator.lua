@@ -1,7 +1,7 @@
 -- Public, pure generator boundary.
 return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory, TradePrizeCategory)
+    StaticGiftCategory, TradePrizeCategory, TrainerCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -185,6 +185,37 @@ return function(
           }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 2
+      end
+    end
+
+    if request.settings.trainer_pokemon ~= nil
+        and request.settings.trainer_pokemon ~= "off" then
+      local ok, category = pcall(TrainerCategory.generate,
+        manifest, request.sources or {}, request.settings, {
+          species = Foundation.Rng.fromSeed(
+            request.seed.canonical, "trainers.species"),
+          levels = Foundation.Rng.fromSeed(
+            request.seed.canonical, "trainers.levels"),
+          sizes = Foundation.Rng.fromSeed(
+            request.seed.canonical, "trainers.sizes"),
+        })
+      if ok then
+        result.mappings.trainerParties = category.trainerParties
+        for _, row in ipairs(category.warnings) do
+          result.diagnostics.warnings[
+            #result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + category.fallbackCount
+      else
+        result.mappings.trainerParties = {}
+        result.diagnostics.warnings[
+          #result.diagnostics.warnings + 1] = {
+            code = "TRAINER_GENERATION_FAILED",
+            message = "trainer generation failed; trainers are vanilla",
+          }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 1
       end
     end
     return result, nil

@@ -87,6 +87,10 @@ return function(Constants, StableSort, Canonical, Hash128, VanillaSpecies)
       addReason(reasons, "INVALID_LEARNSET", "learnset",
         "learnset must be a dense array")
     end
+    if record.tmhm ~= nil and not denseArray(record.tmhm) then
+      addReason(reasons, "INVALID_TMHM", "tmhm",
+        "tmhm must be a dense array when present")
+    end
     if not denseArray(record.evolutions) then
       addReason(reasons, "INVALID_EVOLUTIONS", "evolutions",
         "evolutions must be a dense array")
@@ -221,6 +225,7 @@ return function(Constants, StableSort, Canonical, Hash128, VanillaSpecies)
         types = copyArray(record.types),
         growthRate = record.growthRate,
         level1Moves = copyArray(record.level1Moves),
+        tmhm = copyArray(record.tmhm),
         learnset = copyArray(record.learnset),
         evolutions = outgoing[id],
         spriteFront = record.spriteFront,
@@ -240,6 +245,9 @@ return function(Constants, StableSort, Canonical, Hash128, VanillaSpecies)
         stage = stage,
         legendary = legendary,
         vanilla = VANILLA_SET[id] ~= nil,
+        level1Moves = copyArray(record.level1Moves),
+        tmhm = copyArray(record.tmhm),
+        learnset = copyArray(record.learnset),
         evolutions = outgoing[id],
         fingerprint = fingerprint,
       }

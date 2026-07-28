@@ -181,7 +181,7 @@ Purchasing a randomized prize must show the correct species and level before pay
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
 | Trainer Pokémon | `OFF`, `GLOBAL MAP`, `BY SLOT`, `TYPE THEMED` | `BY SLOT` | `OFF` leaves all parties vanilla. `GLOBAL MAP` consistently maps every source species to one destination. `BY SLOT` independently resolves every trainer class, party index, and party position. `TYPE THEMED` assigns each trainer class a saved type and fills all its slots from that type when possible. |
-| Trainer Levels | `UNCHANGED`, `±10%`, `PROGRESSIVE` | `UNCHANGED` | `UNCHANGED` preserves levels. `±10%` applies a saved per-slot multiplier from 0.90–1.10. `PROGRESSIVE` may scale early trainers down and late trainers up along a fixed badge/progression table, never changing a level by more than 20%. All values clamp to 2–100. |
+| Trainer Levels | `UNCHANGED`, `±10%`, `PROGRESSIVE` | `UNCHANGED` | `UNCHANGED` preserves levels. `±10%` applies a saved per-slot integer multiplier from 90–110%. `PROGRESSIVE` uses the source party's maximum level as a stable progression proxy: maximum levels 15, 30, 45, 60, and above receive -20%, -10%, 0%, +10%, and +20%. All values round to the nearest integer and clamp to 2–100. |
 | Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Applies to Gym Leaders, Elite Four, Champion, and major rival fights. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a single saved type theme per boss while retaining party size. `VANILLA` excludes boss parties from species and level randomization. |
 | Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | `UNCHANGED` preserves each party's count. `1–6 RANDOM` generates a saved count, but Progression Guard limits pre–Brock trainers to 1–3 and prevents required battles from exceeding six. |
 | Progression Guard | `OFF`, `ON` | `ON` | Enforces valid species, levels, and nonempty required parties; limits the first rival battle relative to the starter; prevents early mandatory teams composed only of high-BST or legendary Pokémon; and ensures generated moves can be constructed. It does not guarantee a particular difficulty. |
@@ -358,7 +358,7 @@ Requirements:
 
 ### 8.2 Optional future upstream seams
 
-Version 0.12.0 requires no engine extension. The following hooks would make
+Version 0.13.0 requires no engine extension. The following hooks would make
 future total-conversion interoperability simpler, but the stock-v0.1.30
 implementation uses only public API-2 composition. If added upstream, unused
 hooks must return vanilla data unchanged.

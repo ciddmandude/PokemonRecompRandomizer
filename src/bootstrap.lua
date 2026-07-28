@@ -3,7 +3,7 @@
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat, TradePrizeCompat)
+    StaticGiftCompat, TradePrizeCompat, TrainerRuntime)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -93,6 +93,16 @@ return function(
       return records
     end
 
+    local function mergedTrainerRecords()
+      local registry = mod.content.trainers
+      assert(type(registry) == "table"
+          and type(registry.each) == "function",
+        "mod API 2 is missing mod.content.trainers:each")
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
     local function mergedFieldRecords(save)
       local registry = mod.content.field
       local fishing = registry:get("fishing")
@@ -174,6 +184,7 @@ return function(
         local field, version = mergedFieldRecords(save)
         return {
           encounters = mergedEncounterRecords(),
+          trainers = mergedTrainerRecords(),
           field = field,
           gameVersion = version,
           typeEffectiveness = mergedTypeEffectiveness(),
@@ -341,6 +352,8 @@ return function(
     mod.hooks:wrap("trainer.party",
       function(nextFn, oppClass, partyIndex, party)
         local resolved = nextFn(oppClass, partyIndex, party)
+        resolved = TrainerRuntime.party(
+          resolved, oppClass, partyIndex, lifecycle:activeRun())
         return StarterRuntime.party(
           resolved, oppClass, partyIndex, lifecycle:activeRun())
       end)
@@ -398,7 +411,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 12 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 13 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

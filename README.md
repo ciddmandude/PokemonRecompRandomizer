@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 12 are complete. The project now includes the API-2
+Milestones 1 through 13 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -63,6 +63,11 @@ species-pool pipeline:
 - deterministic Red/Blue Game Corner Pokemon prize mappings;
 - unchanged, fixed, and scaled prize levels plus strength/random prices;
 - storage-safe mapped prize purchases through a public API-2 screen.
+- saved mappings for every merged trainer party variant;
+- global, per-slot, and saved type-themed trainer species modes;
+- unchanged, +/-10%, and progressive level modes plus saved party sizes;
+- boss include/themed/vanilla policies and early-game progression guards;
+- legal v0.1.30 boss-move handling with prior-mod move-list precedence.
 
 Global and area-slot walking, indoor, surfing, and optional fishing
 randomization are active. Encounter rates and probability buckets remain
@@ -88,6 +93,12 @@ The unused CHIKUCHIKU trade-table row has no NPC script and remains
 unmapped. TM prizes remain vanilla. No engine patch or custom app build is
 required.
 
+Milestone 13 also remains mod-only. It resolves every merged trainer party
+when a save is created and serves the saved result through the public
+`trainer.party` hook. All trainer modes, levels, party sizes, boss policies,
+type themes, and progression guards are persisted with the run. No engine
+patch or custom app build is required.
+
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
 [Deterministic Foundation v1](docs/determinism-v1.md).
@@ -111,12 +122,14 @@ The exact partial M11 scope is defined in
 [Static Encounters and Gifts v1](docs/static-gifts-v1.md).
 The mod-only trade and prize implementation is defined in
 [NPC Trades and Game Corner Prizes v1](docs/trades-prizes-v1.md).
+Trainer generation and hook composition are defined in
+[Trainer Randomization v1](docs/trainers-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.12.0`
+- randomizer mod version: `0.13.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -272,7 +285,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 12
+## Design guarantees established through milestone 13
 
 - Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.

@@ -68,10 +68,13 @@ return function(mod)
     StableSort, SpeciesFilters, TradePrizeCatalog)
   local TradePrizeCompat = loadModule(
     "src/trade_prize_compat.lua", TradePrizeCatalog)
+  local TrainerCategory = loadModule(
+    "src/trainer_category.lua", StableSort, SpeciesFilters)
+  local TrainerRuntime = loadModule("src/trainer_runtime.lua")
   local Generator = loadModule(
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory, TradePrizeCategory)
+    StaticGiftCategory, TradePrizeCategory, TrainerCategory)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)
@@ -95,7 +98,7 @@ return function(mod)
     "src/bootstrap.lua",
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat, TradePrizeCompat)
+    StaticGiftCompat, TradePrizeCompat, TrainerRuntime)
 
   return Bootstrap.start(mod)
 end
