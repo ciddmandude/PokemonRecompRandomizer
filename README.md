@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 8 are complete. The project now includes the API-2
+Milestones 1 through 9 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -47,10 +47,18 @@ species-pool pipeline:
 - saved Old, Good, and Super Rod mappings without changing bite odds;
 - unchanged, ±2, and BST-scaled saved wild levels;
 - post-generation pre-League catchability repair and diagnostics.
+- a validated starter-offer contract and randomizer adapter;
+- a stock-v0.1.30 API-2 Oak's Lab compatibility override;
+- vanilla and transformed-offer parity coverage.
 
 Global and area-slot walking, indoor, surfing, and optional fishing
 randomization are active. Encounter rates and probability buckets remain
 engine-owned and unchanged.
+
+Milestone 9 uses the released recomp v0.1.30 API-2 `map_scripts` registry.
+The mod replaces only the three starter-ball talk handlers; every other
+Oak's Lab handler remains engine-owned. No engine patch or custom app build
+is required. Starter replacement generation itself is planned for M10.
 
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
@@ -67,12 +75,14 @@ Global grass and surf behavior is defined in
 [Wild Global Mapping v1](docs/wild-global-v1.md).
 Area slots, rods, levels, and coverage are defined in
 [Wild Area, Fishing, and Levels v1](docs/wild-area-fishing-v1.md).
+The scoped starter compatibility override is defined in
+[Oak's Lab Starter Compatibility v1](docs/starter-compat-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.8.1`
+- randomizer mod version: `0.9.1`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -228,7 +238,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 8
+## Design guarantees established through milestone 9
 
 - Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -273,5 +283,11 @@ sorting, and validates the repository without loading LÖVE or a ROM.
 - Fishing no-bite behavior and rod candidate odds remain engine-owned.
 - Wild levels are generated once, saved, clamped, and used by repel filtering.
 - Catchability repair swaps destinations without changing rates or slot odds.
+- Vanilla starter offers retain the original trio, level, flags, and objects.
+- A resolved starter offer drives preview, confirmation, award, and rival flow.
+- Invalid starter-offer output falls back to the original complete offer.
+- Stock v0.1.30 receives only the three starter-ball talk overrides.
+- Oak, rival battles, parcel and Pokédex delivery, and lab movement remain
+  engine-owned.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

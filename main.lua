@@ -50,6 +50,9 @@ return function(mod)
   local WildCategory = loadModule(
     "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal)
   local WildRuntime = loadModule("src/wild_runtime.lua")
+  local StarterOffer = loadModule("src/starter_offer.lua")
+  local StarterCompat = loadModule(
+    "src/starter_compat.lua", StarterOffer)
   local Generator = loadModule(
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory)
@@ -75,7 +78,7 @@ return function(mod)
   local Bootstrap = loadModule(
     "src/bootstrap.lua",
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
-    Options, WildRuntime)
+    Options, WildRuntime, StarterOffer, StarterCompat)
 
   return Bootstrap.start(mod)
 end

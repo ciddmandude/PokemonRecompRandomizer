@@ -4,6 +4,7 @@ local logs = {}
 local migrations = {}
 local hookCallbacks = {}
 local screens = {}
+local mapScriptContributions = {}
 local optionSchema
 local pushedScreen
 local saveBucket = {}
@@ -11,7 +12,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.8.1",
+  version = "0.9.1",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -95,6 +96,12 @@ local mod = {
         return nil
       end,
     },
+    map_scripts = {
+      register = function(_, id, contribution)
+        mapScriptContributions[id] = contribution
+        return contribution
+      end,
+    },
   },
   exports = {},
   events = {
@@ -173,6 +180,9 @@ assert(type(hookCallbacks["ui.options.rows"]) == "function")
 assert(type(hookCallbacks["encounter.species"]) == "function")
 assert(type(hookCallbacks["encounter.roll"]) == "function")
 assert(type(hookCallbacks["encounter.fishing"]) == "function")
+assert(type(mapScriptContributions.OAKS_LAB) == "table")
+assert(type(mapScriptContributions.OAKS_LAB.talk
+  .TEXT_OAKSLAB_CHARMANDER_POKE_BALL) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
 assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
@@ -194,7 +204,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 8 ready"))
+assert(logs[1]:match("milestone 9 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -265,6 +275,24 @@ local fish = hookCallbacks["encounter.fishing"](
   "OLD_ROD", "TEST_MAP", nil)
 assert(fishCalls == 1 and fish.species == "BULBASAUR" and fish.level == 5)
 
+local starterRows
+mapScriptContributions.OAKS_LAB.talk
+  .TEXT_OAKSLAB_CHARMANDER_POKE_BALL({
+    save = save,
+    data = {
+      pokemon = {
+        CHARMANDER = {}, SQUIRTLE = {}, BULBASAUR = {},
+      },
+    },
+  }, {
+    runner = {
+      run = function(_, rows) starterRows = rows end,
+    },
+  }, nil, function() end)
+assert(starterRows[5][3].species == "CHARMANDER")
+assert(starterRows[9][2] == "CHARMANDER" and starterRows[9][3] == 5)
+assert(starterRows[16][3] == "OAKSLAB_SQUIRTLE_POKE_BALL")
+
 callbacks["save.loading"]({ raw = save })
 assert(mod.exports.save.status().phase == "loading")
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
@@ -272,7 +300,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.8.1", api = 2 },
+  { id = "pokemon_randomizer", version = "0.9.1", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

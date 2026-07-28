@@ -2,7 +2,7 @@
 -- about the gen1recomp mod object.
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
-    Options, WildRuntime)
+    Options, WildRuntime, StarterOffer, StarterCompat)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -49,6 +49,8 @@ return function(
     assertFunction(mod.migrations, "add", "mod.migrations:add")
     assertFunction(mod.content.screens, "register",
       "mod.content.screens:register")
+    assertFunction(mod.content.map_scripts, "register",
+      "mod.content.map_scripts:register")
     assertFunction(mod.content.field, "get",
       "mod.content.field:get")
     assertFunction(mod.log, "info", "mod.log:info")
@@ -147,6 +149,10 @@ return function(
         }
       end,
     })
+    mod.content.map_scripts:register(
+      "OAKS_LAB",
+      StarterCompat.contribution(
+        function() return lifecycle:activeRun() end))
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
       validate = SaveState.validate,
@@ -350,7 +356,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 8 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 9 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

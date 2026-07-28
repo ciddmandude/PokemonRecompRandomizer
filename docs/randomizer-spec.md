@@ -342,17 +342,21 @@ Requirements:
 | Wild walking/surfing | Wrap `encounter.species` for global mappings. Wrap `encounter.roll` only when area-slot mapping or saved level adjustment needs the original slot identity. |
 | Fishing | Wrap `encounter.fishing`. |
 | Trainers | Wrap `trainer.party` and return the saved party for `(trainerClass, partyIndex)`. |
+| Oak's Lab starters | Register API-2 `map_scripts` winners for only the three starter-ball talk keys. Each handler resolves one offer record before building the preview, confirmation, gift, flags, ball removal, and rival counterpick rows. |
 | Gift creation | Listen to mutable `pokemon.before_give` as the final award seam. Resolve the species earlier through stable starter, gift, trade, or prize offer hooks so previews and dialogue agree with the awarded Pokémon. |
 | Race unlock | Listen to Hall of Fame and credits completion events, validate the configured condition, persist the one-way unlock flag, and enable plaintext spoiler access only after unlock. |
 | Options entry | Wrap `ui.options.rows` and register a custom `screens` entry. |
 
 ### 8.2 Required small engine extensions
 
-The present hooks do not expose stable, save-aware seams for several requested features, and the starter/gift event occurs too late to update previews and dialogue. Add these API-2-compatible hooks; when unused they must return vanilla data unchanged.
+The present hooks do not expose stable, save-aware seams for several requested
+features. Add these API-2-compatible hooks; when unused they must return
+vanilla data unchanged. Starters do not require an engine extension because
+the public API-2 `map_scripts` compose registry can replace the three ball
+handlers without taking ownership of the rest of Oak's Lab.
 
 | New hook | Signature | Call site and purpose |
 |---|---|---|
-| `starter.offer` | `offer, ctx -> offer` where `offer = { slotId, species, level, choseFlag, ballObject, rivalBall }` | Oak's Lab script before the Dex preview and confirmation. The resolved object drives preview, text, gift, choice flag, ball removal, and rival counterpick. |
 | `encounter.static` | `encounter, ctx -> encounter` where `ctx = { encounterId, mapId, save, game }` | Every fixed wild-battle call site before battle construction. `encounterId` must remain stable across saves and identify one-time flags separately from species. |
 | `pokemon.gift_offer` | `gift, ctx -> gift` where `gift = { giftId, species, level, price?, choiceGroup? }` | Every non-starter gift or Pokémon sale before preview/dialogue and payment. The resolved record then flows through `pokemon.before_give`. |
 | `trade.offer` | `trade, ctx -> trade` where `ctx = { tradeIndex, doneFlag, save, game }` | `Commands.trade`, immediately after reading `field.trades[tradeIndex]`. Return a copied record; never mutate merged data. |
@@ -561,7 +565,10 @@ For at least 10,000 generated seeds per preset:
 6. **General options and presets** — Implement every Section 5.1 setting, Casual/Standard/Chaos bundles, custom-state detection, run review, seed/run-code display, and clipboard fallback.
 7. **Wild global mapping** — Implement grass/surf global species mapping through `encounter.species`, unchanged levels, category isolation, and integration tests.
 8. **Wild area, fishing, and levels** — Add stable slot identity support, area-slot mappings, `encounter.fishing`, level modes, catchability validation, and rate/repel regression tests.
-9. **Starter engine seam** — Add and document `starter.offer`, refactor Oak's Lab to consume one resolved offer through preview/gift/flags/rival movement, and prove vanilla parity with no hook.
+9. **Starter mod compatibility seam** — Register only the three Oak's Lab
+   starter-ball talk handlers through API-2 `map_scripts`, resolve one offer
+   through preview/gift/flags/rival movement, and prove stock-v0.1.30 vanilla
+   parity without an engine patch.
 10. **Starter randomization** — Implement unique choices, basic-stage/type-triad rules, starter levels, saved rival counterpick projection, and three-choice end-to-end tests.
 11. **Static encounters and gifts** — Registry-back stable static/gift IDs, add/type-check `encounter.static` and `pokemon.gift_offer`, implement all species/level/uniqueness settings, and test legendary, fossil, Dojo, gift, and Pokémon-sale paths.
 12. **Trades and Game Corner prizes** — Add/type-check `trade.offer` and `shop.pokemon_prizes`, implement trade fairness plus prize species/level/price settings, preserve completion/payment/storage behavior, and test every offer.
