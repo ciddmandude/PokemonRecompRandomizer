@@ -148,8 +148,13 @@ return function(Constants)
     local status = self.saveStatus and self.saveStatus() or {}
     if status.active then
       local run = status.run
-      local canonical = run and run.seed and run.seed.canonical or "RUN"
-      return "LOCKED:" .. canonical:sub(1, 8)
+      local raceLocked = run and run.race and run.race.enabled
+        and not run.race.unlocked
+      local identity = raceLocked
+          and run.seed and run.seed.hash128
+        or run and run.seed and run.seed.canonical
+        or "RUN"
+      return "LOCKED:" .. identity:sub(1, 8)
     end
     if status.phase == "quarantined" then return "ACTIVE:DISABLED" end
     if status.phase == "created-vanilla"

@@ -8,9 +8,11 @@ local UInt32 = {}
 local UINT16 = 65536
 local UINT32_MOD = 4294967296
 local XOR_NIBBLE = {}
+local AND_NIBBLE = {}
 
 for a = 0, 15 do
   XOR_NIBBLE[a] = {}
+  AND_NIBBLE[a] = {}
   for b = 0, 15 do
     local av, bv, result, place = a, b, 0, 1
     for _ = 1, 4 do
@@ -18,7 +20,30 @@ for a = 0, 15 do
       av, bv, place = math.floor(av / 2), math.floor(bv / 2), place * 2
     end
     XOR_NIBBLE[a][b] = result
+    local av2, bv2, andResult, andPlace = a, b, 0, 1
+    for _ = 1, 4 do
+      if av2 % 2 == 1 and bv2 % 2 == 1 then
+        andResult = andResult + andPlace
+      end
+      av2, bv2, andPlace =
+        math.floor(av2 / 2), math.floor(bv2 / 2), andPlace * 2
+    end
+    AND_NIBBLE[a][b] = andResult
   end
+end
+
+function UInt32.band(a, b)
+  a, b = UInt32.normalize(a), UInt32.normalize(b)
+  local result, place = 0, 1
+  for _ = 1, 8 do
+    result = result + AND_NIBBLE[a % 16][b % 16] * place
+    a, b, place = math.floor(a / 16), math.floor(b / 16), place * 16
+  end
+  return result
+end
+
+function UInt32.bnot(value)
+  return 4294967295 - UInt32.normalize(value)
 end
 
 local function assertInteger(value, name)

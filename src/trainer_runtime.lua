@@ -34,6 +34,11 @@ function TrainerRuntime.party(party, oppClass, partyIndex, run)
     and type(classes[oppClass]) == "table"
     and classes[oppClass][partyIndex] or nil
   if not validParty(saved) then return party end
+  if type(run._speciesSet) == "table" then
+    for _, slot in ipairs(saved) do
+      if not run._speciesSet[slot.species] then return party end
+    end
+  end
 
   local output = {}
   for index, savedSlot in ipairs(saved) do

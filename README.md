@@ -5,7 +5,7 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 through 13 are complete. The project now includes the API-2
+Milestones 1 through 14 are complete. The project now includes the API-2
 scaffold, a golden-vector-locked deterministic foundation, and a deterministic
 species-pool pipeline:
 
@@ -68,6 +68,11 @@ species-pool pipeline:
 - unchanged, +/-10%, and progressive level modes plus saved party sizes;
 - boss include/themed/vanilla policies and early-game progression guards;
 - legal v0.1.30 boss-move handling with prior-mod move-list precedence.
+- saved race locking with Hall of Fame, credits, passphrase, and never policies;
+- authenticated encrypted spoiler export and plaintext post-unlock export;
+- final cross-category trade reachability repair through an isolated RNG stream;
+- missing merged-species vanilla fallbacks without stored-mapping rewrites;
+- relevant-mod fingerprints, save-size metrics, and 30,000 property cases.
 
 Global and area-slot walking, indoor, surfing, and optional fishing
 randomization are active. Encounter rates and probability buckets remain
@@ -99,6 +104,11 @@ when a save is created and serves the saved result through the public
 type themes, and progression guards are persisted with the run. No engine
 patch or custom app build is required.
 
+Milestone 14 adds local race safeguards, spoiler export, final validation,
+compatibility fingerprints, and missing-content fallbacks. Spoiler files are
+written only when the player selects the export action, so v0.14.0 declares
+the `filesystem` permission. It requires no engine patch.
+
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
 [Deterministic Foundation v1](docs/determinism-v1.md).
@@ -124,17 +134,19 @@ The mod-only trade and prize implementation is defined in
 [NPC Trades and Game Corner Prizes v1](docs/trades-prizes-v1.md).
 Trainer generation and hook composition are defined in
 [Trainer Randomization v1](docs/trainers-v1.md).
+Race protection, validation, fallbacks, and budgets are defined in
+[Race Mode, Validation, and Compatibility v1](docs/race-validation-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.13.0`
+- randomizer mod version: `0.14.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
-- requested permissions: none
+- requested permissions: `filesystem` (spoiler export only)
 
 The engine validates the API and game-version range before executing the mod.
 The bootstrap also verifies the mod object's required API-2 surfaces. A failed
@@ -285,7 +297,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 13
+## Design guarantees established through milestone 14
 
 - Gameplay hooks are registered only after deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.

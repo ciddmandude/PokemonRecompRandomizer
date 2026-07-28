@@ -9,6 +9,15 @@ return function(Catalog)
     local mappings = type(run) == "table" and run.mappings
     local category = type(mappings) == "table" and mappings[bucket]
     local value = type(category) == "table" and category[id]
+    if type(value) == "table" and type(run._speciesSet) == "table" then
+      local missing = (type(value.species) == "string"
+          and not run._speciesSet[value.species])
+        or (type(value.requested) == "table"
+          and not run._speciesSet[value.requested.species])
+        or (type(value.received) == "table"
+          and not run._speciesSet[value.received.species])
+      if missing then return nil end
+    end
     return type(value) == "table" and value or nil
   end
 

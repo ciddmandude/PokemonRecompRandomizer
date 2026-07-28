@@ -12,6 +12,7 @@ local commandRecords = {
   static_battle = function() end,
   give_pokemon = function() end,
   trade = function() end,
+  record_hall_of_fame = function() end,
 }
 local optionSchema
 local pushedScreen
@@ -20,7 +21,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.13.0",
+  version = "0.14.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -168,6 +169,10 @@ local mod = {
         commandRecords[id] = command
         return command
       end,
+      override = function(_, id, command)
+        commandRecords[id] = command
+        return command
+      end,
     },
   },
   exports = {},
@@ -266,9 +271,10 @@ assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
 assert(type(callbacks["save.loaded"]) == "function")
 assert(type(callbacks["save.writing"]) == "function")
-assert(#migrations == 2)
+assert(#migrations == 3)
 assert(migrations[1].since == "0.4.0")
 assert(migrations[2].since == "0.6.0")
+assert(migrations[3].since == "0.14.0")
 
 mod.exports.registerSpeciesMeta("TESTMON", { legendary = true })
 local manifest = mod.exports.species.buildManifest({ poolMode = "merged" })
@@ -282,7 +288,7 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
-assert(logs[1]:match("milestone 13 ready"))
+assert(logs[1]:match("milestone 14 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
   mod.exports.registerSpeciesMeta("LATE_MON", { legendary = false })
@@ -393,7 +399,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.13.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.14.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })
@@ -442,6 +448,7 @@ local legacyHash = legacy.compatibility.settingsHash
 migrations[2].callback(legacy)
 assert(type(legacy.compatibility.settingsHash) == "string")
 assert(legacy.compatibility.settingsHash == legacyHash)
+migrations[3].callback(legacy)
 local migratedValid = mod.exports.save.validate(legacy, nil, true)
 assert(migratedValid)
 

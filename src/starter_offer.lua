@@ -39,7 +39,11 @@ function StarterOffer.resolve(offer, context, run)
       and run.mappings.starters
   local resolved = type(mappings) == "table"
       and mappings[offer.slotId] or nil
-  if StarterOffer.validate(resolved) then return copy(resolved) end
+  if StarterOffer.validate(resolved)
+      and not (type(run._speciesSet) == "table"
+        and not run._speciesSet[resolved.species]) then
+    return copy(resolved)
+  end
   return copy(offer)
 end
 

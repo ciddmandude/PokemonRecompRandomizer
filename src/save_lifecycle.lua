@@ -119,8 +119,7 @@ return function(Constants, Generator, SaveState, General)
     end
 
     local manifest = self:manifest(namespace.settings)
-    local valid, errors = SaveState.validate(
-      namespace, speciesSet(manifest), true)
+    local valid, errors = SaveState.validate(namespace, nil, true)
     if not valid then
       self.session.active = nil
       self.session.report = {
@@ -135,8 +134,31 @@ return function(Constants, Generator, SaveState, General)
       return false, self.session.report
     end
 
+    local _, contentErrors = SaveState.validate(
+      namespace, speciesSet(manifest), true)
+    local missing = {}
+    for _, row in ipairs(contentErrors) do
+      if row.code == "MISSING_SPECIES" then
+        local id = row.message and row.message:match("^[^ ]+")
+        missing[row.path] = true
+      end
+    end
     self.session.active = namespace.enabled and SaveState.clone(namespace) or nil
-    self.session.report = { code = "OK", errors = {} }
+    if self.session.active and next(missing) then
+      self.session.active._missingSpeciesPaths = missing
+      self.session.active._speciesSet = speciesSet(manifest)
+      self.session.report = {
+        code = "MISSING_CONTENT_FALLBACK",
+        missingCount = #contentErrors,
+        errors = {},
+      }
+      self.log:warn(
+        "saved mappings reference %d unavailable content path%s; "
+          .. "runtime uses vanilla lookup fallbacks",
+        #contentErrors, #contentErrors == 1 and "" or "s")
+    else
+      self.session.report = { code = "OK", errors = {} }
+    end
     self.session.phase = namespace.enabled and "loaded" or "loaded-vanilla"
     return true, self.session.report
   end
@@ -148,10 +170,8 @@ return function(Constants, Generator, SaveState, General)
       and event.save.modData[Constants.MOD_ID]
     if namespace == nil then return true, nil end
 
-    local manifest = self:manifest(namespace.settings)
-    local set = speciesSet(manifest)
     local currentValid, currentErrors =
-      SaveState.validate(namespace, set, true)
+      SaveState.validate(namespace, nil, true)
     if not currentValid then
       self.log:error(
         "randomizer state failed pre-write validation (%d issue%s); "
@@ -178,7 +198,7 @@ return function(Constants, Generator, SaveState, General)
         candidate.settings,
         event.meta and event.meta.mods).relevantMods
 
-    local stamped, errors = SaveState.stamp(candidate, set)
+    local stamped, errors = SaveState.stamp(candidate)
     if not stamped then
       self.log:error(
         "randomizer state failed pre-write validation (%d issue%s)",
@@ -192,6 +212,13 @@ return function(Constants, Generator, SaveState, General)
 
   function Lifecycle:activeRun()
     return self.session.active and SaveState.clone(self.session.active) or nil
+  end
+
+  function Lifecycle:replaceActive(namespace)
+    self.session.active = type(namespace) == "table" and namespace.enabled
+      and SaveState.clone(namespace) or nil
+    if self.session.active then self.session.phase = "updated" end
+    return self:activeRun()
   end
 
   function Lifecycle:status()

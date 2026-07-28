@@ -31,7 +31,9 @@ function StarterRuntime.party(party, oppClass, partyIndex, run)
   local offset = ((partyIndex - 1) % 3) + 1
   local chosen = starters[slots[offset]]
   if type(chosen) ~= "table" or type(chosen.rivalSpecies) ~= "string"
-      or chosen.rivalSpecies == "" then
+      or chosen.rivalSpecies == ""
+      or (type(run._speciesSet) == "table"
+        and not run._speciesSet[chosen.rivalSpecies]) then
     return party
   end
   local output = copyParty(party)

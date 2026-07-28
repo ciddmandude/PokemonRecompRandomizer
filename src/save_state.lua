@@ -145,9 +145,11 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
       for index, row in ipairs(value.relevantMods) do
         local path = ("compatibility.relevantMods[%d]"):format(index)
         if type(row) ~= "table" or type(row.id) ~= "string"
-            or row.id == "" or type(row.version) ~= "string" then
+            or row.id == "" or type(row.version) ~= "string"
+            or type(row.fingerprint) ~= "string"
+            or row.fingerprint == "" then
           addError(errors, path, "TYPE",
-            "mod rows require string id and version")
+            "mod rows require string id, version, and fingerprint")
         elseif previous and row.id <= previous then
           addError(errors, path .. ".id", "ORDER",
             "relevant mods must be unique and sorted by id")
@@ -315,7 +317,16 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     local race = namespace.race
     if type(race) ~= "table" or type(race.enabled) ~= "boolean"
         or type(race.unlocked) ~= "boolean"
-        or type(race.unlockPolicy) ~= "string" then
+        or (race.unlockPolicy ~= "hall_of_fame"
+          and race.unlockPolicy ~= "credits"
+          and race.unlockPolicy ~= "passphrase"
+          and race.unlockPolicy ~= "never")
+        or (race.encryptedSpoilerDigest ~= nil
+          and type(race.encryptedSpoilerDigest) ~= "string")
+        or (race.passphraseSalt ~= nil
+          and type(race.passphraseSalt) ~= "string")
+        or (race.passphraseVerifier ~= nil
+          and type(race.passphraseVerifier) ~= "string") then
       addError(errors, "race", "TYPE", "race state is malformed")
     end
   end
@@ -439,6 +450,11 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
         byId[row.id] = {
           id = row.id,
           version = tostring(row.version or ""),
+          fingerprint = hashValue("relevant-mod-v1", {
+            id = row.id,
+            version = tostring(row.version or ""),
+            api = tonumber(row.api) or 0,
+          }),
         }
       end
     end
@@ -473,10 +489,15 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
       mappings = mappings,
       diagnostics = diagnostics,
       race = {
-        enabled = false,
-        unlockPolicy = "hall_of_fame",
-        unlocked = false,
+        enabled = input.settings
+          and input.settings.race_mode == "on" or false,
+        unlockPolicy = input.settings
+          and input.settings.spoiler_unlock or "hall_of_fame",
+        unlocked = not (input.settings
+          and input.settings.race_mode == "on"),
         encryptedSpoilerDigest = nil,
+        passphraseSalt = nil,
+        passphraseVerifier = nil,
       },
     }
   end
@@ -601,12 +622,65 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     end
     migrated.diagnostics = migrated.diagnostics
       or { warnings = {}, fallbackCount = 0 }
+    if type(migrated.compatibility) == "table"
+        and type(migrated.compatibility.relevantMods) == "table" then
+      for _, row in ipairs(migrated.compatibility.relevantMods) do
+        if type(row) == "table" and type(row.id) == "string"
+            and type(row.fingerprint) ~= "string" then
+          row.fingerprint = hashValue("relevant-mod-v1", {
+            id = row.id,
+            version = tostring(row.version or ""),
+            api = tonumber(row.api) or 0,
+          })
+        end
+      end
+    end
     migrated.race = migrated.race or {
       enabled = false,
       unlockPolicy = "hall_of_fame",
-      unlocked = false,
+      unlocked = true,
       encryptedSpoilerDigest = nil,
+      passphraseSalt = nil,
+      passphraseVerifier = nil,
     }
+    return migrated
+  end
+
+  function SaveState.upgradeM14(namespace)
+    if type(namespace) ~= "table" then return namespace end
+    local migrated = clone(namespace)
+    local compatibility = migrated.compatibility
+    if type(compatibility) == "table"
+        and type(compatibility.relevantMods) == "table" then
+      for _, row in ipairs(compatibility.relevantMods) do
+        if type(row) == "table" and type(row.id) == "string"
+            and type(row.fingerprint) ~= "string" then
+          row.fingerprint = hashValue("relevant-mod-v1", {
+            id = row.id,
+            version = tostring(row.version or ""),
+            api = tonumber(row.api) or 0,
+          })
+        end
+      end
+    end
+    migrated.race = type(migrated.race) == "table"
+      and migrated.race or {}
+    local race = migrated.race
+    race.enabled = migrated.settings
+      and migrated.settings.race_mode == "on" or false
+    race.unlockPolicy = migrated.settings
+      and migrated.settings.spoiler_unlock or "hall_of_fame"
+    if type(race.unlocked) ~= "boolean" or not race.enabled then
+      race.unlocked = not race.enabled
+    end
+    if race.encryptedSpoilerDigest ~= nil
+        and type(race.encryptedSpoilerDigest) ~= "string" then
+      race.encryptedSpoilerDigest = nil
+    end
+    race.passphraseSalt = type(race.passphraseSalt) == "string"
+      and race.passphraseSalt or nil
+    race.passphraseVerifier = type(race.passphraseVerifier) == "string"
+      and race.passphraseVerifier or nil
     return migrated
   end
 

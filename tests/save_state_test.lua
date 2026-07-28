@@ -46,6 +46,8 @@ local compatibility = SaveState.compatibility({
 })
 equal(compatibility.relevantMods[1].id, "a_mod", "sorted relevant mod")
 equal(compatibility.relevantMods[2].id, "z_mod", "self mod omitted")
+assert(type(compatibility.relevantMods[1].fingerprint) == "string",
+  "relevant mods receive deterministic fingerprints")
 
 local species = {
   { id = "BULBASAUR" },
@@ -146,5 +148,20 @@ assert(migrated.futureField.preserved, "unknown field preserved")
 migrated = assert(SaveState.stamp(migrated, set))
 valid, errors = SaveState.validate(migrated, set, true)
 assert(valid, errors[1] and errors[1].message)
+
+local preM14 = SaveState.clone(namespace)
+for _, row in ipairs(preM14.compatibility.relevantMods) do
+  row.fingerprint = nil
+end
+preM14.race = {
+  enabled = false, unlockPolicy = "hall_of_fame", unlocked = false,
+}
+local upgraded = SaveState.upgradeM14(preM14)
+assert(upgraded ~= preM14 and upgraded.race.unlocked,
+  "M14 migration copies and unlocks non-race saves")
+assert(type(upgraded.compatibility.relevantMods[1].fingerprint) == "string",
+  "M14 migration adds relevant-mod fingerprints")
+upgraded = assert(SaveState.stamp(upgraded, set))
+assert(SaveState.validate(upgraded, set, true))
 
 io.write("save_state_test: ok\n")

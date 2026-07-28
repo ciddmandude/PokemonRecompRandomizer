@@ -32,7 +32,7 @@ local mod = {
 local preferences = Preferences.new(mod)
 preferences:define()
 equal(#defined, 34, "complete preference row count")
-equal(#preferences:pages(), 12, "paged schema count")
+equal(#preferences:pages(), 13, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
   for _, row in ipairs(page.rows) do
@@ -197,6 +197,17 @@ local locked = Screen.new(game, preferences, ui, function()
   }
 end)
 equal(locked:runLabel(), "LOCKED:LOCKED-S", "locked-run label")
+local raceLocked = Screen.new(game, preferences, ui, function()
+  return {
+    active = true,
+    run = {
+      seed = { canonical = "SECRET", hash128 = "HASHED-SEED" },
+      race = { enabled = true, unlocked = false },
+    },
+  }
+end)
+equal(raceLocked:runLabel(), "LOCKED:HASHED-S",
+  "race lock label uses seed hash")
 
 local drawn, rectangles = {}, {}
 ui.Font = {

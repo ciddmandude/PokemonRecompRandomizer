@@ -226,12 +226,16 @@ return function(SaveState)
         or type(run.compatibility) ~= "table" then
       return nil
     end
-    return table.concat({
+    local code = table.concat({
       "R1",
       prefix(run.seed.hash128),
       prefix(run.compatibility.settingsHash),
       prefix(run.compatibility.poolHash),
     }, "-")
+    if type(run.race) == "table" and run.race.enabled then
+      code = code .. "-R"
+    end
+    return code
   end
 
   function General.reviewWarnings(settings)

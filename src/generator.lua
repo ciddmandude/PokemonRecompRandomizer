@@ -1,7 +1,8 @@
 -- Public, pure generator boundary.
 return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory, TradePrizeCategory, TrainerCategory)
+    StaticGiftCategory, TradePrizeCategory, TrainerCategory,
+    ValidationCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -217,6 +218,33 @@ return function(
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 1
       end
+    end
+
+    local ok, validation = pcall(ValidationCategory.apply,
+      result.mappings, request.settings, Foundation.Rng.fromSeed(
+        request.seed.canonical, "validation.swaps"))
+    if ok then
+      for _, row in ipairs(validation.warnings) do
+        result.diagnostics.warnings[
+          #result.diagnostics.warnings + 1] = row
+      end
+      result.diagnostics.fallbackCount =
+        result.diagnostics.fallbackCount + validation.fallbackCount
+      result.diagnostics.validation = {
+        repairSwaps = validation.repairSwaps,
+        reachableSpecies = validation.reachableSpecies,
+        mappingEntries = validation.mappingEntries,
+        estimatedBytes = validation.estimatedBytes,
+      }
+    else
+      result.diagnostics.warnings[
+        #result.diagnostics.warnings + 1] = {
+          code = "CROSS_CATEGORY_VALIDATION_FAILED",
+          message = "cross-category validation failed; generated mappings "
+            .. "were retained without final repair",
+        }
+      result.diagnostics.fallbackCount =
+        result.diagnostics.fallbackCount + 1
     end
     return result, nil
   end

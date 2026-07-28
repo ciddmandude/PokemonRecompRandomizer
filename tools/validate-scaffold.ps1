@@ -15,6 +15,7 @@ $requiredFiles = @(
   'src/uint32.lua',
   'src/seed.lua',
   'src/hash128.lua',
+  'src/sha256.lua',
   'src/rng.lua',
   'src/stable_sort.lua',
   'src/canonical.lua',
@@ -44,6 +45,10 @@ $requiredFiles = @(
   'src/trade_prize_compat.lua',
   'src/trainer_category.lua',
   'src/trainer_runtime.lua',
+  'src/validation_category.lua',
+  'src/race_crypto.lua',
+  'src/spoiler_log.lua',
+  'src/race_controller.lua',
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
@@ -60,6 +65,7 @@ $requiredFiles = @(
   'tests/static_gift_m11_test.lua',
   'tests/trade_prize_m12_test.lua',
   'tests/trainer_m13_test.lua',
+  'tests/race_validation_m14_test.lua',
   'tools/test.ps1',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
@@ -73,6 +79,7 @@ $requiredFiles = @(
   'docs/static-gifts-v1.md',
   'docs/trades-prizes-v1.md',
   'docs/trainers-v1.md',
+  'docs/race-validation-v1.md',
   'docs/randomizer-spec.md'
 )
 
@@ -99,17 +106,18 @@ if ($manifest.game_version -ne '>=0.1.30 <0.2.0') {
 if ($manifest.entry -ne 'main.lua') {
   throw "manifest entry must be main.lua"
 }
-if (@($manifest.permissions).Count -ne 0) {
-  throw "randomizer must not request permissions"
+if (@($manifest.permissions).Count -ne 1 `
+    -or $manifest.permissions[0] -ne 'filesystem') {
+  throw "milestone 14 requires only the filesystem permission"
 }
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.13.0') {
-  throw "manifest version must be 0.13.0 for milestone 13"
+if ($manifest.version -ne '0.14.0') {
+  throw "manifest version must be 0.14.0 for milestone 14"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.13\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.13.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.14\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.14.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

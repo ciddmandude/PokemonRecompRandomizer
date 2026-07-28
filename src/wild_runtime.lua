@@ -34,6 +34,8 @@ function WildRuntime.resolve(encounter, context, run)
     return encounter
   end
   if type(replacement) ~= "string" or replacement == "" then return encounter end
+  if type(run._speciesSet) == "table"
+      and not run._speciesSet[replacement] then return encounter end
   local resolved = copyRecord(encounter)
   resolved.species = replacement
   if type(slot) == "table" and type(slot.level) == "number" then
@@ -91,6 +93,8 @@ function WildRuntime.fishing(encounter, rod, mapId, candidates, run)
     if type(replacement) ~= "string" or replacement == "" then
       return encounter
     end
+    if type(run._speciesSet) == "table"
+        and not run._speciesSet[replacement] then return encounter end
     local resolved = copyRecord(encounter)
     resolved.species = replacement
     return resolved
@@ -120,6 +124,8 @@ function WildRuntime.fishing(encounter, rod, mapId, candidates, run)
     replacement = slot.species
   end
   if type(replacement) ~= "string" or replacement == "" then return encounter end
+  if type(run._speciesSet) == "table"
+      and not run._speciesSet[replacement] then return encounter end
   local resolved = copyRecord(encounter)
   resolved.species = replacement
   if type(slot) == "table" and type(slot.level) == "number" then

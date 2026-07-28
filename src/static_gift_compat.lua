@@ -16,7 +16,9 @@ return function(Catalog)
     local bucket = type(mappings) == "table" and mappings[category]
     local saved = type(bucket) == "table" and bucket[id]
     if type(saved) == "table" and type(saved.species) == "string"
-        and type(saved.level) == "number" then
+        and type(saved.level) == "number"
+        and not (type(run._speciesSet) == "table"
+          and not run._speciesSet[saved.species]) then
       return saved, true
     end
     return { species = source, level = level }, false

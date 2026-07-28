@@ -67,6 +67,23 @@ return function(Constants, Schema, General)
         },
         {
           kind = "action",
+          key = "export_spoiler_log",
+          label = "EXPORT SPOILERS",
+          help = "WRITE PLAIN OR ENCRYPTED RUN LOG.",
+        },
+        {
+          kind = "action",
+          key = "unlock_spoilers",
+          label = "UNLOCK SPOILERS",
+          help = "USE SAVED POLICY OR PASSPHRASE.",
+        },
+      },
+    }
+    pages[#pages + 1] = {
+      name = "ACTIONS",
+      rows = {
+        {
+          kind = "action",
           key = "reset_defaults",
           label = "RESET DEFAULTS",
           help = "RESTORE STANDARD; CLEAR SEED TEXT.",

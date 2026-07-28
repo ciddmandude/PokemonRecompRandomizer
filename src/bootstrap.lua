@@ -3,7 +3,8 @@
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat, TradePrizeCompat, TrainerRuntime)
+    StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
+    RaceController, RaceCrypto, SpoilerLog)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -56,6 +57,8 @@ return function(
       "mod.content.commands:get")
     assertFunction(mod.content.commands, "register",
       "mod.content.commands:register")
+    assertFunction(mod.content.commands, "override",
+      "mod.content.commands:override")
     assertFunction(mod.content.field, "get",
       "mod.content.field:get")
     assertFunction(mod.log, "info", "mod.log:info")
@@ -199,11 +202,14 @@ return function(
       mod, function() return lifecycle:activeRun() end)
     TradePrizeCompat.install(
       mod, function() return lifecycle:activeRun() end)
+    local raceActions = RaceController.install(mod, lifecycle)
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
       validate = SaveState.validate,
       checksum = SaveState.checksum,
-      activeRun = function() return lifecycle:activeRun() end,
+      activeRun = function()
+        return SpoilerLog.publicRun(lifecycle:activeRun())
+      end,
       status = function() return lifecycle:status() end,
     }
     publicApi.preferences = {
@@ -215,6 +221,12 @@ return function(
       behaviorSettings = Options.General.behaviorSettings,
     }
     publicApi.runCode = Options.General.runCode
+    publicApi.spoilers = {
+      locked = SpoilerLog.isLocked,
+      decrypt = RaceCrypto.decrypt,
+      format = RaceCrypto.format,
+      kdf = RaceCrypto.kdf,
+    }
 
     for key, value in pairs(publicApi) do mod.exports[key] = value end
 
@@ -270,7 +282,11 @@ return function(
           local run = lifecycle:activeRun()
           if not run then return "NO ACTIVE RUN" end
           local code = Options.General.runCode(run)
-          local text = "SEED: " .. run.seed.canonical
+          local raceLocked = SpoilerLog.isLocked(run)
+          local shownSeed = raceLocked and run.seed.hash128
+            or run.seed.canonical
+          local text = (raceLocked and "SEED HASH: " or "SEED: ")
+            .. shownSeed
             .. "\nRUN CODE: " .. code
           local copied = false
           local system = love and love.system
@@ -281,8 +297,8 @@ return function(
           mod.ui.push(activeGame, Constants.REVIEW_SCREEN_ID, {
             title = "ACTIVE RUN",
             lines = {
-              "SEED",
-              run.seed.canonical,
+              raceLocked and "SEED HASH" or "SEED",
+              shownSeed,
               "RUN CODE",
               code,
               "ALGORITHM " .. run.algorithmVersion,
@@ -303,6 +319,8 @@ return function(
           game, preferences, mod.ui, screenStatus, {
             review_next_run = reviewNextRun,
             copy_active_seed = copyActiveSeed,
+            export_spoiler_log = raceActions.export_spoiler_log,
+            unlock_spoilers = raceActions.unlock_spoilers,
           })
       end,
     })
@@ -395,6 +413,19 @@ return function(
         for key, value in pairs(stamped) do namespace[key] = value end
       end)
 
+    mod.migrations:add(
+      Constants.RACE_MIGRATION_VERSION, function(namespace)
+        local migrated = SaveState.upgradeM14(namespace)
+        if migrated == namespace then return end
+        local stamped, errors = SaveState.stamp(migrated)
+        if not stamped then
+          error(("M14 migration failed validation (%d issue%s)")
+            :format(#errors, #errors == 1 and "" or "s"))
+        end
+        for key in pairs(namespace) do namespace[key] = nil end
+        for key, value in pairs(stamped) do namespace[key] = value end
+      end)
+
     mod.events:on("save.created", function(event)
       lifecycle:onCreated(event)
     end)
@@ -411,7 +442,7 @@ return function(
     mod.events:once("mods.loaded", function()
       Species.Metadata:freeze()
       mod.log:info(
-        "milestone 13 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
+        "milestone 14 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
         Constants.SAVE_SCHEMA_VERSION,
         Constants.SPECIES_MANIFEST_VERSION,

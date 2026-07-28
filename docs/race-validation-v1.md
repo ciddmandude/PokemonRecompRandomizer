@@ -1,0 +1,100 @@
+# Race mode, validation, and compatibility v1
+
+Milestone 14 implements the race, final-validation, missing-content, and budget
+requirements for mod version `0.14.0` on gen1recomp v0.1.30.
+
+## Race state and visibility
+
+A new save copies `race_mode` and `spoiler_unlock` into the checksummed run.
+Non-race runs begin unlocked. Race runs begin locked and add `-R` to the run
+code. While locked:
+
+- the active-run public export omits the canonical seed and all mappings;
+- Copy Active Seed shows the seed hash and run code instead of the seed;
+- plaintext spoiler export is unavailable;
+- diagnostics exposed by the public view contain counts, not mapping keys or
+  species details.
+
+Unlocking is one-way and never modifies mappings. `HALL OF FAME` unlocks when
+the stock `record_hall_of_fame` command begins; `CREDITS` unlocks after that
+command resumes from the credits; `PASSPHRASE` verifies an organizer
+passphrase; and `NEVER` has no in-game unlock path. The implementation wraps
+the public command registry and delegates to the exact prior command.
+
+Race Mode deters accidental spoilers. Local saves, exported files, mod source,
+and client memory remain inspectable, so it is not server-grade anti-cheat.
+
+## Spoiler exports
+
+`EXPORT SPOILERS` writes under LÖVE's save directory:
+
+- unlocked/non-race: `pokemon_randomizer/spoilers/SEEDHASH.txt`;
+- locked race: `pokemon_randomizer/spoilers/SEEDHASH.race`.
+
+Locked export always prompts for a passphrase and never falls back to
+plaintext. The versioned `PRRACE1` envelope contains authenticated algorithm,
+settings, pool, and seed hashes. It uses:
+
+- a unique 256-bit salt and nonce derived from per-action process entropy;
+- a 256-block, two-pass memory-mixing password KDF;
+- an HMAC-SHA-256 counter keystream;
+- encrypt-then-HMAC-SHA-256 authentication with constant-work tag comparison.
+
+SHA-256 and HMAC have known-vector tests. Correct-passphrase, wrong-passphrase,
+and modified-ciphertext tests cover the complete envelope. The passphrase and
+derived keys are never stored. For the `PASSPHRASE` unlock policy, the first
+encrypted export saves only a salted verifier and the most recent encrypted
+file authentication digest.
+
+The manifest requests only `filesystem`, because export is the sole privileged
+operation. Failure to initialize the filesystem, entropy, KDF, encryption, or
+write reports `EXPORT FAILED`; no plaintext is written.
+
+## Final cross-category validation
+
+After all category generators finish, the independent `validation.swaps`
+stream builds a reachability set from wild encounters, fishing, starters,
+supported statics/gifts, and Game Corner Pokémon. If a requested NPC-trade
+species is unreachable, the validator swaps it with a duplicate reachable wild
+destination. This preserves mapping counts and the generated species multiset.
+If no safe donor exists, it records `TRADE_REACHABILITY_UNSATISFIED` without
+an unbounded retry.
+
+Saved diagnostics include:
+
+- deterministic repair-swap count;
+- reachable species count;
+- mapping node count;
+- canonical serialized mapping byte estimate.
+
+The mapping budget is 1 MiB. Exceeding it records a validation warning.
+
+## Missing merged content
+
+Load validation separates structural/checksum failures from missing species.
+Structural damage still quarantines the session. If only mapped species are
+missing, the checksummed namespace remains untouched and active:
+
+- wild encounters return the prior encounter;
+- starter offers return the physical ball's vanilla offer;
+- supported statics, gifts, trades, and prizes use their recorded stock source;
+- trainer parties return the complete prior-hook party;
+- rival starter projection is skipped when its saved species is unavailable.
+
+The stored mapping is never silently rewritten. Restoring the missing content
+therefore restores the original randomized lookup.
+
+## Compatibility fingerprints and migration
+
+Relevant mods are sorted and saved as `{id, version, fingerprint}`. The
+fingerprint hashes ID, version, and API using the repository's canonical
+compatibility hash. The v0.14.0 migration adds these fingerprints and derives
+race state from the already-saved M13 settings without regenerating mappings.
+
+## Test and performance budgets
+
+The required suite includes 10,000 bounded property cases for each Casual,
+Standard, and Chaos preset (30,000 total), authenticated-envelope tamper tests,
+repair invariants, missing-content runtime fallbacks, and save-size checks.
+Generation uses finite registry passes and bounded candidate selection; runtime
+lookups retain their existing constant-time mapping access.

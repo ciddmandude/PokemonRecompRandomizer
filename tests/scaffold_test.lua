@@ -28,6 +28,8 @@ local WildCategory = loadFactory(
   "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal)
 local StarterCategory = loadFactory(
   "src/starter_category.lua", StableSort)
+local ValidationCategory = loadFactory(
+  "src/validation_category.lua", StableSort, Canonical)
 local SaveState = loadFactory("src/save_state.lua",
   Constants, Seed, Hash128, Canonical, StableSort, Contracts)
 local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
@@ -42,11 +44,11 @@ local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
   Manifest = SpeciesManifest,
   Filters = SpeciesFilters,
   VanillaSpecies = VanillaSpecies,
-}, WildCategory, StarterCategory)
+}, WildCategory, StarterCategory, nil, nil, nil, ValidationCategory)
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
-assert(Constants.MOD_VERSION == "0.13.0")
+assert(Constants.MOD_VERSION == "0.14.0")
 assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
 assert(Constants.OPTIONS_SCREEN_ID == "PokemonRandomizerOptions")
 assert(Constants.REVIEW_SCREEN_ID == "PokemonRandomizerReview")

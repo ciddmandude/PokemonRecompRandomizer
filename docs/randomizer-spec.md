@@ -358,7 +358,7 @@ Requirements:
 
 ### 8.2 Optional future upstream seams
 
-Version 0.13.0 requires no engine extension. The following hooks would make
+Version 0.14.0 requires no engine extension. The following hooks would make
 future total-conversion interoperability simpler, but the stock-v0.1.30
 implementation uses only public API-2 composition. If added upstream, unused
 hooks must return vanilla data unchanged.
