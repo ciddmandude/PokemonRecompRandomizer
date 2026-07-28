@@ -142,6 +142,106 @@ Trainer generation and hook composition are defined in
 Race protection, validation, fallbacks, and budgets are defined in
 [Race Mode, Validation, and Compatibility v1](docs/race-validation-v1.md).
 
+## Settings
+
+The Randomizer screen is opened from the main Options menu. These values are
+preferences for the **next** New Game: starting a game validates the settings
+and saves a snapshot with that run. Changing the Options menu later does not
+reroll an existing save. `OFF` on the master Randomizer setting creates a
+vanilla run without deleting saved preferences.
+
+### General
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Randomizer | `OFF`, `ON` | `ON` | Master switch for the next New Game. |
+| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS` | `STANDARD` | Applies a settings bundle. Editing a bundled value changes this to `CUSTOM`. |
+| Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` creates a new 128-bit seed; `MANUAL` uses Seed Text. |
+| Seed Text | 1–32 characters | blank | Manual seed using letters, digits, spaces, hyphens, or underscores. It is trimmed, uppercased, and saved in canonical form. |
+| Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | Uses only the original 151, or all valid species contributed through the merged registry. |
+| Similar Strength | `OFF`, `±10%`, `±20%` | `±20%` | Restricts candidates by base-stat total, widening deterministically if the band is empty. |
+| Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | Excludes legendaries, maps legendary status like-for-like, or treats them like any species. |
+| Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | Samples with replacement or maximizes unique destinations until the eligible pool is exhausted. |
+| Race Mode | `OFF`, `ON` | `OFF` | Locks spoiler access, hides mapping details, and records race state in the run code. This is a local race aid, not tamper-proof anti-cheat. |
+| Spoiler Unlock | `HALL OF FAME`, `CREDITS`, `PASSPHRASE`, `NEVER` | `HALL OF FAME` | Selects when spoilers for a Race Mode save become available. |
+
+### Wild Pokémon
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Wild Pokémon | `OFF`, `GLOBAL MAP`, `AREA SLOTS` | `GLOBAL MAP` | Leaves encounters vanilla, consistently maps each source species everywhere, or randomizes each map/terrain/slot independently. |
+| Fishing | `VANILLA`, `RANDOMIZED` | `RANDOMIZED` | Controls Old, Good, and Super Rod encounters separately from walking and surfing. |
+| Wild Levels | `UNCHANGED`, `±2`, `SCALED` | `UNCHANGED` | Preserves levels, applies a saved -2 to +2 offset, or compensates for source/destination strength. |
+| Catchability Guard | `OFF`, `ON` | `ON` | When mathematically possible, ensures every non-legendary destination is reachable before the Elite Four. |
+
+Encounter rates, slot probability buckets, and Repel behavior remain vanilla.
+
+### Starters
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | Keeps the original trio, chooses three unique species, or attempts a three-way primary-type effectiveness cycle. |
+| Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | Allows any eligible species or only species without a pre-evolution. |
+| Starter Level | `2`–`20` | `5` | Sets the level shown in Oak's Lab and the level of the received starter. |
+| Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | Uses the vanilla ball relationship, the strongest matchup, or either unchosen starter. |
+
+### Static encounters and gifts
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Static Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes the supported named encounters: the eight Power Plant balls, legendary birds, Mewtwo, and both Snorlax. |
+| Static Levels | `UNCHANGED`, `SCALED`, `RANDOM ±5` | `UNCHANGED` | Preserves levels, compensates for strength, or applies a saved -5 to +5 offset. |
+| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, and the Route 4 Magikarp seller. |
+| Gift Levels | `UNCHANGED`, `SCALED`, `FIXED 15` | `UNCHANGED` | Preserves each gift level, compensates for strength, or gives supported gifts at level 15. |
+| Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | Prevents duplicate destinations among supported gifts while candidates remain. |
+
+Generic object-event statics, ghost Marowak, the catching tutorial, fossil
+restoration, and legendary overworld object sprites remain vanilla in the
+mod-only release because the current public API has no safe hook for them.
+
+### In-game trades
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| In-game Trades | `OFF`, `RECEIVED`, `BOTH SIDES` | `BOTH SIDES` | Keeps trades vanilla, randomizes only the received species, or randomizes both the requested and received species. |
+| Trade Fairness | `ANY`, `SIMILAR STRENGTH`, `NO DOWNGRADE` | `SIMILAR STRENGTH` | Uses the full eligible pool, applies the strength band, or avoids a received Pokémon more than 5% weaker when possible. |
+| Trade Evolution Safety | `OFF`, `ON` | `ON` | Prevents same-species exchanges and requests that cannot be obtained under Catchability Guard. |
+
+The nine NPC-wired trades are generated by stable trade index. Their normal
+one-time completion flags, nicknames, OT behavior, and trade flow are retained.
+
+### Celadon Game Corner Prize Exchange
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Prize Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Pokémon prizes for the active game version. TM prizes remain unchanged. |
+| Prize Levels | `UNCHANGED`, `FIXED 15`, `SCALED` | `UNCHANGED` | Preserves the slot level, fixes it at 15, or compensates for source/destination strength. |
+| Prize Prices | `UNCHANGED`, `BY STRENGTH`, `RANDOM ±25%` | `UNCHANGED` | Preserves coin cost, scales it by base-stat total, or applies a saved ±25% modifier. |
+
+### Trainers
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Trainer Pokémon | `OFF`, `GLOBAL MAP`, `BY SLOT`, `TYPE THEMED` | `BY SLOT` | Keeps parties vanilla, consistently maps source species, resolves every party slot independently, or gives each trainer class a saved type theme. Enabled modes avoid self-maps whenever another valid candidate exists. |
+| Trainer Levels | `UNCHANGED`, `±10%`, `PROGRESSIVE` | `UNCHANGED` | Preserves levels, applies a saved 90–110% multiplier, or adjusts them by the source party's progression tier. |
+| Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Makes bosses follow the main mode, guarantees a per-boss type theme, or leaves boss parties vanilla. |
+| Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | Preserves party count or generates a saved count, with early-game limits when Progression Guard is on. |
+| Progression Guard | `OFF`, `ON` | `ON` | Enforces valid, nonempty required parties and guards the first rival and other early mandatory battles against extreme results. |
+
+### Actions
+
+| Action | Effect |
+|---|---|
+| Review Next Run | Shows every editable setting and any validation warnings before starting. |
+| Reset Defaults | Restores the `STANDARD` preset and clears manual Seed Text after confirmation. |
+| Copy Active Seed | Copies the active seed and run code, or displays them when clipboard access is unavailable. |
+| Export Spoiler Log | Writes seed, hashes, settings, and mappings without ROM bytes. Locked Race Mode saves cannot export plaintext. |
+| Unlock Spoilers | Verifies the organizer passphrase for a Race Mode save configured to use `PASSPHRASE`. |
+
+For exact formulas, fallback order, supported encounter IDs, presets, and race
+validation rules, see the linked design documents above or the
+[complete randomizer specification](docs/randomizer-spec.md).
+
 ## Compatibility
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
