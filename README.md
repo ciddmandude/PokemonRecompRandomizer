@@ -70,9 +70,9 @@ Area slots, rods, levels, and coverage are defined in
 
 ## Compatibility
 
-- gen1recomp engine: `>=1.0.0 <2.0.0`
+- gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.8.0`
+- randomizer mod version: `0.8.1`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -159,7 +159,7 @@ The mod publishes the following through `mod.exports`:
   algorithmVersion = "1.0.0-dev",
   hashVersion = "fnv1a32x4-v1",
   prngVersion = "xoshiro128ss-v1",
-  gameVersionRange = ">=1.0.0 <2.0.0",
+  gameVersionRange = ">=0.1.30 <0.2.0",
   registerSpeciesMeta = function(id, metadata) ... end,
   species = {
     manifestVersion = 1,

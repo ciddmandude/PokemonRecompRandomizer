@@ -71,7 +71,7 @@ if ($manifest.id -ne 'pokemon_randomizer') {
 if ($manifest.api -ne 2) {
   throw "manifest api must be 2"
 }
-if ($manifest.game_version -ne '>=1.0.0 <2.0.0') {
+if ($manifest.game_version -ne '>=0.1.30 <0.2.0') {
   throw "unexpected game_version range"
 }
 if ($manifest.entry -ne 'main.lua') {
@@ -83,16 +83,16 @@ if (@($manifest.permissions).Count -ne 0) {
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.8.0') {
-  throw "manifest version must be 0.8.0 for milestone 8"
+if ($manifest.version -ne '0.8.1') {
+  throw "manifest version must be 0.8.1 for milestone 8"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.8\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.8.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.8\.1"') {
+  throw "constants MOD_VERSION must match manifest version 0.8.1"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"
 }
-if ($constants -notmatch 'GAME_VERSION_RANGE\s*=\s*">=1\.0\.0 <2\.0\.0"') {
+if ($constants -notmatch 'GAME_VERSION_RANGE\s*=\s*">=0\.1\.30 <0\.2\.0"') {
   throw "constants GAME_VERSION_RANGE must match manifest"
 }
 if ($constants -notmatch 'HASH_VERSION\s*=\s*"fnv1a32x4-v1"') {

@@ -2,9 +2,9 @@
 -- dependencies and is safe to load in headless tests.
 return {
   MOD_ID = "pokemon_randomizer",
-  MOD_VERSION = "0.8.0",
+  MOD_VERSION = "0.8.1",
   MOD_API = 2,
-  GAME_VERSION_RANGE = ">=1.0.0 <2.0.0",
+  GAME_VERSION_RANGE = ">=0.1.30 <0.2.0",
 
   CONTRACT_VERSION = 1,
   SAVE_SCHEMA_VERSION = 1,

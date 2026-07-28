@@ -1,7 +1,7 @@
 {
   "id": "pokemon_randomizer",
   "name": "Pokémon Gen 1 Randomizer",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "entry": "main.lua",
   "api": 2,
   "priority": 100,
@@ -9,7 +9,7 @@
   "optional_dependencies": [],
   "conflicts": [],
   "category": "GAMEPLAY",
-  "game_version": ">=1.0.0 <2.0.0",
+  "game_version": ">=0.1.30 <0.2.0",
   "description": "Deterministic per-save randomization for Pokémon Gen 1 Recomp.",
   "profile": "overhaul",
   "affects_link": true,
