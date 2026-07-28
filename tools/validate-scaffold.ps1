@@ -17,12 +17,20 @@ $requiredFiles = @(
   'src/hash128.lua',
   'src/rng.lua',
   'src/stable_sort.lua',
+  'src/canonical.lua',
+  'src/vanilla_species.lua',
+  'src/species_metadata.lua',
+  'src/species_manifest.lua',
+  'src/species_filters.lua',
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
   'tests/golden_vectors.lua',
+  'tests/species_fixture.lua',
+  'tests/species_manifest_test.lua',
   'tools/test.ps1',
   'docs/determinism-v1.md',
+  'docs/species-manifest-v1.md',
   'docs/randomizer-spec.md'
 )
 
@@ -55,11 +63,11 @@ if (@($manifest.permissions).Count -ne 0) {
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.2.0') {
-  throw "manifest version must be 0.2.0 for milestone 2"
+if ($manifest.version -ne '0.3.0') {
+  throw "manifest version must be 0.3.0 for milestone 3"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.2\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.2.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.3\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.3.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"
@@ -72,6 +80,9 @@ if ($constants -notmatch 'HASH_VERSION\s*=\s*"fnv1a32x4-v1"') {
 }
 if ($constants -notmatch 'PRNG_VERSION\s*=\s*"xoshiro128ss-v1"') {
   throw "unexpected PRNG version"
+}
+if ($constants -notmatch 'SPECIES_MANIFEST_VERSION\s*=\s*1') {
+  throw "unexpected species manifest version"
 }
 
 $milestones = @(

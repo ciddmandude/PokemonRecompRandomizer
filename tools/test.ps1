@@ -37,6 +37,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'scaffold_test failed' }
   & $luaPath 'tests/bootstrap_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'bootstrap_test failed' }
+  & $luaPath 'tests/species_manifest_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'species_manifest_test failed' }
   & (Join-Path $ProjectRoot 'tools/validate-scaffold.ps1')
 } finally {
   Pop-Location

@@ -2,7 +2,7 @@
 --
 -- Milestone 2 supplies deterministic seed normalization, hashing, named
 -- streams, sorting, and a PRNG. Category generation remains unavailable.
-return function(Constants, Contracts, Foundation)
+return function(Constants, Contracts, Foundation, Species)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -63,6 +63,14 @@ return function(Constants, Contracts, Foundation)
 
   function Generator.sortedKeys(map)
     return Foundation.StableSort.keys(map)
+  end
+
+  function Generator.buildSpeciesManifest(records, options)
+    return Species.Manifest.build(records, options)
+  end
+
+  function Generator.speciesCandidates(manifest, sourceId, rules)
+    return Species.Filters.candidates(manifest, sourceId, rules)
   end
 
   return Generator

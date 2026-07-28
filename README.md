@@ -5,8 +5,9 @@ A deterministic, per-save randomizer for
 
 ## Current status
 
-Milestones 1 and 2 are complete. The project now includes the API-2 scaffold
-and a fully documented, golden-vector-locked deterministic foundation:
+Milestones 1 through 3 are complete. The project now includes the API-2
+scaffold, a golden-vector-locked deterministic foundation, and a deterministic
+species-pool pipeline:
 
 - canonical seed normalization;
 - versioned 128-bit hashing;
@@ -15,6 +16,12 @@ and a fully documented, golden-vector-locked deterministic foundation:
 - rejection-sampled integer ranges;
 - stable merge sorting and deterministic key ordering;
 - non-mutating Fisher–Yates shuffling.
+- canonical vanilla-151 and merged-data pools;
+- eligibility validation with structured exclusions;
+- BST, type, evolution-stage, and legendary metadata;
+- stable species and pool fingerprints;
+- hard/soft candidate filters with recorded relaxation;
+- a pre-generation inter-mod species metadata API.
 
 Gameplay randomization is intentionally not active yet. The exported category
 generator continues to return `GENERATOR_UNAVAILABLE` until later milestones
@@ -24,12 +31,14 @@ category implementation from creating a run that cannot be reproduced.
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
 [Deterministic Foundation v1](docs/determinism-v1.md).
+Species eligibility and filtering are defined in
+[Species Manifest v1](docs/species-manifest-v1.md).
 
 ## Compatibility
 
 - gen1recomp engine: `>=1.0.0 <2.0.0`
 - mod API: `2`
-- randomizer mod version: `0.2.0`
+- randomizer mod version: `0.3.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -66,18 +75,26 @@ gameplay.
 │   ├── hash128.lua            versioned four-lane 128-bit hash
 │   ├── rng.lua                named xoshiro128** streams and sampling
 │   ├── seed.lua               canonical seed validation
+│   ├── canonical.lua          deterministic data serialization
+│   ├── vanilla_species.lua    canonical 151 engine IDs
+│   ├── species_metadata.lua   validated inter-mod metadata
+│   ├── species_manifest.lua   eligibility, stages, and fingerprints
+│   ├── species_filters.lua    candidate rules and relaxation
 │   ├── stable_sort.lua        stable sort and deterministic keys
 │   └── uint32.lua             exact unsigned-32-bit arithmetic
 ├── tests/
 │   ├── foundation_test.lua    algorithm and golden-vector tests
 │   ├── golden_vectors.lua     locked independent reference results
 │   ├── bootstrap_test.lua     headless mod entry integration test
+│   ├── species_fixture.lua    synthetic ROM-independent species data
+│   ├── species_manifest_test.lua manifest/filter integration tests
 │   └── scaffold_test.lua      headless Lua contract smoke test
 ├── tools/
 │   ├── test.ps1               syntax and complete test runner
 │   └── validate-scaffold.ps1  repository/manifest validation
 └── docs/
     ├── determinism-v1.md      exact hash/PRNG specification
+    ├── species-manifest-v1.md species pool/filter specification
     └── randomizer-spec.md     product and technical specification
 ```
 
@@ -97,6 +114,14 @@ Milestone 1 publishes the following through `mod.exports`:
   hashVersion = "fnv1a32x4-v1",
   prngVersion = "xoshiro128ss-v1",
   gameVersionRange = ">=1.0.0 <2.0.0",
+  registerSpeciesMeta = function(id, metadata) ... end,
+  species = {
+    manifestVersion = 1,
+    buildManifest = function(options) ... end,
+    candidates = function(manifest, sourceId, rules) ... end,
+    metadataSnapshot = function() ... end,
+    metadataFrozen = function() ... end,
+  },
   generator = {
     available = false,
     foundationAvailable = true,
@@ -108,6 +133,8 @@ Milestone 1 publishes the following through `mod.exports`:
     newStream = function(canonicalSeed, streamName) ... end,
     stableSort = function(values, less) ... end,
     sortedKeys = function(map) ... end,
+    buildSpeciesManifest = function(records, options) ... end,
+    speciesCandidates = function(manifest, sourceId, rules) ... end,
   },
   contracts = {
     categoryKeys = function() ... end,
@@ -138,7 +165,7 @@ The test runner compiles every Lua file, verifies valid and invalid generation
 requests, runs all locked hash/PRNG/sampling/shuffle vectors, checks stable
 sorting, and validates the repository without loading LÖVE or a ROM.
 
-## Design guarantees established through milestone 2
+## Design guarantees established through milestone 3
 
 - No gameplay hook is registered before deterministic generation exists.
 - No network, filesystem, or engine-internals permission is requested.
@@ -147,5 +174,10 @@ sorting, and validates the repository without loading LÖVE or a ROM.
   bit libraries and table iteration order.
 - Every randomizer category can receive a separately derived named stream.
 - Integer ranges use rejection sampling rather than biased modulo-only draws.
+- Invalid merged species are excluded with structured reasons.
+- Registry insertion order cannot change species or pool fingerprints.
+- Strength/type relaxation is ordered, bounded, and recorded; hard stage and
+  legendary rules never relax silently.
+- Inter-mod metadata is validated and freezes before play.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

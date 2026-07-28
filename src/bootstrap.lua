@@ -1,6 +1,6 @@
 -- Engine-facing bootstrap. This is the only milestone-1 module that knows
 -- about the gen1recomp mod object.
-return function(Constants, Contracts, Generator)
+return function(Constants, Contracts, Generator, Species)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -50,6 +50,23 @@ return function(Constants, Contracts, Generator)
   function Bootstrap.start(mod)
     validateModObject(mod)
 
+    local function manifestOptions(options)
+      local copy = {}
+      for key, value in pairs(options or {}) do copy[key] = value end
+      copy.metadata = Species.Metadata:snapshot()
+      return copy
+    end
+
+    local function mergedSpeciesRecords()
+      local registry = mod.content.pokemon
+      assert(type(registry) == "table"
+          and type(registry.each) == "function",
+        "mod API 2 is missing mod.content.pokemon:each")
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
     local publicApi = {
       contractVersion = Constants.CONTRACT_VERSION,
       saveSchemaVersion = Constants.SAVE_SCHEMA_VERSION,
@@ -58,6 +75,23 @@ return function(Constants, Contracts, Generator)
       prngVersion = Constants.PRNG_VERSION,
       gameVersionRange = Constants.GAME_VERSION_RANGE,
       generator = Generator,
+      registerSpeciesMeta = function(id, metadata)
+        return Species.Metadata:register(id, metadata)
+      end,
+      species = {
+        manifestVersion = Constants.SPECIES_MANIFEST_VERSION,
+        buildManifest = function(options)
+          return Generator.buildSpeciesManifest(
+            mergedSpeciesRecords(), manifestOptions(options))
+        end,
+        candidates = Generator.speciesCandidates,
+        metadataSnapshot = function()
+          return Species.Metadata:snapshot()
+        end,
+        metadataFrozen = function()
+          return Species.Metadata:isFrozen()
+        end,
+      },
       contracts = {
         categoryKeys = Contracts.categoryKeys,
         validateGenerationRequest = Contracts.validateGenerationRequest,
@@ -68,10 +102,11 @@ return function(Constants, Contracts, Generator)
     for key, value in pairs(publicApi) do mod.exports[key] = value end
 
     mod.events:once("mods.loaded", function()
+      Species.Metadata:freeze()
       mod.log:info(
-        "milestone 2 ready (contract=%d, algorithm=%s, hash=%s, prng=%s)",
+        "milestone 3 ready (contract=%d, species=%d, hash=%s, prng=%s)",
         Constants.CONTRACT_VERSION,
-        Constants.ALGORITHM_VERSION,
+        Constants.SPECIES_MANIFEST_VERSION,
         Constants.HASH_VERSION,
         Constants.PRNG_VERSION)
     end)
