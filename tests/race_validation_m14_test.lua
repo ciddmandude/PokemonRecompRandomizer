@@ -42,6 +42,43 @@ local run = {
   },
   mappings = {
     wildGlobal = { RAT = "CAT" },
+    wildAreaSlots = {
+      CERULEAN_CAVE_B1F = {
+        grass = {
+          [1] = { species = "MR_MIME", level = 42 },
+        },
+      },
+    },
+    fishing = { global = {}, slots = {} },
+    starters = {
+      LEFT = {
+        species = "CAT", level = 5, rivalSpecies = "RAT",
+      },
+    },
+    staticEncounters = {
+      MEWTWO = {
+        sourceSpecies = "MEWTWO", sourceLevel = 70,
+        species = "CAT", level = 70, mapId = "CERULEAN_CAVE_B1F",
+      },
+    },
+    gifts = {
+      SILPH_LAPRAS = {
+        sourceSpecies = "LAPRAS", sourceLevel = 15,
+        species = "RAT", level = 15, mapId = "SILPH_CO_7F",
+      },
+    },
+    trades = {
+      TRADE_01_TERRY = {
+        requested = { sourceSpecies = "NIDORINO", species = "RAT" },
+        received = { sourceSpecies = "NIDORINA", species = "CAT" },
+      },
+    },
+    prizes = {
+      GAME_CORNER_RED_1 = {
+        version = "red", sourceSpecies = "ABRA", sourceLevel = 9,
+        sourceCost = 180, species = "CAT", level = 9, cost = 180,
+      },
+    },
     trainerParties = {
       OPP_FIX = { [1] = {{ species = "CAT", level = 5 }} },
     },
@@ -53,6 +90,20 @@ local run = {
 }
 
 local plaintext = Spoiler.text(run)
+assert(plaintext:find("SPOILER LOG %- READABLE FORMAT V2"),
+  "spoiler log identifies the readable format")
+assert(plaintext:find("\n\n=== SETTINGS ===\n", 1, true),
+  "spoiler sections have visible line breaks")
+assert(plaintext:find("Cerulean Cave B1F", 1, true),
+  "internal map IDs are converted to readable location names")
+assert(plaintext:find("Mr. Mime Lv.42", 1, true),
+  "special species names and levels are readable")
+assert(plaintext:find("Location: Route 11 Gate 2F", 1, true),
+  "NPC trades include their readable locations")
+assert(plaintext:find("Party 1   Cat Lv.5", 1, true),
+  "trainer parties are printed one party per line")
+assert(not plaintext:find("MAPPINGS=", 1, true),
+  "readable spoilers do not contain the old canonical table dump")
 local envelope, digest = Crypto.encrypt(
   plaintext, "organizer passphrase", run, "fixed unique entropy")
 assert(envelope:match("^PRRACE1\n") and #digest == 64,

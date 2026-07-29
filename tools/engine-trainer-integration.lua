@@ -57,7 +57,7 @@ local save = {
   meta = {
     engine = "0.1.30",
     mods = {
-      { id = "pokemon_randomizer", version = "0.14.1", api = 2 },
+      { id = "pokemon_randomizer", version = "0.14.2", api = 2 },
     },
   },
   player = { id = 1234 },

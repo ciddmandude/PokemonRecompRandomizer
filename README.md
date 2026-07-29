@@ -114,6 +114,11 @@ prevents visible trainer self-maps whenever another valid species exists.
 This fixes an all-trainers fallback that left ordinary parties vanilla even
 though the independently projected first rival starter was randomized.
 
+Version 0.14.2 replaces the machine-oriented spoiler table dump with a
+readable, sectioned report. It adds blank lines, friendly map and species
+names, source-to-destination arrows, levels and prices, trade locations,
+trainer party rows, entry counts, and a diagnostics summary.
+
 See the full [randomizer specification](docs/randomizer-spec.md).
 The byte-level algorithm is locked in
 [Deterministic Foundation v1](docs/determinism-v1.md).
@@ -246,7 +251,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0`
 - mod API: `2`
-- randomizer mod version: `0.14.1`
+- randomizer mod version: `0.14.2`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`

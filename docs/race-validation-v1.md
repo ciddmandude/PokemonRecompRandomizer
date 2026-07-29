@@ -31,6 +31,13 @@ and client memory remain inspectable, so it is not server-grade anti-cheat.
 - unlocked/non-race: `pokemon_randomizer/spoilers/SEEDHASH.txt`;
 - locked race: `pokemon_randomizer/spoilers/SEEDHASH.race`.
 
+Plaintext exports use readable format V2. Run metadata and settings appear
+first, followed by separate sections for wild mappings, fishing, starters,
+static encounters, gifts, trades, Game Corner prizes, trainer parties, and
+diagnostics. Internal identifiers are converted to display names where
+possible, and location-based entries show readable map names. Empty categories
+are explicitly marked instead of being serialized as compact table data.
+
 Locked export always prompts for a passphrase and never falls back to
 plaintext. The versioned `PRRACE1` envelope contains authenticated algorithm,
 settings, pool, and seed hashes. It uses:
