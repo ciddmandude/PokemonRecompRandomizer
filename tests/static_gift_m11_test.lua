@@ -1,4 +1,4 @@
--- Partial mod-only M11 generation and runtime compatibility tests.
+-- Mod-only static/gift generation and runtime compatibility tests.
 local function loadFactory(path, ...)
   local chunk, err = loadfile(path)
   assert(chunk, err)
@@ -103,7 +103,7 @@ for _, record in ipairs(Catalog.gifts) do
   assert(not byId[left.species].legendary,
     "MATCH must keep non-legendary gifts non-legendary")
 end
-assert(giftCount == 5)
+assert(giftCount == 8)
 
 local scaledSettings = {}
 for key, value in pairs(settings) do scaledSettings[key] = value end
@@ -151,7 +151,24 @@ commands.give_pokemon = function(_, species, level)
 end
 
 local contributions = {}
+local eventCallbacks = {}
+local ui = {
+  TextBox = {
+    new = function(_, text, onDone, opts)
+      return { text = text, onDone = onDone, opts = opts }
+    end,
+  },
+  ListMenu = {
+    new = function(_, title, items, opts)
+      return { title = title, items = items, opts = opts }
+    end,
+  },
+}
 local mod = {
+  events = {
+    on = function(_, name, callback) eventCallbacks[name] = callback end,
+  },
+  ui = ui,
   content = {
     commands = {
       get = function(_, id) return commands[id] end,
@@ -174,6 +191,9 @@ local active = {
       MAGIKARP_SALE = { species = "CANDIDATE_03", level = 15 },
       DOJO_LEFT = { species = "CANDIDATE_04", level = 15 },
       SILPH_LAPRAS = { species = "CANDIDATE_05", level = 15 },
+      FOSSIL_HELIX = { species = "CANDIDATE_06", level = 15 },
+      FOSSIL_DOME = { species = "CANDIDATE_07", level = 15 },
+      FOSSIL_OLD_AMBER = { species = "CANDIDATE_08", level = 15 },
     },
   },
 }
@@ -195,6 +215,31 @@ assert(contributions.POWER_PLANT.talk.TEXT_POWERPLANT_ZAPDOS)
 assert(contributions.ROUTE_12.snorlaxWake.script[3][1] == names.battle)
 assert(contributions.CELADON_MANSION_ROOF_HOUSE.talk
   .TEXT_CELADONMANSION_ROOF_HOUSE_EEVEE_POKEBALL[5][1] == names.give)
+assert(contributions.CINNABAR_LAB_FOSSIL_ROOM.talk
+  .TEXT_CINNABARLABFOSSILROOM_SCIENTIST1)
+
+local beforeGive = assert(eventCallbacks["pokemon.before_give"])
+local fossilGift = {
+  species = "OMANYTE",
+  level = 30,
+  ctx = { overworld = { map = { id = "CINNABAR_LAB_FOSSIL_ROOM" } } },
+}
+beforeGive(fossilGift)
+assert(fossilGift.species == "CANDIDATE_06"
+  and fossilGift.level == 15
+  and fossilGift.randomizerGiftId == "FOSSIL_HELIX",
+  "pokemon.before_give must resolve the saved fossil mapping")
+local alreadyResolved = {
+  species = "OMANYTE",
+  level = 30,
+  ctx = {
+    randomizerGiftResolved = true,
+    overworld = { map = { id = "CINNABAR_LAB_FOSSIL_ROOM" } },
+  },
+}
+beforeGive(alreadyResolved)
+assert(alreadyResolved.species == "OMANYTE",
+  "the custom gift command must not be randomized twice")
 
 local captured
 contributions.MT_MOON_POKECENTER.talk
@@ -245,9 +290,69 @@ contributions.FIGHTING_DOJO.talk
 assert(captured[3][1] == names.give)
 assert(captured[5][1] == "set_flag")
 
+local stack = { values = {} }
+function stack:push(value) self.values[#self.values + 1] = value end
+function stack:pop() return table.remove(self.values) end
+local fossilGame = {
+  save = {
+    flags = {},
+    inventory = { HELIX_FOSSIL = 1 },
+    player = { name = "RED" },
+  },
+  data = {
+    text = {},
+    pokemon = {
+      CANDIDATE_06 = { name = "TESTMON" },
+      OMANYTE = { name = "OMANYTE" },
+    },
+    items = {
+      HELIX_FOSSIL = { name = "HELIX FOSSIL" },
+      DOME_FOSSIL = { name = "DOME FOSSIL" },
+      OLD_AMBER = { name = "OLD AMBER" },
+    },
+  },
+  stack = stack,
+}
+captured = nil
+local fossilDone = false
+local fossilOverworld = {
+  runner = { run = function(_, rows) captured = rows end },
+}
+local fossilTalk = contributions.CINNABAR_LAB_FOSSIL_ROOM.talk
+  .TEXT_CINNABARLABFOSSILROOM_SCIENTIST1
+fossilTalk(fossilGame, fossilOverworld, nil,
+  function() fossilDone = true end)
+local intro = assert(stack.values[#stack.values])
+assert(intro.onDone)
+intro.onDone()
+local fossilList = assert(stack.values[#stack.values])
+assert(fossilList.title == "FOSSIL" and #fossilList.items == 1)
+fossilList.opts.onChoose(fossilList.items[1])
+local seesFossil = assert(stack.values[#stack.values])
+assert(seesFossil.text:find("TESTMON", 1, true),
+  "the deposit preview must name the mapped Pokemon")
+seesFossil.opts.choice(true)
+assert(fossilGame.save.inventory.HELIX_FOSSIL == nil)
+assert(fossilGame.save.labFossilMon == "OMANYTE",
+  "the pending quest must retain the vanilla source identity")
+assert(fossilGame.save.flags.EVENT_GAVE_FOSSIL_TO_LAB
+  and fossilGame.save.flags.EVENT_LAB_STILL_REVIVING_FOSSIL)
+
+stack.values = {}
+fossilGame.save.flags.EVENT_LAB_STILL_REVIVING_FOSSIL = nil
+fossilTalk(fossilGame, fossilOverworld, nil,
+  function() fossilDone = true end)
+local revived = assert(stack.values[#stack.values])
+assert(revived.text:find("TESTMON", 1, true),
+  "the resurrection announcement must name the mapped Pokemon")
+revived.onDone()
+assert(captured[1][1] == names.give
+  and captured[1][2] == "FOSSIL_HELIX",
+  "the handover must use the saved fossil gift mapping")
+
 local excluded = {}
 for _, id in ipairs(Catalog.exclusions) do excluded[id] = true end
-assert(excluded.FOSSIL_RESTORATION)
+assert(not excluded.FOSSIL_RESTORATION)
 assert(excluded.POKEMON_TOWER_GHOST)
 assert(excluded.GENERIC_OBJECT_EVENT_STATICS)
 assert(excluded.GAME_CORNER_PRIZES)

@@ -114,11 +114,11 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.14.2') {
-  throw "manifest version must be 0.14.2 for milestone 14"
+if ($manifest.version -ne '0.15.0') {
+  throw "manifest version must be 0.15.0"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.14\.2"') {
-  throw "constants MOD_VERSION must match manifest version 0.14.2"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.15\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.15.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

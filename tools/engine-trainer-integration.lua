@@ -1,13 +1,19 @@
--- Headless end-to-end trainer hook check against a Recomp v0.1.30 checkout.
+-- Headless mod-load and trainer-hook check against a Recomp checkout.
 -- Run with the engine checkout as cwd and POKEPORT_DATA_DIR set to extracted
--- generated data. The first argument is the drive/root containing this mod.
+-- generated data for the complete trainer assertions. Without generated
+-- data, the ROM-free engine fixture still validates that the mod loads.
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local modRoot = arg[1] or "E:/PokemonRecompRandomizer"
+local engineVersion = arg[2] or "0.1.38"
+require("src.core.Version").engine = engineVersion
 local T = require("tests.modkit")
 local Runtime = require("src.mods.Runtime")
 local Data = require("src.core.Data")
-Data:load()
+local hasGeneratedData = pcall(Data.load, Data)
+if not hasGeneratedData then
+  Data = require("tests.modkit.fixtures").fresh()
+end
 
 local alias = "mods/pokemon_randomizer"
 local function mapped(path)
@@ -55,15 +61,20 @@ end
 local save = {
   version = "red",
   meta = {
-    engine = "0.1.30",
+    engine = engineVersion,
     mods = {
-      { id = "pokemon_randomizer", version = "0.14.2", api = 2 },
+      { id = "pokemon_randomizer", version = "0.15.0", api = 2 },
     },
   },
   player = { id = 1234 },
   modData = {},
 }
 Runtime.emit("save.created", { save = save })
+if not hasGeneratedData then
+  print("engine integration: mod loaded against ROM-free fixture")
+  loaded.release()
+  return
+end
 local run = assert(save.modData.pokemon_randomizer,
   "save.created did not create randomizer state")
 local bugCatchers = assert(run.mappings.trainerParties.OPP_BUG_CATCHER,

@@ -1,6 +1,6 @@
--- Stock-v0.1.30 records that can be safely replaced through public API-2
--- map_scripts and commands composition. This is intentionally not a claim
--- that every engine static/gift path is exposed.
+-- Stable records replaced through public API-2 map scripts, commands, and
+-- pokemon.before_give.  The original five gift rows stay first so expanding
+-- the catalog does not change their deterministic RNG results.
 local Catalog = {}
 
 Catalog.statics = {
@@ -135,10 +135,27 @@ Catalog.gifts = {
     species = "LAPRAS", level = 15, style = "lapras",
     flag = "EVENT_GOT_LAPRAS",
   },
+  {
+    id = "FOSSIL_HELIX", mapId = "CINNABAR_LAB_FOSSIL_ROOM",
+    talkKey = "TEXT_CINNABARLABFOSSILROOM_SCIENTIST1",
+    species = "OMANYTE", level = 30, style = "fossil",
+    fossilItem = "HELIX_FOSSIL",
+  },
+  {
+    id = "FOSSIL_DOME", mapId = "CINNABAR_LAB_FOSSIL_ROOM",
+    talkKey = "TEXT_CINNABARLABFOSSILROOM_SCIENTIST1",
+    species = "KABUTO", level = 30, style = "fossil",
+    fossilItem = "DOME_FOSSIL",
+  },
+  {
+    id = "FOSSIL_OLD_AMBER", mapId = "CINNABAR_LAB_FOSSIL_ROOM",
+    talkKey = "TEXT_CINNABARLABFOSSILROOM_SCIENTIST1",
+    species = "AERODACTYL", level = 30, style = "fossil",
+    fossilItem = "OLD_AMBER",
+  },
 }
 
 Catalog.exclusions = {
-  "FOSSIL_RESTORATION",
   "POKEMON_TOWER_GHOST",
   "GAME_CORNER_PRIZES",
   "GENERIC_OBJECT_EVENT_STATICS",

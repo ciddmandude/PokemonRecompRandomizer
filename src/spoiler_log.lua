@@ -100,6 +100,9 @@ return function(Canonical, Crypto)
     DOJO_LEFT = "Fighting Dojo left prize",
     DOJO_RIGHT = "Fighting Dojo right prize",
     SILPH_LAPRAS = "Silph Co. employee gift",
+    FOSSIL_HELIX = "Cinnabar Lab - Helix Fossil",
+    FOSSIL_DOME = "Cinnabar Lab - Dome Fossil",
+    FOSSIL_OLD_AMBER = "Cinnabar Lab - Old Amber",
   }
 
   local TRADE_LABELS = {

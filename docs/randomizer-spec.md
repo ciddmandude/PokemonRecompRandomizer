@@ -143,9 +143,9 @@ The Pokédex preview, confirmation text, received species, ball removal, rival m
 |---|---|---:|---|
 | Static Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | On stock v0.1.30, randomizes 14 named map-script encounters: eight Power Plant balls, Zapdos, Articuno, Moltres, Mewtwo, and both Snorlax. Each stable encounter ID resolves once. Generic object-event statics, ghost Marowak, and the catching tutorial remain vanilla. |
 | Static Levels | `UNCHANGED`, `SCALED`, `RANDOM ±5` | `UNCHANGED` | `UNCHANGED` preserves the encounter's level. `SCALED` compensates using `round(level × sqrt(sourceBST/destinationBST))`, clamped to 2–100. `RANDOM ±5` adds a saved deterministic offset from -5 through +5, clamped to 2–100. |
-| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | On stock v0.1.30, randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, and the Route 4 Magikarp seller. Fossil restoration remains vanilla because the released API exposes no pre-dialogue gift-offer seam. Game Corner prizes and NPC trades remain controlled separately. |
+| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, the Route 4 Magikarp seller, and the Helix Fossil, Dome Fossil, and Old Amber restorations at Cinnabar Lab. Game Corner prizes and NPC trades remain controlled separately. |
 | Gift Levels | `UNCHANGED`, `SCALED`, `FIXED 15` | `UNCHANGED` | `UNCHANGED` preserves each supported gift's original level. `SCALED` uses the BST compensation formula and clamps to 2–100. `FIXED 15` gives every supported randomized gift at level 15. Excluded gifts remain completely vanilla. |
-| Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | `UNIQUE GIFTS` prevents duplicate destinations among the five supported gifts while candidates remain. It does not make gifts unique relative to wild encounters, starters, trades, or prizes. Both Fighting Dojo choices are generated and remain internally unique while candidates remain. |
+| Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | `UNIQUE GIFTS` prevents duplicate destinations among the eight supported gifts while candidates remain. It does not make gifts unique relative to wild encounters, starters, trades, or prizes. Both Fighting Dojo choices and all three fossil sources are generated at New Game. |
 
 Supported static and gift mappings use stable catalog IDs rather than source
 species alone. Mapped names, cries after interaction, purchase prompts,
@@ -400,9 +400,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Validate that the requested species can be acquired before that trade when Catchability Guard and Trade Evolution Safety are on.
 - A trade offer must not change after it is viewed.
 
-### 9.4 Partial mod-only static encounters and gifts
+### 9.4 Mod-only static encounters and gifts
 
-- Enumerate the 14 named static and five named gift records in
+- Enumerate the 14 named static and eight named gift records in
   `static_gift_catalog.lua` by stable ID.
 - Preserve one-time event flags, capture/defeat state, payment behavior,
   choice groups, nickname prompts, party/box handling, and Pokédex updates.
@@ -410,9 +410,15 @@ All new hook results must be type-checked. Invalid results log an attributed err
   or rewrites the other.
 - Resolve supported static species and levels before battle setup and
   supported gifts before their mapped species name or confirmation appears.
+- Use `pokemon.before_give` as an award-time safety net. The Cinnabar fossil
+  room remains a scoped `map_scripts` adapter because its preview and
+  resurrection text occur before that event.
+- Preserve the vanilla fossil source in `save.labFossilMon`; resolve the saved
+  destination only for dialogue and award so removing the mod safely restores
+  vanilla quest behavior.
 - Full storage or a declined purchase retains the same saved offer.
-- Fossil restoration, ghost Marowak, generic object-event statics, the
-  catching tutorial, and Game Corner prizes remain vanilla in M11.
+- Ghost Marowak, generic object-event statics, and the catching tutorial
+  remain vanilla. Game Corner prizes remain independently controlled.
 
 ### 9.5 Game Corner prizes
 
@@ -473,9 +479,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 `FR-18` The generator shall record deterministic fallback/relaxation warnings for review and tests.
 
-`FR-19` Each static encounter in the v0.1.30 partial catalog shall use saved species and levels while preserving its stable identity and one-time state; excluded static paths shall remain vanilla.
+`FR-19` Each static encounter in the supported catalog shall use saved species and levels while preserving its stable identity and one-time state; excluded static paths shall remain vanilla.
 
-`FR-20` Each gift in the v0.1.30 partial catalog shall use its saved offer consistently across mapped names, payment, choice state, and awards; fossil restoration and other excluded gifts shall remain vanilla.
+`FR-20` Each gift in the catalog shall use its saved offer consistently across mapped names, payment, choice state, fossil preview and resurrection dialogue, and awards. Full storage shall preserve the offer and pending fossil quest for retry.
 
 `FR-21` Race Mode shall hide mapping details and block plaintext spoiler export until its saved unlock condition is satisfied.
 
@@ -589,10 +595,11 @@ For at least 10,000 generated seeds per preset:
    through preview/gift/flags/rival movement, and prove stock-v0.1.30 vanilla
    parity without an engine patch.
 10. **Starter randomization** — Implement unique choices, basic-stage/type-triad rules, starter levels, saved rival counterpick projection, and three-choice end-to-end tests.
-11. **Partial mod-only static encounters and gifts** — Save stable mappings for
-    14 named static and five named gift scripts through public API-2 commands
-    and `map_scripts`; implement level/legendary/uniqueness settings, keep
-    unsupported v0.1.30 paths vanilla, and document the exclusions.
+11. **Mod-only static encounters and gifts** — Save stable mappings for
+    14 named static and eight named gifts through public API-2 commands,
+    `map_scripts`, and `pokemon.before_give`; implement fossil preview,
+    resurrection, retry, level, legendary, and uniqueness behavior while
+    keeping unsupported static paths vanilla.
 12. **Mod-only trades and Game Corner prizes** — Save mappings for all nine
     wired NPC trades and the active version's six Pokémon prize slots;
     delegate scoped trades to the stock command, provide a public API-2 prize
@@ -605,9 +612,8 @@ For at least 10,000 generated seeds per preset:
 ## 16. Resolved product decisions
 
 1. "Shop Pokémon" means only the Celadon Game Corner Prize Exchange; ordinary Poké Marts remain unchanged.
-2. Static encounters and non-starter gifts are independently configurable,
-   and v0.12.0 static/gift coverage remains limited to the explicit
-   stock-v0.1.30 catalog in
-   Section 9.4. Excluded paths remain vanilla until public pre-battle and
-   pre-dialogue offer seams exist.
+2. Static encounters and non-starter gifts are independently configurable.
+   Gift coverage includes all eight vanilla non-starter, non-trade,
+   non-Game-Corner sources in Section 9.4. Excluded static paths remain
+   vanilla until a public pre-battle seam exists.
 3. Race-oriented spoiler locking and authenticated encrypted export are included. Race Mode is explicitly a local accidental-spoiler safeguard, not tamper-proof anti-cheat.
