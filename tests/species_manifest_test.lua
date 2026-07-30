@@ -40,13 +40,37 @@ equal(VanillaSpecies[151], "MEW", "last vanilla id")
 local metadata = Metadata.new()
 metadata:register("MODMON", { legendary = true })
 metadata:register("IVYSAUR", { stage = "final" })
-local ok = pcall(function()
-  metadata:register("MODMON", { stage = "basic" })
-end)
-assert(not ok, "duplicate metadata must fail")
+metadata:register("MODMON", { legendary = false, stage = "basic" })
+metadata:register("MODMON", { stage = "final" })
 local snapshot = metadata:snapshot()
 equal(snapshot.MODMON.legendary, true, "metadata legendary")
+equal(snapshot.MODMON.stage, "final", "metadata conservative stage")
 equal(snapshot.IVYSAUR.stage, "final", "metadata stage")
+local metadataDiagnostics = metadata:diagnostics()
+equal(#metadataDiagnostics, 2, "metadata conflict count")
+equal(metadataDiagnostics[1].code,
+  "SPECIES_METADATA_CONFLICT_RESOLVED", "metadata conflict code")
+equal(metadataDiagnostics[1].species, "MODMON",
+  "metadata conflict species")
+assert(metadataDiagnostics[1].policy == "legendary_true_wins"
+    or metadataDiagnostics[1].policy == "most_evolved_stage_wins")
+
+local reversedMetadata = Metadata.new()
+reversedMetadata:register("MODMON", { stage = "final" })
+reversedMetadata:register("MODMON", {
+  legendary = false, stage = "basic",
+})
+reversedMetadata:register("IVYSAUR", { stage = "final" })
+reversedMetadata:register("MODMON", { legendary = true })
+equal(Canonical.encode(reversedMetadata:snapshot()),
+  Canonical.encode(snapshot), "metadata registration order snapshot")
+equal(Canonical.encode(reversedMetadata:diagnostics()),
+  Canonical.encode(metadataDiagnostics),
+  "metadata registration order diagnostics")
+local isolatedSnapshot = metadata:snapshot()
+isolatedSnapshot.MODMON.legendary = false
+equal(metadata:snapshot().MODMON.legendary, true,
+  "metadata snapshot mutation isolation")
 
 local merged = Manifest.build(Fixture.records, {
   poolMode = "merged",
@@ -181,7 +205,7 @@ equal(diagnostics.error.code, "NO_CANDIDATES", "empty result diagnostic")
 
 metadata:freeze()
 assert(metadata:isFrozen(), "metadata freezes")
-ok = pcall(function()
+local ok = pcall(function()
   metadata:register("LATE_MON", { legendary = false })
 end)
 assert(not ok, "metadata registration after freeze must fail")

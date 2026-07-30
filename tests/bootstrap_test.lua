@@ -1,6 +1,7 @@
 -- Headless entry/bootstrap integration test with a minimal mod API-2 stub.
 local callbacks = {}
 local logs = {}
+local warnings = {}
 local migrations = {}
 local hookCallbacks = {}
 local screens = {}
@@ -20,7 +21,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.23.0",
+  version = "0.24.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -213,7 +214,9 @@ local mod = {
     info = function(_, format, ...)
       logs[#logs + 1] = format:format(...)
     end,
-    warn = function() end,
+    warn = function(_, format, ...)
+      warnings[#warnings + 1] = format:format(...)
+    end,
     error = function() end,
   },
 }
@@ -236,6 +239,14 @@ assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
 assert(mod.exports.generator.available == true)
+local facadeMutation = pcall(function()
+  mod.exports.generator.generate = function() return nil end
+end)
+assert(not facadeMutation, "generator export must be read-only")
+facadeMutation = pcall(function()
+  mod.exports.contracts.mappingKeys = function() return {} end
+end)
+assert(not facadeMutation, "contract export must be read-only")
 assert(type(mod.exports.registerSpeciesMeta) == "function")
 assert(mod.exports.species.manifestVersion == 1)
 assert(mod.exports.save.checksumVersion == "fnv1a32x4-save-v1")
@@ -273,8 +284,18 @@ assert(migrations[1].since == "0.4.0")
 assert(migrations[2].since == "0.6.0")
 
 mod.exports.registerSpeciesMeta("TESTMON", { legendary = true })
+mod.exports.registerSpeciesMeta("TESTMON", {
+  legendary = false, stage = "basic",
+})
 local manifest = mod.exports.species.buildManifest({ poolMode = "merged" })
 assert(manifest.byId.TESTMON.legendary == true)
+assert(manifest.byId.TESTMON.stage == "basic")
+local metadataDiagnostics = mod.exports.species.metadataDiagnostics()
+assert(#metadataDiagnostics == 1)
+assert(metadataDiagnostics[1].code
+  == "SPECIES_METADATA_CONFLICT_RESOLVED")
+metadataDiagnostics[1].resolved = false
+assert(mod.exports.species.metadataDiagnostics()[1].resolved == true)
 assert(not mod.exports.species.metadataFrozen())
 
 local canonical = mod.exports.generator.normalizeSeed(" bootstrap  test ")
@@ -284,6 +305,8 @@ assert(type(stream:nextU32()) == "number")
 
 callbacks["mods.loaded"]()
 assert(#logs == 1)
+assert(#warnings == 1)
+assert(warnings[1]:find("SPECIES_METADATA_CONFLICT_RESOLVED", 1, true))
 assert(logs[1]:match("milestone 14 ready"))
 assert(mod.exports.species.metadataFrozen())
 local late = pcall(function()
@@ -433,9 +456,19 @@ assert(mod.exports.save.status().phase == "loading")
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
 assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
+local exposedRun = mod.exports.save.activeRun()
+local exposedSeed = exposedRun.seed.canonical
+local exposedWild = exposedRun.settings.wild_pokemon
+exposedRun.seed.canonical = "MUTATED BY OTHER MOD"
+exposedRun.settings.wild_pokemon = "off"
+exposedRun.mappings.wildGlobal.__EXTERNAL = "MEW"
+local isolatedRun = mod.exports.save.activeRun()
+assert(isolatedRun.seed.canonical == exposedSeed)
+assert(isolatedRun.settings.wild_pokemon == exposedWild)
+assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.23.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.24.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

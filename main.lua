@@ -97,6 +97,7 @@ return function(mod)
     "src/preferences.lua", Constants, OptionsSchema, GeneralSettings)
   local OptionsScreen = loadModule("src/options_screen.lua", Constants)
   local ReviewScreen = loadModule("src/review_screen.lua")
+  local PublicFacade = loadModule("src/public_facade.lua")
   local Options = {
     Schema = OptionsSchema,
     Preferences = Preferences,
@@ -109,7 +110,7 @@ return function(mod)
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
-    SpoilerController, SpoilerLog)
+    SpoilerController, SpoilerLog, PublicFacade)
 
   return Bootstrap.start(mod)
 end

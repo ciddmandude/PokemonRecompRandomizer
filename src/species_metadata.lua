@@ -8,6 +8,7 @@ return function(StableSort)
     legendary = true,
     stage = true,
   }
+  local STAGE_RANK = { basic = 1, middle = 2, final = 3 }
 
   local function copyMetadata(value)
     local copy = {}
@@ -38,17 +39,41 @@ return function(StableSort)
   function Metadata.new()
     return setmetatable({
       entries = {},
+      observed = {},
       frozen = false,
     }, Metadata)
+  end
+
+  local function valueKey(value)
+    return type(value) .. ":" .. tostring(value)
+  end
+
+  local function resolvedValue(field, values)
+    if field == "legendary" then
+      return values["boolean:true"] == true
+    end
+    local resolved, rank
+    for _, value in pairs(values) do
+      local candidate = STAGE_RANK[value]
+      if candidate and (not rank or candidate > rank) then
+        resolved, rank = value, candidate
+      end
+    end
+    return resolved
   end
 
   function Metadata:register(id, metadata)
     assert(not self.frozen, "species metadata is frozen after mods.loaded")
     validate(id, metadata)
-    assert(self.entries[id] == nil,
-      ("species metadata already registered for %s"):format(id))
-    self.entries[id] = copyMetadata(metadata)
-    return copyMetadata(metadata)
+    self.entries[id] = self.entries[id] or {}
+    self.observed[id] = self.observed[id] or {}
+    for field, value in pairs(metadata) do
+      self.observed[id][field] = self.observed[id][field] or {}
+      self.observed[id][field][valueKey(value)] = value
+      self.entries[id][field] =
+        resolvedValue(field, self.observed[id][field])
+    end
+    return copyMetadata(self.entries[id])
   end
 
   function Metadata:freeze()
@@ -65,6 +90,32 @@ return function(StableSort)
       snapshot[id] = copyMetadata(self.entries[id])
     end
     return snapshot
+  end
+
+  function Metadata:diagnostics()
+    local diagnostics = {}
+    for _, id in ipairs(StableSort.keys(self.observed)) do
+      for _, field in ipairs(StableSort.keys(self.observed[id])) do
+        local observed = self.observed[id][field]
+        local keys = StableSort.keys(observed)
+        if #keys > 1 then
+          local values = {}
+          for index, key in ipairs(keys) do values[index] = observed[key] end
+          diagnostics[#diagnostics + 1] = {
+            code = "SPECIES_METADATA_CONFLICT_RESOLVED",
+            species = id,
+            field = field,
+            values = values,
+            resolved = self.entries[id][field],
+            policy = field == "legendary"
+                and "legendary_true_wins" or "most_evolved_stage_wins",
+            message = "conflicting species metadata was resolved "
+              .. "with a deterministic field policy",
+          }
+        end
+      end
+    end
+    return diagnostics
   end
 
   return Metadata

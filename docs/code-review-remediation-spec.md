@@ -583,12 +583,33 @@ Exit criteria:
 
 ### Milestone 11 — P5 public API hardening
 
+Status: Completed in `0.24.0`.
+
 Deliver:
 
 - immutable generator/contract facades;
 - mutation-isolation tests for active-run exports;
 - deterministic species-metadata conflict policy;
 - structured conflict diagnostics.
+
+Implementation notes:
+
+- `mod.exports.generator` and `mod.exports.contracts` are read-only proxy
+  facades containing captured function closures rather than the internal
+  module tables. Replacing or shadowing an exported member cannot change the
+  generator retained by save creation.
+- Public active-run data is recursively cloned after private and retired
+  fields are removed. Mutating seeds, settings, nested mappings, or nested
+  diagnostics in one returned view cannot alter saved/session state or a
+  later view.
+- Species metadata registrations merge non-conflicting fields. Conflicting
+  `legendary` values resolve with `true` winning; conflicting stages resolve
+  to the most evolved of `basic`, `middle`, and `final`. Both rules are
+  conservative and independent of registration order.
+- Conflicts produce sorted `SPECIES_METADATA_CONFLICT_RESOLVED` records with
+  species, field, observed values, resolved value, policy, and message. The
+  records are exported through `species.metadataDiagnostics()` and logged
+  before metadata freezes.
 
 Exit criteria:
 

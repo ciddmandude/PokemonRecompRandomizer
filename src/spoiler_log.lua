@@ -582,20 +582,27 @@ return function()
 
   function Spoiler.publicRun(run)
     if type(run) ~= "table" then return nil end
-    local output = {}
-    for key, value in pairs(run) do
-      if key ~= "race"
-          and (type(key) ~= "string" or key:sub(1, 1) ~= "_") then
-        output[key] = value
+    local function clone(value, seen)
+      if type(value) ~= "table" then return value end
+      seen = seen or {}
+      if seen[value] then return seen[value] end
+      local output = {}
+      seen[value] = output
+      for key, child in pairs(value) do
+        output[clone(key, seen)] = clone(child, seen)
+      end
+      return output
+    end
+    local output = clone(run)
+    output.race = nil
+    for key in pairs(output) do
+      if type(key) == "string" and key:sub(1, 1) == "_" then
+        output[key] = nil
       end
     end
-    if type(run.settings) == "table" then
-      output.settings = {}
-      for key, value in pairs(run.settings) do
-        if key ~= "race_mode" and key ~= "spoiler_unlock" then
-          output.settings[key] = value
-        end
-      end
+    if type(output.settings) == "table" then
+      output.settings.race_mode = nil
+      output.settings.spoiler_unlock = nil
     end
     return output
   end

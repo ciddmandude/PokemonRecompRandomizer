@@ -4,7 +4,7 @@ return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
-    SpoilerController, SpoilerLog)
+    SpoilerController, SpoilerLog, PublicFacade)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -147,7 +147,7 @@ return function(
       hashVersion = Constants.HASH_VERSION,
       prngVersion = Constants.PRNG_VERSION,
       gameVersionRange = Constants.GAME_VERSION_RANGE,
-      generator = Generator,
+      generator = PublicFacade.generator(Generator),
       registerSpeciesMeta = function(id, metadata)
         return Species.Metadata:register(id, metadata)
       end,
@@ -164,13 +164,11 @@ return function(
         metadataFrozen = function()
           return Species.Metadata:isFrozen()
         end,
+        metadataDiagnostics = function()
+          return Species.Metadata:diagnostics()
+        end,
       },
-      contracts = {
-        categoryKeys = Contracts.categoryKeys,
-        mappingKeys = Contracts.mappingKeys,
-        validateGenerationRequest = Contracts.validateGenerationRequest,
-        validateGenerationResult = Contracts.validateGenerationResult,
-      },
+      contracts = PublicFacade.contracts(Contracts),
     }
 
     local preferences = Options.Preferences.new(mod)
@@ -430,6 +428,12 @@ return function(
     end)
 
     mod.events:once("mods.loaded", function()
+      for _, diagnostic in ipairs(Species.Metadata:diagnostics()) do
+        mod.log:warn(
+          "%s species=%s field=%s policy=%s resolved=%s",
+          diagnostic.code, diagnostic.species, diagnostic.field,
+          diagnostic.policy, tostring(diagnostic.resolved))
+      end
       Species.Metadata:freeze()
       mod.log:info(
         "milestone 14 ready (contract=%d, save=%d, species=%d, hash=%s, prng=%s)",

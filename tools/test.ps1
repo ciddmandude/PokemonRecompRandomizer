@@ -45,6 +45,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'bootstrap_test failed' }
   & $luaPath 'tests/species_manifest_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'species_manifest_test failed' }
+  & $luaPath 'tests/public_api_m11_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'public_api_m11_test failed' }
   & $luaPath 'tests/save_state_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'save_state_test failed' }
   & $luaPath 'tests/options_ui_test.lua'

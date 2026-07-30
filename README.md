@@ -105,7 +105,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.23.0`
+- randomizer mod version: `0.24.0`
 - generator contract: `1`
 - algorithm build: `1.2.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -173,7 +173,15 @@ archive.
 - Migrations preserve unknown fields and never regenerate mappings.
 - Options use the engine's native namespaced persistence and screen registry.
 - The Options hook decorates the rows returned by earlier handlers.
-- Active-run data is read-only; edits target only the next New Game.
+- Active-run data is mutation-isolated; edits target only the next New Game.
+- Generator and contract exports are read-only facades; another mod cannot
+  replace the implementation retained by save creation.
+- Every public active-run view is a recursive copy, including nested mappings
+  and diagnostics.
+- Duplicate species metadata merges deterministically: legendary `true` wins
+  conflicts, and the most evolved declared stage wins stage conflicts.
+  Structured conflict records are available from
+  `species.metadataDiagnostics()`.
 - Invalid stored preferences fall back to declared defaults.
 - Reset defaults requires confirmation and persists as one options write.
 - Standard exactly equals the declared default snapshot.
