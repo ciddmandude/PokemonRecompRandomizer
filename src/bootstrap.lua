@@ -426,7 +426,18 @@ return function(
         for key, value in pairs(stamped) do namespace[key] = value end
       end)
 
+    -- Recomp constructs a disposable New Game-shaped save during boot so
+    -- title-screen systems have options and player defaults available.  It
+    -- emits save.created for that skeleton before game.ready, then emits a
+    -- second save.created only when the player actually chooses NEW GAME.
+    -- Generating on the boot event made the title-screen options report
+    -- LOCKED after every application restart, even when nothing was saved.
+    local gameReady = false
+    mod.events:on("game.ready", function()
+      gameReady = true
+    end)
     mod.events:on("save.created", function(event)
+      if not gameReady then return end
       lifecycle:onCreated(event)
     end)
     mod.events:on("save.loading", function(event)

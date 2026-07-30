@@ -8,7 +8,17 @@ return function(Catalog)
     cry = "pokemon_randomizer:play_m11_cry",
     battle = "pokemon_randomizer:static_m11_battle",
     give = "pokemon_randomizer:give_m11_pokemon",
+    finishFossil = "pokemon_randomizer:finish_fossil_restoration",
   }
+
+  local fossilByItem = {}
+  local fossilBySpecies = {}
+  for _, record in ipairs(Catalog.gifts) do
+    if record.style == "fossil" then
+      fossilByItem[record.fossilItem] = record
+      fossilBySpecies[record.species] = record
+    end
+  end
 
   local function offer(activeRun, category, id, source, level)
     local run = activeRun()
@@ -38,6 +48,53 @@ return function(Catalog)
       end
       overworld.runner:run(rows, { npc = npc, onDone = onDone })
     end
+  end
+
+  local function currentMapId(gift)
+    local ctx = type(gift) == "table" and gift.ctx
+    local overworld = type(ctx) == "table" and ctx.overworld
+    local map = type(overworld) == "table" and overworld.map
+    return type(map) == "table" and (map.id
+      or type(map.def) == "table" and map.def.label) or nil
+  end
+
+  local function matchingGift(gift)
+    if type(gift) ~= "table" or type(gift.species) ~= "string"
+        or type(gift.ctx) ~= "table"
+        or gift.ctx.randomizerGiftResolved then
+      return nil
+    end
+    local mapId = currentMapId(gift)
+    if not mapId then return nil end
+    for _, record in ipairs(Catalog.gifts) do
+      if record.mapId == mapId and record.species == gift.species
+          and (type(gift.level) ~= "number"
+            or gift.level == record.level) then
+        return record
+      end
+    end
+    return nil
+  end
+
+  local function fillText(text, values)
+    text = tostring(text or "")
+    text = text:gsub("{PLAYER}", tostring(values.player or ""))
+    text = text:gsub("{RAM:wNameBuffer}", tostring(values.item or ""))
+    text = text:gsub("{RAM:wStringBuffer}", tostring(values.species or ""))
+    text = text:gsub("{RAM:x}", tostring(values.species or ""))
+    text = text:gsub("{RAM}", tostring(values.species or ""))
+    return text
+  end
+
+  local function speciesName(game, species)
+    local def = game.data and game.data.pokemon
+      and game.data.pokemon[species]
+    return def and def.name or species
+  end
+
+  local function itemName(game, item)
+    local def = game.data and game.data.items and game.data.items[item]
+    return def and def.name or item
   end
 
   local function staticRows(record)
@@ -256,7 +313,146 @@ return function(Catalog)
     end
   end
 
-  local function contributionMap(activeRun)
+  local function fossilHandler(activeRun, ui)
+    return function(game, overworld, npc, onDone)
+      local save = game.save
+      local flags = save.flags or {}
+      save.flags = flags
+      local text = game.data.text or {}
+      local function pushText(value, done, opts)
+        game.stack:push(ui.TextBox.new(game, value, done, opts))
+      end
+      local function resolved(record)
+        return offer(activeRun, "gifts", record.id,
+          record.species, record.level)
+      end
+      local function comeAgain()
+        pushText(text._CinnabarLabFossilRoomScientist1ComeAgainText
+          or "Aiyah! You come\nagain!", onDone)
+      end
+
+      if flags.EVENT_GAVE_FOSSIL_TO_LAB then
+        if flags.EVENT_LAB_STILL_REVIVING_FOSSIL then
+          pushText(text._CinnabarLabFossilRoomScientist1GoForAWalkText
+            or "I take a little\ntime!\fYou go for walk a\nlittle while!",
+            onDone)
+          return
+        end
+
+        local source = save.labFossilMon
+        local record = fossilBySpecies[source]
+        if not record then
+          -- A foreign mod may put another valid species in the fossil slot.
+          -- Leave that award under the engine's normal gift command.
+          local rows = {
+            { "give_pokemon", source, 30 },
+            { "jump_if_false", 5 },
+            { CMD.finishFossil },
+            { "jump", 6 },
+            { "show_text", "_BoxIsFullText" },
+            { "label", "done" },
+          }
+          return runnerHandler(rows)(game, overworld, npc, onDone)
+        end
+
+        local mapped = resolved(record)
+        flags.EVENT_LAB_HANDING_OVER_FOSSIL_MON = true
+        pushText(fillText(
+          text._CinnabarLabFossilRoomScientist1FossilIsBackToLifeText
+            or "Where were you?\fYour fossil is\nback to life!"
+              .. "\fIt was {RAM:x}\nlike I think!",
+          {
+            player = save.player and save.player.name,
+            species = speciesName(game, mapped.species),
+          }), function()
+            runnerHandler({
+              { CMD.give, record.id, record.species, record.level },
+              { "jump_if_false", 5 },
+              { CMD.finishFossil },
+              { "jump", 6 },
+              { "show_text", "_BoxIsFullText" },
+              { "label", "done" },
+            })(game, overworld, npc, onDone)
+          end)
+        return
+      end
+
+      pushText(text._CinnabarLabFossilRoomScientist1Text
+        or "Hiya!\fI am important\ndoctor!\fI study here rare"
+          .. "\nPOKEMON fossils!\fYou! Have you a\nfossil for me?",
+        function()
+          local items = {}
+          for _, fossilItem in ipairs({
+            "DOME_FOSSIL", "HELIX_FOSSIL", "OLD_AMBER",
+          }) do
+            local record = fossilByItem[fossilItem]
+            if record and (save.inventory[fossilItem] or 0) > 0 then
+              items[#items + 1] = {
+                label = itemName(game, fossilItem),
+                value = record,
+              }
+            end
+          end
+          if #items == 0 then
+            pushText(text._CinnabarLabFossilRoomScientist1NoFossilsText
+              or "No! Is too bad!", onDone)
+            return
+          end
+
+          local list
+          list = ui.ListMenu.new(game, "FOSSIL", items, {
+            onCancel = comeAgain,
+            onChoose = function(item)
+              game.stack:pop()
+              local record = item.value
+              local mapped = resolved(record)
+              local values = {
+                player = save.player and save.player.name,
+                item = itemName(game, record.fossilItem),
+                species = speciesName(game, mapped.species),
+              }
+              pushText(fillText(
+                text._CinnabarLabFossilRoomScientist1SeesFossilText
+                  or "Oh! That is\n{RAM:wNameBuffer}!\fIt is fossil of"
+                    .. "\n{RAM:wStringBuffer}, a\nPOKEMON that is"
+                    .. "\nalready extinct!\fMy Resurrection Machine"
+                    .. "\nwill make that\nPOKEMON live again!",
+                values), nil, {
+                  choice = function(yes)
+                    if not yes then comeAgain() return end
+                    local count = save.inventory[record.fossilItem] or 0
+                    if count <= 1 then
+                      save.inventory[record.fossilItem] = nil
+                    else
+                      save.inventory[record.fossilItem] = count - 1
+                    end
+                    -- Keep the vanilla source in the quest state.  The
+                    -- saved randomizer mapping resolves it at handover,
+                    -- while removing the mod safely restores vanilla.
+                    save.labFossilMon = record.species
+                    flags.EVENT_GAVE_FOSSIL_TO_LAB = true
+                    flags.EVENT_LAB_STILL_REVIVING_FOSSIL = true
+                    pushText(fillText(
+                      text._CinnabarLabFossilRoomScientist1TakesFossilText
+                        or "So! You hurry and\ngive me that!"
+                          .. "\f{PLAYER} handed\nover {RAM:wNameBuffer}!",
+                      values), function()
+                        pushText(
+                          text._CinnabarLabFossilRoomScientist1GoForAWalkText2
+                            or "I take a little\ntime!"
+                              .. "\fYou go for walk a\nlittle while!",
+                          onDone)
+                      end)
+                  end,
+                })
+            end,
+          })
+          game.stack:push(list)
+        end)
+    end
+  end
+
+  local function contributionMap(activeRun, ui)
     activeRun = activeRun or function() return nil end
     local output = {}
     local function mapRecord(mapId)
@@ -280,8 +476,12 @@ return function(Catalog)
         handler = dojoHandler(record, activeRun)
       elseif record.style == "lapras" then
         handler = laprasHandler(record, activeRun)
+      elseif record.style == "fossil" and ui then
+        handler = fossilHandler(activeRun, ui)
       end
-      mapRecord(record.mapId).talk[record.talkKey] = handler
+      if handler then
+        mapRecord(record.mapId).talk[record.talkKey] = handler
+      end
     end
     return output
   end
@@ -327,10 +527,32 @@ return function(Catalog)
     commands:register(CMD.give,
       function(ctx, id, source, level)
         local resolved = offer(activeRun, "gifts", id, source, level)
-        return give(ctx, resolved.species, resolved.level)
+        local previous = ctx.randomizerGiftResolved
+        ctx.randomizerGiftResolved = true
+        local result = give(ctx, resolved.species, resolved.level)
+        ctx.randomizerGiftResolved = previous
+        return result
       end)
+    commands:register(CMD.finishFossil, function(ctx)
+      local flags = ctx.save.flags or {}
+      ctx.save.labFossilMon = nil
+      flags.EVENT_GAVE_FOSSIL_TO_LAB = nil
+      flags.EVENT_LAB_STILL_REVIVING_FOSSIL = nil
+      flags.EVENT_LAB_HANDING_OVER_FOSSIL_MON = nil
+    end)
 
-    local contributions = contributionMap(activeRun)
+    mod.events:on("pokemon.before_give", function(gift)
+      local record = matchingGift(gift)
+      if not record then return end
+      local resolved, mapped = offer(activeRun, "gifts",
+        record.id, record.species, record.level)
+      if not mapped then return end
+      gift.species = resolved.species
+      gift.level = resolved.level
+      gift.randomizerGiftId = record.id
+    end)
+
+    local contributions = contributionMap(activeRun, mod.ui)
     for mapId, contribution in pairs(contributions) do
       mod.content.map_scripts:register(mapId, contribution)
     end

@@ -13,12 +13,18 @@ mappings.wildAreaSlots[mapId][terrain][slotIndex] = {
 }
 ```
 
-The runtime wraps `encounter.roll`, calls the previous hook exactly once, and
-uses the returned species and level to identify the selected source slot. This
-does not reproduce the engine's rate or probability-bucket algorithm and does
-not draw RNG. A native `slotIndex` supplied by a future compatible engine is
-used directly. If multiple modded slots have the same source species and
-level, identity is ambiguous and the encounter remains vanilla.
+The runtime wraps `encounter.roll` and calls the previous hook exactly once.
+On engine `0.1.38` and newer it delegates through the engine-provided RNG
+function and records the engine's own probability-bucket draw. The wrapper
+does not make an extra RNG draw or reroll the encounter. This gives every
+walking and surfing result its exact `slotIndex`, including slots that have
+the same source species and level. A native `slotIndex` supplied by another
+compatible hook is used directly.
+
+On an older compatible engine that does not provide the RNG in hook context,
+the runtime falls back to matching the returned species and level. Only a
+duplicate slot that is inherently ambiguous under that fallback remains
+vanilla.
 
 Grass, indoor walking encounters, and surfing are supported. Indoor encounter
 definitions use the saved grass table because that is how the target engine

@@ -52,13 +52,13 @@ Encounter rates, slot probability buckets, and Repel behavior remain vanilla.
 |---|---|---|---|
 | Static Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes the supported named encounters: the eight Power Plant balls, legendary birds, Mewtwo, and both Snorlax. |
 | Static Levels | `UNCHANGED`, `SCALED`, `RANDOM ±5` | `UNCHANGED` | Preserves levels, compensates for strength, or applies a saved -5 to +5 offset. |
-| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, and the Route 4 Magikarp seller. |
+| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, the Route 4 Magikarp seller, and all three Cinnabar fossil restorations. |
 | Gift Levels | `UNCHANGED`, `SCALED`, `FIXED 15` | `UNCHANGED` | Preserves each gift level, compensates for strength, or gives supported gifts at level 15. |
 | Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | Prevents duplicate destinations among supported gifts while candidates remain. |
 
-Generic object-event statics, ghost Marowak, the catching tutorial, fossil
-restoration, and legendary overworld object sprites remain vanilla in the
-mod-only release because the current public API has no safe hook for them.
+Generic object-event statics, ghost Marowak, the catching tutorial, and
+legendary overworld object sprites remain vanilla in the mod-only release
+because the current public API has no safe pre-battle hook for them.
 
 ### In-game trades
 
@@ -105,9 +105,9 @@ validation rules, see the linked design documents above or the
 
 ## Compatibility
 
-- gen1recomp engine: `>=0.1.30 <0.1.34`
+- gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.14.2`
+- randomizer mod version: `0.15.1`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -182,11 +182,14 @@ check is attributed to this mod and rolled back by gen1recomp's loader.
 - Rival projection copies the prior trainer party and changes only its final
   species; original levels, moves, and party sizes remain intact.
 - Scoped static and gift mappings are generated once and stored with the save.
+- Recomp 0.1.38's `pokemon.before_give` event provides an award-time safety
+  net, while the scoped fossil-room adapter resolves the mapped name before
+  confirmation and resurrection dialogue.
 - Static battle flags, object hiding, gift choice flags, payment, party/box
   handling, and retries remain vanilla-compatible.
 - Magikarp payment and gift completion flags occur only after a successful
   award, so full storage does not consume the offer.
-- Unsupported v0.1.30 static and gift paths remain completely vanilla rather
-  than receiving a late or inconsistent species substitution.
+- Unsupported static paths remain completely vanilla rather than receiving a
+  late or inconsistent species substitution.
 - Unsupported engine or mod API versions fail before gameplay.
 - Module load failures use the engine's normal attributed rollback behavior.

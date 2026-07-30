@@ -1,13 +1,19 @@
--- Headless end-to-end trainer hook check against a Recomp v0.1.30 checkout.
+-- Headless mod-load and trainer-hook check against a Recomp checkout.
 -- Run with the engine checkout as cwd and POKEPORT_DATA_DIR set to extracted
--- generated data. The first argument is the drive/root containing this mod.
+-- generated data for the complete trainer assertions. Without generated
+-- data, the ROM-free engine fixture still validates that the mod loads.
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local modRoot = arg[1] or "E:/PokemonRecompRandomizer"
+local engineVersion = arg[2] or "0.1.38"
+require("src.core.Version").engine = engineVersion
 local T = require("tests.modkit")
 local Runtime = require("src.mods.Runtime")
 local Data = require("src.core.Data")
-Data:load()
+local hasGeneratedData = pcall(Data.load, Data)
+if not hasGeneratedData then
+  Data = require("tests.modkit.fixtures").fresh()
+end
 
 local alias = "mods/pokemon_randomizer"
 local function mapped(path)
@@ -52,20 +58,78 @@ if not (loaded.mod and loaded.mod.state == "loaded") then
   error("mod was not loaded", 0)
 end
 
+if not hasGeneratedData then
+  -- The ROM-free fixture uses FIXMON ids rather than the vanilla 151.
+  -- Exercise generation/runtime with the merged pool instead of stopping
+  -- after the entry chunk loads.
+  loaded.loader.modOptions.pokemon_randomizer = {
+    species_pool = "merged",
+    similar_strength = "100",
+    wild_pokemon = "area_slots",
+  }
+end
+
 local save = {
   version = "red",
   meta = {
-    engine = "0.1.30",
+    engine = engineVersion,
     mods = {
-      { id = "pokemon_randomizer", version = "0.14.2", api = 2 },
+      { id = "pokemon_randomizer", version = "0.15.1", api = 2 },
     },
   },
   player = { id = 1234 },
   modData = {},
 }
+Runtime.emit("game.ready", { game = {} })
 Runtime.emit("save.created", { save = save })
 local run = assert(save.modData.pokemon_randomizer,
   "save.created did not create randomizer state")
+
+if not hasGeneratedData then
+  local encounterDef = Data.encounters.FIX_ROUTE
+  local rolls, rollIndex = { 0, 0 }, 0
+  local context = {
+    mapId = "FIX_ROUTE",
+    terrain = "grass",
+    rng = function()
+      rollIndex = rollIndex + 1
+      return rolls[rollIndex]
+    end,
+  }
+  local selected = Runtime.call("encounter.roll",
+    function(definition, ctx)
+      if ctx.rng(0, 255) >= definition.grass.rate then return nil end
+      local pick = ctx.rng(0, 255)
+      local thresholds = definition.grass.buckets or { 128, 256 }
+      for index, threshold in ipairs(thresholds) do
+        if pick < threshold then
+          local slot = definition.grass.slots[index]
+          return { species = slot.species, level = slot.level }
+        end
+      end
+    end,
+    encounterDef, context)
+  assert(selected.slotIndex == 1 and rollIndex == 2,
+    "0.1.38 encounter.roll did not expose the selected area slot")
+  local wild = Runtime.call("encounter.species", function(encounter)
+    return encounter
+  end, selected, context)
+  local expected = run.mappings.wildAreaSlots.FIX_ROUTE.grass[1]
+  assert(wild.species == expected.species and wild.level == expected.level,
+    "fixture area-slot encounter did not use its saved mapping")
+  print("engine integration: fixture area-slot encounter uses saved mapping")
+  loaded.release()
+  return
+end
+local sourceSpecies = "RATTATA"
+local destinationSpecies = assert(run.mappings.wildGlobal[sourceSpecies],
+  "save has no wild global mapping for " .. sourceSpecies)
+local wild = Runtime.call("encounter.species", function(encounter)
+  return encounter
+end, { species = sourceSpecies, level = 3 },
+  { mapId = "ROUTE_1", terrain = "grass" })
+assert(wild.species == destinationSpecies,
+  "wild runtime did not use the saved global mapping")
 local bugCatchers = assert(run.mappings.trainerParties.OPP_BUG_CATCHER,
   "save has no Bug Catcher mappings")
 

@@ -300,18 +300,13 @@ return function(StableSort, SpeciesFilters, WildGlobal)
       for _, slot in ipairs(encounterRows) do
         local destination = result.wildGlobal[slot.source]
         if destination then
-          if settings.wild_levels ~= "unchanged" and slot.identifiable then
+          if settings.wild_levels ~= "unchanged" then
             local record = {
               level = levelFor(slot.source, destination, slot.level,
                 settings, manifest, streams.levels),
             }
             ensurePath(result.wildAreaSlots,
               slot.mapId, slot.terrain)[slot.index] = record
-          elseif settings.wild_levels ~= "unchanged" then
-            addWarning(result, "WILD_SLOT_IDENTITY_AMBIGUOUS",
-              "duplicate source species and level prevent saved level lookup",
-              { mapId = slot.mapId, terrain = slot.terrain, slot = slot.index })
-            result.fallbackCount = result.fallbackCount + 1
           end
           occurrences[#occurrences + 1] = {
             record = { species = destination },
@@ -321,19 +316,8 @@ return function(StableSort, SpeciesFilters, WildGlobal)
       end
     else
       for _, slot in ipairs(encounterRows) do
-        local destination, diagnostics, reset
-        if slot.identifiable then
-          destination, diagnostics, reset = choose(
-            manifest, slot.source, settings, streams.area, areaUsed)
-        else
-          diagnostics = {
-            error = {
-              code = "SLOT_IDENTITY_AMBIGUOUS",
-              message =
-                "duplicate source species and level prevent stable slot lookup",
-            },
-          }
-        end
+        local destination, diagnostics, reset = choose(
+          manifest, slot.source, settings, streams.area, areaUsed)
         if reset then
           addWarning(result, "WILD_UNIQUENESS_POOL_RESET",
             "eligible destinations were exhausted; uniqueness pool restarted")

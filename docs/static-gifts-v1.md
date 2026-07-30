@@ -1,8 +1,7 @@
-# Static Encounters and Gifts v1
+# Static Encounters and Gifts v2
 
-Milestone 11 is a deliberately partial, mod-only implementation for stock
-Recomp v0.1.30. It uses public API-2 `commands` and `map_scripts` composition;
-no engine patch or custom app build is required.
+The implementation uses public API-2 `commands`, `map_scripts`, and the
+`pokemon.before_give` event. No engine patch or custom app build is required.
 
 ## Supported static encounters
 
@@ -27,17 +26,22 @@ species agree after interaction begins.
 
 ## Supported gifts
 
-Five stable gift IDs are generated and saved:
+Eight stable gift IDs are generated and saved:
 
 - Celadon Mansion Eevee;
 - Route 4/Mt. Moon Pokémon Center Magikarp sale;
 - Fighting Dojo left prize;
 - Fighting Dojo right prize;
-- Silph Co. Lapras.
+- Silph Co. Lapras;
+- Helix Fossil restoration;
+- Dome Fossil restoration;
+- Old Amber restoration.
 
-The saved offer drives the displayed species name and final award. The
-physical gift object or NPC, original event flags, Dojo choice group, payment,
-nickname prompt, Pokédex update, and party/box handling remain engine-owned.
+The saved offer drives the displayed species name and final award. For fossil
+restoration it also drives the scientist's preview and resurrection
+announcement. The physical gift object or NPC, original event flags, Dojo
+choice group, payment, nickname prompt, Pokédex update, and party/box handling
+remain engine-owned or are reproduced through public script commands.
 
 Gift completion flags, object hiding, and Magikarp payment occur only after
 `give_pokemon` succeeds. A full party and full boxes therefore leave the
@@ -59,7 +63,7 @@ Static levels:
   result to 2–100.
 
 `Gift Pokémon: OFF` resolves all supported gifts to their vanilla offers.
-`RANDOMIZED` generates the five offers once.
+`RANDOMIZED` generates the eight offers once.
 
 Gift levels:
 
@@ -86,19 +90,29 @@ Runtime commands resolve only the active run's validated, checksum-protected
 mapping. Missing or invalid mappings use the command's complete vanilla
 species and level.
 
+## Fossil compatibility
+
+`pokemon.before_give` fires immediately before the Pokémon object is created,
+which is sufficient to protect the final award but too late to change the
+scientist's earlier text. A scoped Cinnabar Lab talk adapter therefore resolves
+the same saved offer before the deposit confirmation, resurrection
+announcement, and award.
+
+The pending quest continues to store the vanilla fossil species in
+`save.labFossilMon`. Removing the mod therefore restores the vanilla award.
+A full party and full PC leave the quest pending for another attempt.
+
 ## Explicit compatibility exclusions
 
-These paths remain fully vanilla in v0.11.0:
+These paths remain fully vanilla:
 
-- fossil restoration;
 - the Pokémon Tower ghost Marowak;
 - generic `object_event` static Pokémon not represented by a named map
   script;
 - the catching tutorial;
 - Game Corner Pokémon prizes, which remain assigned to M12.
 
-Stock v0.1.30 exposes no stable pre-battle static hook and no pre-dialogue
-gift-offer hook. Its `pokemon.before_give` event fires too late to keep fossil
-dialogue consistent, and `battle.started` fires after the wild enemy and
-intro have already been constructed. The mod therefore does not use either
-late seam for excluded paths.
+The engine still exposes no stable pre-battle static hook for the remaining
+static paths. `battle.started` fires after the wild enemy and intro have
+already been constructed, so the mod does not apply a late inconsistent
+substitution.

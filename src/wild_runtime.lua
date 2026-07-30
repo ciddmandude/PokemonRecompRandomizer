@@ -1,6 +1,10 @@
 -- Pure runtime resolver for the saved global wild mapping.
 local WildRuntime = {}
 
+local DEFAULT_BUCKETS = {
+  51, 102, 141, 166, 191, 216, 229, 242, 253, 256,
+}
+
 local function copyRecord(record)
   local output = {}
   for key, value in pairs(record) do output[key] = value end
@@ -44,8 +48,40 @@ function WildRuntime.resolve(encounter, context, run)
   return resolved
 end
 
--- Calls the vanilla/prior roll exactly once, then annotates an unambiguous
--- selected slot. It never repeats the engine's probability-bucket logic.
+local function matchingSlot(encounter, slots)
+  local matched
+  for index, slot in ipairs(slots) do
+    if slot.species == encounter.species and slot.level == encounter.level then
+      if matched then return nil end
+      matched = index
+    end
+  end
+  return matched
+end
+
+local function rolledSlot(encounter, definition, pick)
+  if type(pick) ~= "number" then return nil end
+  local slots = type(definition) == "table" and definition.slots
+  local buckets = type(definition) == "table" and definition.buckets
+  if type(slots) ~= "table" then return nil end
+  if type(buckets) ~= "table" then buckets = DEFAULT_BUCKETS end
+  for index, threshold in ipairs(buckets) do
+    if pick < threshold then
+      local slot = slots[index]
+      if type(slot) == "table"
+          and slot.species == encounter.species
+          and slot.level == encounter.level then
+        return index
+      end
+      return nil
+    end
+  end
+  return nil
+end
+
+-- Calls the vanilla/prior roll exactly once, then annotates the selected
+-- slot. On 0.1.38+, a delegating RNG records the engine's bucket
+-- draw so duplicate species/level slots remain distinguishable.
 function WildRuntime.roll(nextFn, encounterDefinition, context, run)
   if type(run) ~= "table" or run.enabled ~= true
       or type(run.settings) ~= "table"
@@ -54,22 +90,30 @@ function WildRuntime.roll(nextFn, encounterDefinition, context, run)
         and run.settings.wild_levels == "unchanged") then
     return nextFn(encounterDefinition, context)
   end
-  local encounter = nextFn(encounterDefinition, context)
+  local definition = type(encounterDefinition) == "table"
+    and encounterDefinition.grass
+  local tracedContext = context
+  local bucketPick
+  if type(context) == "table" and type(context.rng) == "function" then
+    tracedContext = copyRecord(context)
+    local originalRng = context.rng
+    local calls = 0
+    tracedContext.rng = function(...)
+      local value = originalRng(...)
+      calls = calls + 1
+      if calls == 2 then bucketPick = value end
+      return value
+    end
+  end
+  local encounter = nextFn(encounterDefinition, tracedContext)
   if type(encounter) ~= "table" or type(context) ~= "table" then
     return encounter
   end
   if type(encounter.slotIndex) == "number" then return encounter end
-  local definition = type(encounterDefinition) == "table"
-    and encounterDefinition.grass
   local slots = type(definition) == "table" and definition.slots
   if type(slots) ~= "table" then return encounter end
-  local matched
-  for index, slot in ipairs(slots) do
-    if slot.species == encounter.species and slot.level == encounter.level then
-      if matched then return encounter end
-      matched = index
-    end
-  end
+  local matched = rolledSlot(encounter, definition, bucketPick)
+    or matchingSlot(encounter, slots)
   if not matched then return encounter end
   local resolved = copyRecord(encounter)
   resolved.slotIndex = matched
