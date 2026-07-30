@@ -80,6 +80,14 @@ local run = {
           { fallback = true, sourceSlot = 2 },
         },
       },
+      OPP_RIVAL1 = {
+        [1] = {
+          { fallback = true, sourceSlot = 1 },
+        },
+        rivalStarters = {
+          [1] = { species = "RAT" },
+        },
+      },
     },
   },
   diagnostics = { warnings = {}, fallbackCount = 0 },
@@ -95,6 +103,8 @@ assert(plaintext:find("Mr. Mime Lv.42", 1, true))
 assert(plaintext:find("Location: Route 11 Gate 2F", 1, true))
 assert(plaintext:find("Party 1   Cat Lv.5", 1, true))
 assert(plaintext:find("Vanilla source slot 2", 1, true))
+assert(plaintext:find("Party 1   Rat", 1, true),
+  "text spoilers must show the projected rival starter")
 assert(not plaintext:find("MAPPINGS=", 1, true))
 
 local written = {}

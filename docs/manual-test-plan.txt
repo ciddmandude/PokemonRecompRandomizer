@@ -1,8 +1,8 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.34.4
-Algorithm build ...... 1.4.0-dev
+Mod version .......... 0.35.0
+Algorithm build ...... 1.5.0-dev
 Engine range ......... >=0.1.30 <0.2.0  (0.1.38 recommended)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.34.4.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.35.0.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -301,13 +301,14 @@ CFG-A  "STANDARD baseline"                                   seed: TEST A
   PRESET = STANDARD. Change nothing else.
   Covers: global wild map, randomized fishing, unchanged levels, catch guard,
   random starters (basic only), both-sides trades w/ similar strength,
-  randomized prizes, by-slot trainers, themed bosses, progression guard.
+  randomized prizes, by-slot trainers, themed bosses, rival INCLUDE/KEEP YES,
+  progression guard.
 
 CFG-B  "CASUAL"                                              seed: TEST B
   PRESET = CASUAL. Change nothing else.
   Covers: LEGENDARIES=EXCLUDE with TRADE FAIRNESS=NO DOWNGRADE (the round-1
   legendary-bypass regression), boss trainers VANILLA, global-map trainers,
-  RECEIVED-only trades, +/-10% strength band.
+  rival VANILLA/KEEP YES, RECEIVED-only trades, +/-10% strength band.
 
 CFG-C  "CHAOS"                                               seed: TEST C
   PRESET = CHAOS. Change nothing else.
@@ -316,13 +317,13 @@ CFG-C  "CHAOS"                                               seed: TEST C
   RANDOM OTHER rival, RANDOM +/-5 statics, SCALED gifts, allow dup gifts,
   ANY trade fairness, trade safety OFF, SCALED prize levels, RANDOM +/-25%
   prices, +/-10% trainer levels, bosses INCLUDE, 1-6 RANDOM party size,
-  progression guard OFF.
+  rival INCLUDE/KEEP NO, progression guard OFF.
 
 CFG-D  "All categories OFF"                                  seed: TEST D
   RANDOMIZER = ON, then set every category switch to OFF:
     WILD POKEMON=OFF, FISHING=VANILLA, STARTERS=OFF, STATIC POKEMON=OFF,
     GIFT POKEMON=OFF, IN-GAME TRADES=OFF, PRIZE POKEMON=OFF,
-    TRAINER POKEMON=OFF
+    TRAINER POKEMON=OFF, RIVAL POKEMON=VANILLA
   Covers: vanilla parity while the mod is fully active.
 
 CFG-E  "Master switch OFF"                                   seed: TEST E
@@ -347,6 +348,8 @@ CFG-G  "Type themed"                                         seed: TEST G
     STARTER STAGE = ANY
     TRAINER POKEMON = TYPE THEMED
     BOSS TRAINERS = THEMED
+    RIVAL POKEMON = THEMED
+    RIVAL KEEP POKEMON = YES
     SIMILAR STRENGTH = OFF
     LEGENDARIES = ALLOW
     DUPLICATES = ALLOW
@@ -505,7 +508,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.4.0-dev.
+  EXPECT: ALGORITHM reads 1.5.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -735,10 +738,14 @@ STR-05 [P1] Rival at every later branch
   1. Continue the same run to the Route 22 rematch, Cerulean, S.S. Anne,
      Pokemon Tower, Silph Co., Route 22 late, and the Champion fight.
      (Use the save editor to warp and set the prerequisite flags.)
-  EXPECT: at every rival battle the final party slot is the counterpick species
-          consistent with the starter you actually chose.
-  EXPECT: party sizes and the levels of the non-starter slots follow the
-          trainer settings, not the starter settings.
+  EXPECT: at every rival battle the final party slot belongs to the
+          counterpick's randomized evolution family and evolves when the
+          vanilla starter evolves.
+  EXPECT: recurring non-starter team identities retain their randomized
+          families, evolve on the vanilla schedule, and appear or disappear
+          on the vanilla schedule.
+  EXPECT: RIVAL POKEMON controls these battles independently from BOSS
+          TRAINERS.
 
 STR-06 [P1] BASIC ONLY is enforced - PASSED
   1. CFG-A (STARTER STAGE = BASIC ONLY). NEW GAME across five different seeds.
@@ -1280,7 +1287,7 @@ TRN-03 [P0] Party sizes and validity
           and at least one move.
 
 TRN-04 [P0] All boss battles
-  1. CFG-A. Fight all eight Gym Leaders, the Elite Four, and the Champion.
+  1. CFG-A. Fight all eight Gym Leaders and the Elite Four.
      Warp and set badge flags to reach them quickly.
   EXPECT: every boss battle starts and completes without error.
   EXPECT: parties match the spoiler log.
@@ -1355,13 +1362,46 @@ TRN-14 [P1] Per-slot fallback  *** regression test ***
   THIS WAS A REAL BUG - the whole category used to revert. If trainers are
   globally vanilla here, that is a P0 failure.
 
-TRN-15 [P2] Rival projection does not clobber the rest of the party
-  1. CFG-A. Fight the final rival.
-  EXPECT: the last slot is the starter counterpick species.
-  EXPECT: the other five slots follow the trainer mapping and keep their
-          randomized levels and party size.
+TRN-15 [P0] Rival settings are independent from boss settings
+  1. Set BOSS TRAINERS = VANILLA, RIVAL POKEMON = INCLUDE, and
+     RIVAL KEEP POKEMON = YES. Fight Brock and the first two rival battles.
+  EXPECT: Brock is fully vanilla. Rival non-starter slots follow TRAINER
+          POKEMON. Oak's Lab uses the selected counterpick.
+  2. Set BOSS TRAINERS = INCLUDE and RIVAL POKEMON = VANILLA.
+  EXPECT: Brock follows TRAINER POKEMON. Rival non-starter species, levels,
+          moves, and party sizes are vanilla.
 
-TRN-16 [P2] Battle performance
+TRN-16 [P0] RIVAL KEEP POKEMON = YES
+  1. CFG-A. Record every rival party from Oak's Lab through Champion.
+  EXPECT: the selected counterpick remains the rival's starter family and
+          evolves when the vanilla starter would evolve.
+  EXPECT: each recurring non-starter identity keeps one randomized family,
+          evolves when its vanilla counterpart evolves, and appears or
+          disappears on the vanilla schedule. In particular, the identity
+          occupying the vanilla Rattata/Raticate role disappears when it does
+          in the original game.
+  EXPECT: party size and levels match the saved spoiler entries.
+
+TRN-17 [P1] THEMED rival follows the randomized starter
+  1. Set RIVAL POKEMON = THEMED and RIVAL KEEP POKEMON = YES.
+  2. Test all three player starter choices from the same seed.
+  EXPECT: each rival branch's theme is the primary type of that branch's
+          randomized counterpick. Every generated non-starter member includes
+          that type unless a recorded deterministic fallback was required.
+
+TRN-18 [P1] RIVAL KEEP POKEMON = NO
+  1. Set RIVAL POKEMON = INCLUDE and RIVAL KEEP POKEMON = NO.
+  2. Fight Oak's Lab, then two later rival battles. Reload and repeat.
+  EXPECT: Oak's Lab always uses the selected counterpick.
+  EXPECT: all later slots, including the former starter slot, are independently
+          randomized and match the spoiler log. Reloading never rerolls them.
+
+TRN-19 [P1] Rival preset defaults
+  1. Select STANDARD. EXPECT: RIVAL POKEMON = INCLUDE and KEEP = YES.
+  2. Select CASUAL. EXPECT: RIVAL POKEMON = VANILLA and KEEP = YES.
+  3. Select CHAOS. EXPECT: RIVAL POKEMON = INCLUDE and KEEP = NO.
+
+TRN-20 [P2] Battle performance
   1. Enter and exit twenty battles in a row.
   EXPECT: no perceptible added delay at battle start compared with the mod
           disabled.
@@ -1457,7 +1497,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.34.4.
+          compatibility block, and the archive file name all read 0.35.0.
 
 REL-05 [P1] Unsupported engine version
   1. Install on an engine outside >=0.1.30 <0.2.0 if one is available.

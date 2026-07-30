@@ -77,15 +77,31 @@ No level is rerolled during play or after loading.
 
 ## Boss trainers
 
-Bosses are the eight Gym Leader classes, the four Elite Four classes, and all
-three rival classes.
+Bosses are the eight Gym Leader classes and the four Elite Four classes.
 
 - `INCLUDE`: bosses follow the selected Trainer Pokémon mode.
 - `THEMED`: bosses receive a saved type theme even when ordinary trainers use
   Global Map or By Slot, and retain their source party size.
-- `VANILLA`: no trainer-category mapping is saved for boss classes. Starter
-  randomization may still project its saved rival counterpick because that is
-  required for starter continuity.
+- `VANILLA`: no trainer-category mapping is saved for boss classes.
+
+## Rival Pokémon
+
+Rivals, including the Champion, use an independent control with the same
+`INCLUDE`, `THEMED`, and `VANILLA` choices.
+
+- `INCLUDE` follows the selected Trainer Pokémon mode.
+- `THEMED` retains each vanilla party size. With Rival Keep Pokémon on, the
+  saved starter branch's randomized starter primary type is the theme.
+- `VANILLA` retains non-starter species, levels, moves, and party size. The
+  selected starter still follows the Rival Keep Pokémon rule.
+
+The first Oak's Lab battle always uses the selected randomized counterpick.
+With Rival Keep Pokémon on, each recurring vanilla species family is assigned
+one randomized family per starter branch. It advances when the vanilla family
+evolves and disappears or appears on the vanilla schedule. If the randomized
+family has no further evolution, its latest form remains. With the setting
+off, later slots—including the former starter slot—are independently
+randomized according to Rival Pokémon.
 
 Gen1recomp v0.1.30 applies several hard-coded leader, Elite Four, Giovanni, and
 rival moves after the trainer hook. When the destination species can legally
@@ -118,4 +134,5 @@ identified prior slot, so eligible neighboring slots remain randomized.
 Missing or malformed class/variant mappings return the previous hook's
 complete party unchanged. Malformed source parties and slots with no eligible
 destination record attributed warnings without clearing unrelated trainer
-classes. The starter-rival projection runs last.
+classes. The saved rival-starter projection runs last so it can select the
+correct saved evolution for that battle without altering any other slot.

@@ -202,15 +202,23 @@ return function(
     end
 
     if request.settings.trainer_pokemon ~= nil
-        and request.settings.trainer_pokemon ~= "off" then
+        or request.settings.rival_pokemon ~= nil then
+      local trainerSources = {}
+      for key, value in pairs(request.sources or {}) do
+        trainerSources[key] = value
+      end
+      trainerSources.starters = result.mappings.starters
+      trainerSources.starterFlags = result.mappings.starterFlags
       local ok, category = pcall(TrainerCategory.generate,
-        manifest, request.sources or {}, request.settings, {
+        manifest, trainerSources, request.settings, {
           species = Foundation.Rng.fromSeed(
             request.seed.canonical, "trainers.species"),
           levels = Foundation.Rng.fromSeed(
             request.seed.canonical, "trainers.levels"),
           sizes = Foundation.Rng.fromSeed(
             request.seed.canonical, "trainers.sizes"),
+          rival = Foundation.Rng.fromSeed(
+            request.seed.canonical, "trainers.rival"),
         })
       if ok then
         result.mappings.trainerParties = category.trainerParties

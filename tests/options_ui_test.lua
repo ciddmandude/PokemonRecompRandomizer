@@ -32,7 +32,7 @@ local mod = {
 }
 local preferences = Preferences.new(mod)
 preferences:define()
-equal(#defined, 33, "complete preference row count")
+equal(#defined, 35, "complete preference row count")
 equal(#preferences:pages(), 13, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
@@ -65,6 +65,8 @@ equal(defaults.preset, "standard", "preset default")
 equal(defaults.seed_text, "", "seed text default")
 equal(defaults.game_corner_pokemon, "randomized", "prize default")
 equal(defaults.generate_spoiler_log, "on", "spoiler access default")
+equal(defaults.rival_pokemon, "include", "rival mode default")
+equal(defaults.rival_keep_pokemon, "yes", "rival continuity default")
 
 assert(preferences:set("randomizer", "off", game))
 equal(writes, 1, "single preference persistence")

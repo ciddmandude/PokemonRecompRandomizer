@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.4.0-dev`
+Algorithm build: `1.5.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -61,6 +61,10 @@ Dojo gifts are now reachable at the Lavender/Celadon stage after
 change guarded NPC trade requests. Requirement identifiers returned by the
 progression model are also sorted deterministically. Existing saved mappings
 remain authoritative and are never regenerated.
+
+Rival policy separation and saved evolution-family continuity advance the
+algorithm build to `1.5.0-dev`. Rival party mappings intentionally differ
+from `1.4.0-dev`; existing saves continue to use their stored mappings.
 
 ## 1. Numeric model
 

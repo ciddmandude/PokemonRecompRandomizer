@@ -181,7 +181,9 @@ Purchasing a randomized prize must show the correct species and level before pay
 |---|---|---:|---|
 | Trainer Pokémon | `OFF`, `GLOBAL MAP`, `BY SLOT`, `TYPE THEMED` | `BY SLOT` | `OFF` leaves all parties vanilla. `GLOBAL MAP` consistently maps every source species to one destination. `BY SLOT` independently resolves every trainer class, party index, and party position. `TYPE THEMED` assigns each trainer class a saved type and fills all its slots from that type when possible. All enabled modes exclude the source species whenever another valid candidate exists; a self-map is allowed only when the active constraints leave no alternative. |
 | Trainer Levels | `UNCHANGED`, `±10%`, `PROGRESSIVE` | `UNCHANGED` | `UNCHANGED` preserves levels. `±10%` applies a saved per-slot integer multiplier from 90–110%. `PROGRESSIVE` uses the source party's maximum level as a stable progression proxy: maximum levels 15, 30, 45, 60, and above receive -20%, -10%, 0%, +10%, and +20%. All values round to the nearest integer and clamp to 2–100. |
-| Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Applies to Gym Leaders, Elite Four, Champion, and major rival fights. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a single saved type theme per boss while retaining party size. `VANILLA` excludes boss parties from species and level randomization. |
+| Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Applies to Gym Leaders and Elite Four members, excluding the Champion rival. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a single saved type theme per boss while retaining party size. `VANILLA` excludes boss parties from species and level randomization. |
+| Rival Pokémon | `INCLUDE`, `THEMED`, `VANILLA` | `INCLUDE` | Applies to every rival battle, including the Champion. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a rival theme and retains vanilla party size. With Rival Keep Pokémon `YES`, each starter branch uses that randomized starter's primary type; with `NO`, the run saves a deterministic rival theme. `VANILLA` leaves non-starter species, levels, moves, and party sizes vanilla while the starter slot still follows Rival Keep Pokémon. |
+| Rival Keep Pokémon | `NO`, `YES` | `YES` | `YES` assigns each recurring vanilla rival-family slot one randomized evolution family, advances along it when the vanilla counterpart evolves, and follows the vanilla add/remove schedule. If the destination family runs out of evolutions, its latest form remains. `NO` preserves the selected counterpick for Oak's Lab only; every later party, including the former starter slot, is independently resolved according to Rival Pokémon. |
 | Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | `UNCHANGED` preserves each party's count. `1–6 RANDOM` generates a saved count, but Progression Guard limits pre–Brock trainers to 1–3 and prevents required battles from exceeding six. |
 | Progression Guard | `OFF`, `ON` | `ON` | Enforces valid species, levels, and nonempty required parties; limits the first rival battle relative to the starter; prevents early mandatory teams composed only of high-BST or legendary Pokémon; and ensures generated moves can be constructed. It does not guarantee a particular difficulty. |
 
@@ -221,6 +223,7 @@ Required stream names:
 - `wild.levels`;
 - `starters`;
 - `rival.counterpick`;
+- `trainers.rival`;
 - `static.encounters`;
 - `static.levels`;
 - `gifts`;
@@ -456,6 +459,15 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Enumerate trainer IDs, party indices, and slots in sorted/numeric order.
 - Preserve party membership order unless a setting explicitly changes size.
 - Generate and save the final `{ species, level }` list for every party variant, including rival branches.
+- Keep boss and rival policy independent: boss settings never override rival
+  settings, and rival settings never override Gym Leader or Elite Four
+  settings.
+- Always project the selected counterpick into the first Oak's Lab battle.
+- With Rival Keep Pokémon on, save a randomized family identity for every
+  recurring vanilla rival family and starter branch, advance it on vanilla
+  evolution timing, and preserve the vanilla add/remove schedule.
+- With Rival Keep Pokémon off, independently resolve every later rival slot,
+  including the former starter position.
 - Type-themed selection prefers dual-type candidates containing the theme. If none exist after filters, relax Similar Strength before relaxing the type requirement; record every relaxation.
 - Required battles may never have zero valid Pokémon.
 - Runtime lookup must be O(1) by trainer ID and party index and must allocate only the returned party copy.
@@ -565,7 +577,8 @@ All new hook results must be type-checked. Invalid results log an attributed err
   restoration remains vanilla.
 - Complete every NPC trade, including wrong-mon, cancel, and already-completed branches.
 - Buy every Game Corner Pokémon prize with insufficient funds, enough funds, full party, and full storage cases.
-- Instantiate every trainer party variant and complete required boss battles.
+- Instantiate every trainer party variant and complete required boss and rival
+  battles under every rival mode and both keep choices.
 - Exercise Red and Blue data paths where supported.
 
 ### 12.4 Fuzz/property tests

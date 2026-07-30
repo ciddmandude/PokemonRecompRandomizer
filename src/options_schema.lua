@@ -180,6 +180,13 @@ local groups = {
         { "INCLUDE", "include" }, { "THEMED", "themed" },
         { "VANILLA", "vanilla" },
       }, "SPECIAL RULES FOR MAJOR BOSSES."),
+      choice("rival_pokemon", "RIVAL POKEMON", "include", {
+        { "INCLUDE", "include" }, { "THEMED", "themed" },
+        { "VANILLA", "vanilla" },
+      }, "SPECIAL RULES FOR RIVAL BATTLES."),
+      choice("rival_keep_pokemon", "RIVAL KEEP POKEMON", "yes", {
+        { "NO", "no" }, { "YES", "yes" },
+      }, "KEEP RIVAL TEAM BETWEEN BATTLES."),
       choice("party_size", "PARTY SIZE", "unchanged", {
         { "UNCHANGED", "unchanged" }, { "1-6 RANDOM", "random_1_6" },
       }, "KEEP OR RANDOMIZE PARTY COUNTS."),

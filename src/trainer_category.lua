@@ -7,6 +7,8 @@ return function(StableSort, SpeciesFilters, Matching)
     OPP_ERIKA = true, OPP_KOGA = true, OPP_SABRINA = true,
     OPP_BLAINE = true, OPP_GIOVANNI = true, OPP_LORELEI = true,
     OPP_BRUNO = true, OPP_AGATHA = true, OPP_LANCE = true,
+  }
+  local RIVALS = {
     OPP_RIVAL1 = true, OPP_RIVAL2 = true, OPP_RIVAL3 = true,
   }
 
@@ -272,13 +274,212 @@ return function(StableSort, SpeciesFilters, Matching)
     }
   end
 
+  local function rivalBranch(partyIndex)
+    return ((partyIndex - 1) % 3) + 1
+  end
+
+  local function firstRivalBattle(classId, partyIndex)
+    return classId == "OPP_RIVAL1" and partyIndex <= 3
+  end
+
+  local function starterForBranch(sources, branch)
+    local starters = type(sources) == "table" and sources.starters
+    local flags = type(sources) == "table" and sources.starterFlags
+    local slots = type(flags) == "table" and flags.partyOffsetSlots
+    local slotId = type(slots) == "table" and slots[branch]
+    local starter = type(starters) == "table" and starters[slotId]
+    if type(starter) == "table"
+        and type(starter.rivalSpecies) == "string" then
+      return starter
+    end
+  end
+
+  local function rivalTheme(manifest, sources, branch)
+    local starter = starterForBranch(sources, branch)
+    local entry = starter and manifest.byId[starter.rivalSpecies]
+    return entry and entry.primaryType or nil
+  end
+
+  local function rivalUsesVanillaTeam(settings)
+    return settings.rival_pokemon == "vanilla"
+      or (settings.rival_pokemon == "include"
+        and (settings.trainer_pokemon == nil
+          or settings.trainer_pokemon == "off"))
+  end
+
+  local function classEnabled(classId, settings)
+    local trainerOn = settings.trainer_pokemon ~= nil
+      and settings.trainer_pokemon ~= "off"
+    if RIVALS[classId] then
+      if settings.rival_pokemon == "themed" then return true end
+      if settings.rival_pokemon == "vanilla" then return true end
+      if settings.rival_pokemon == "include" then return true end
+      return trainerOn
+    end
+    if BOSSES[classId] then
+      return trainerOn and settings.boss_trainers ~= "vanilla"
+    end
+    return trainerOn
+  end
+
+  local RIVAL_ORDER = { "OPP_RIVAL1", "OPP_RIVAL2", "OPP_RIVAL3" }
+
+  local function familyIndex(manifest)
+    local parent = {}
+    for _, entry in ipairs(manifest.entries or {}) do
+      for _, evolution in ipairs(entry.evolutions or {}) do
+        if manifest.byId[evolution.species]
+            and (not parent[evolution.species]
+              or entry.id < parent[evolution.species]) then
+          parent[evolution.species] = entry.id
+        end
+      end
+    end
+    local roots, depths = {}, {}
+    local function resolve(id, visiting)
+      if roots[id] then return roots[id], depths[id] end
+      visiting = visiting or {}
+      if visiting[id] or not parent[id] then
+        roots[id], depths[id] = id, 0
+        return id, 0
+      end
+      visiting[id] = true
+      local root, depth = resolve(parent[id], visiting)
+      visiting[id] = nil
+      roots[id], depths[id] = root, depth + 1
+      return roots[id], depths[id]
+    end
+    for _, entry in ipairs(manifest.entries or {}) do resolve(entry.id) end
+    return roots, depths
+  end
+
+  local function hasType(entry, theme)
+    if not theme then return true end
+    for _, typeId in ipairs(entry.types or {}) do
+      if typeId == theme then return true end
+    end
+    return false
+  end
+
+  local function advanceEvolution(manifest, species, theme, rng)
+    local entry = manifest.byId[species]
+    if not entry then return species end
+    local candidates = {}
+    for _, evolution in ipairs(entry.evolutions or {}) do
+      local evolved = manifest.byId[evolution.species]
+      if evolved and hasType(evolved, theme) then
+        candidates[#candidates + 1] = evolved.id
+      end
+    end
+    if #candidates == 0 then return species end
+    return candidates[rng:nextInt(1, #candidates)]
+  end
+
+  local function familyForm(
+      identity, targetDepth, manifest, theme, rng)
+    local delta = math.max(0, targetDepth - identity.sourceDepth)
+    while #identity.forms <= delta do
+      local previous = identity.forms[#identity.forms]
+      identity.forms[#identity.forms + 1] =
+        advanceEvolution(manifest, previous, theme, rng)
+    end
+    return identity.forms[delta + 1]
+  end
+
+  local function refreshRivalMoves(
+      row, classId, partyIndex, slotIndex, manifest)
+    local special = specialMove(
+      classId, partyIndex, slotIndex, row.species)
+    local entry = manifest.byId[row.species]
+    if special and entry and not moveLegal(entry, special) then
+      row.moves = movesAtLevel(entry, row.level)
+    else
+      row.moves = nil
+    end
+  end
+
+  local function applyRivalContinuity(
+      manifest, sources, settings, rng, trainerParties)
+    local roots, depths = familyIndex(manifest)
+    local branchState = { {}, {}, {} }
+    local starterState = {}
+    local keep = settings.rival_keep_pokemon ~= "no"
+
+    for _, classId in ipairs(RIVAL_ORDER) do
+      local sourceClass = sources.trainers[classId]
+      local sourceParties = sourceClass and sourceClass.parties
+      local savedClass = trainerParties[classId]
+      if type(sourceParties) == "table" and type(savedClass) == "table" then
+        savedClass.rivalStarters = savedClass.rivalStarters or {}
+        for partyIndex, sourceParty in ipairs(sourceParties) do
+          local savedParty = savedClass[partyIndex]
+          local branch = rivalBranch(partyIndex)
+          local sourceStarter = sourceParty[#sourceParty]
+          local starter = starterForBranch(sources, branch)
+          if type(savedParty) == "table" and type(sourceStarter) == "table"
+              and starter and (keep
+                or firstRivalBattle(classId, partyIndex)) then
+            local sourceDepth = depths[sourceStarter.species] or 0
+            local identity = starterState[branch]
+            if not identity then
+              identity = {
+                sourceDepth = sourceDepth,
+                forms = { starter.rivalSpecies },
+              }
+              starterState[branch] = identity
+            end
+            local theme = settings.rival_pokemon == "themed" and keep
+              and rivalTheme(manifest, sources, branch) or nil
+            savedClass.rivalStarters[partyIndex] = {
+              species = familyForm(
+                identity, sourceDepth, manifest, theme, rng),
+            }
+          end
+
+          if keep and not rivalUsesVanillaTeam(settings)
+              and type(savedParty) == "table" then
+            local theme = settings.rival_pokemon == "themed"
+              and rivalTheme(manifest, sources, branch) or nil
+            for slotIndex = 1, math.max(0, #sourceParty - 1) do
+              local sourceSlot = sourceParty[slotIndex]
+              local savedSlot = savedParty[slotIndex]
+              if type(sourceSlot) == "table"
+                  and type(savedSlot) == "table"
+                  and savedSlot.fallback ~= true
+                  and type(savedSlot.species) == "string" then
+                local root = roots[sourceSlot.species] or sourceSlot.species
+                local sourceDepth = depths[sourceSlot.species] or 0
+                local identity = branchState[branch][root]
+                if not identity then
+                  identity = {
+                    sourceDepth = sourceDepth,
+                    forms = { savedSlot.species },
+                  }
+                  branchState[branch][root] = identity
+                end
+                local resolved = familyForm(
+                  identity, sourceDepth, manifest, theme, rng)
+                if resolved ~= savedSlot.species then
+                  savedSlot.species = resolved
+                  refreshRivalMoves(savedSlot, classId, partyIndex,
+                    slotIndex, manifest)
+                end
+              end
+            end
+          end
+        end
+        if next(savedClass.rivalStarters) == nil then
+          savedClass.rivalStarters = nil
+        end
+      end
+    end
+  end
+
   function Category.generate(manifest, sources, settings, rngs)
     assert(type(manifest) == "table", "species manifest is required")
     assert(type(settings) == "table", "trainer settings are required")
     assert(type(rngs) == "table", "trainer RNG streams are required")
     local result = { trainerParties = {}, warnings = {}, fallbackCount = 0 }
-    if settings.trainer_pokemon == nil
-        or settings.trainer_pokemon == "off" then return result end
     local trainers = type(sources) == "table" and sources.trainers or nil
     assert(type(trainers) == "table", "merged trainer registry is required")
     local themes = allTypes(manifest)
@@ -299,16 +500,27 @@ return function(StableSort, SpeciesFilters, Matching)
       })
     end
     local pending = {}
+    local independentRivalTheme
+    if settings.rival_pokemon == "themed"
+        and settings.rival_keep_pokemon == "no" then
+      independentRivalTheme =
+        themes[rngs.species:nextInt(1, #themes)]
+    end
 
     for _, classId in ipairs(StableSort.keys(trainers)) do
       local trainer = trainers[classId]
       local parties = type(trainer) == "table" and trainer.parties
-      if type(parties) == "table"
-          and not (BOSSES[classId] and settings.boss_trainers == "vanilla") then
+      if type(parties) == "table" and classEnabled(classId, settings) then
+        local isRival = RIVALS[classId] == true
         local themed = settings.trainer_pokemon == "type_themed"
           or (BOSSES[classId] and settings.boss_trainers == "themed")
-        local theme = themed
-          and themes[rngs.species:nextInt(1, #themes)] or nil
+          or (isRival and settings.rival_pokemon == "themed")
+        local branchThemedRival = isRival
+          and settings.rival_pokemon == "themed"
+          and settings.rival_keep_pokemon == "yes"
+        local theme = isRival and independentRivalTheme
+          or (themed and not branchThemedRival
+            and themes[rngs.species:nextInt(1, #themes)] or nil)
         local classMappings = {}
         if theme then classMappings.theme = theme end
         for partyIndex, sourceParty in ipairs(parties) do
@@ -323,11 +535,24 @@ return function(StableSort, SpeciesFilters, Matching)
           else
           local maximum = partyMaximum(sourceParty)
           local early = settings.progression_guard == "on" and maximum <= 14
+          local branch = isRival and rivalBranch(partyIndex) or nil
+          local partyTheme = theme
+          if isRival and settings.rival_pokemon == "themed"
+              and settings.rival_keep_pokemon == "yes" then
+            partyTheme = rivalTheme(manifest, sources, branch) or theme
+            classMappings.themes = classMappings.themes or {}
+            classMappings.themes[branch] = partyTheme
+          end
           local size = #sourceParty
           if settings.party_size == "random_1_6" then
             size = rngs.sizes:nextInt(1, early and 3 or 6)
           end
           if BOSSES[classId] and settings.boss_trainers == "themed" then
+            size = #sourceParty
+          end
+          if isRival and (settings.rival_pokemon == "themed"
+              or settings.rival_pokemon == "vanilla"
+              or settings.rival_keep_pokemon == "yes") then
             size = #sourceParty
           end
           if classId == "OPP_RIVAL1" and maximum <= 5 then size = 1 end
@@ -336,15 +561,28 @@ return function(StableSort, SpeciesFilters, Matching)
             local sourceIndex = ((slotIndex - 1) % #sourceParty) + 1
             local sourceSlot = sourceParty[sourceIndex]
             local species, diagnostics
-            if manifest.byId[sourceSlot.species] then
-              if global then
+            local starterSlot = isRival and sourceIndex == #sourceParty
+            local preserveStarter = starterSlot
+              and (settings.rival_keep_pokemon == "yes"
+                or firstRivalBattle(classId, partyIndex))
+            local rivalVanilla = isRival
+              and rivalUsesVanillaTeam(settings)
+            local forceFallback = preserveStarter
+              or (rivalVanilla and not (starterSlot
+                and settings.rival_keep_pokemon == "no"
+                and not firstRivalBattle(classId, partyIndex)))
+            if forceFallback then
+              mappedParty[slotIndex] = fallbackSlot(sourceIndex)
+            elseif manifest.byId[sourceSlot.species] then
+              if global and not (isRival
+                  and settings.rival_pokemon == "themed") then
                 species = global[sourceSlot.species]
                 diagnostics = globalFailures
                   and globalFailures[sourceSlot.species]
               elseif uniqueSession then
                 local candidates
                 candidates, diagnostics = candidateList(
-                  manifest, sourceSlot.species, settings, theme, early)
+                  manifest, sourceSlot.species, settings, partyTheme, early)
                 local matchId = classId .. ":" .. partyIndex .. ":" .. slotIndex
                 uniqueSession:add({
                   id = matchId,
@@ -355,19 +593,19 @@ return function(StableSort, SpeciesFilters, Matching)
                     similarStrength = tonumber(settings.similar_strength),
                     legendary = early and settings.progression_guard == "on"
                         and "exclude" or (settings.legendaries or "allow"),
-                    theme = theme,
+                    theme = partyTheme,
                     progression = early,
                   },
                 })
                 species = #candidates > 0 and "__PENDING__" or nil
               else
                 species, diagnostics = choose(
-                  manifest, sourceSlot.species, settings, theme,
+                  manifest, sourceSlot.species, settings, partyTheme,
                   rngs.species, early)
               end
             end
 
-            if not species then
+            if not forceFallback and not species then
               local unavailable = not manifest.byId[sourceSlot.species]
               local reason = unavailable and "UNKNOWN_SOURCE"
                 or diagnostics and diagnostics.error
@@ -384,10 +622,11 @@ return function(StableSort, SpeciesFilters, Matching)
                 sourceSlot.species, reason)
               result.fallbackCount = result.fallbackCount + 1
               mappedParty[slotIndex] = fallbackSlot(sourceIndex)
-            else
+            elseif not forceFallback then
               local level = adjustedLevel(
                 sourceSlot.level, maximum,
-                settings.trainer_levels, rngs.levels)
+                rivalVanilla and "unchanged"
+                  or settings.trainer_levels, rngs.levels)
               if classId == "OPP_RIVAL1" and maximum <= 5
                   and settings.progression_guard == "on" then
                 local starterLevel = tonumber(settings.starter_level) or 5
@@ -464,10 +703,14 @@ return function(StableSort, SpeciesFilters, Matching)
         end
       end
     end
+    applyRivalContinuity(
+      manifest, sources, settings, rngs.rival or rngs.species,
+      result.trainerParties)
     return result
   end
 
   Category.bosses = BOSSES
+  Category.rivals = RIVALS
   Category.movesAtLevel = movesAtLevel
   Category.moveLegal = moveLegal
   return Category

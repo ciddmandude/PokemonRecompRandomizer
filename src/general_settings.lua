@@ -29,6 +29,8 @@ return function(SaveState)
     "trainer_pokemon",
     "trainer_levels",
     "boss_trainers",
+    "rival_pokemon",
+    "rival_keep_pokemon",
     "party_size",
     "progression_guard",
   }
@@ -63,6 +65,8 @@ return function(SaveState)
     trainer_pokemon = "by_slot",
     trainer_levels = "unchanged",
     boss_trainers = "themed",
+    rival_pokemon = "include",
+    rival_keep_pokemon = "yes",
     party_size = "unchanged",
     progression_guard = "on",
   }
@@ -94,6 +98,8 @@ return function(SaveState)
     trainer_pokemon = "global_map",
     trainer_levels = "unchanged",
     boss_trainers = "vanilla",
+    rival_pokemon = "vanilla",
+    rival_keep_pokemon = "yes",
     party_size = "unchanged",
     progression_guard = "on",
   }
@@ -125,6 +131,8 @@ return function(SaveState)
     trainer_pokemon = "by_slot",
     trainer_levels = "plus_minus_10",
     boss_trainers = "include",
+    rival_pokemon = "include",
+    rival_keep_pokemon = "no",
     party_size = "random_1_6",
     progression_guard = "off",
   }

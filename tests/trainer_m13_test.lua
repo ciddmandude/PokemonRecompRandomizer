@@ -402,4 +402,225 @@ local rival = StarterRuntime.party(
 assert(rival[1].species == "GAMMA" and rival[1].level == 5,
   "starter rival projection must win while preserving generated level")
 
+-- Rival-specific modes, vanilla roster continuity, and starter evolution.
+local function rivalEntry(id, bst, types, evolutions)
+  local row = entry(id, bst, types)
+  row.evolutions = evolutions or {}
+  return row
+end
+local rivalEntries = {
+  rivalEntry("TEAM_A", 180, { "NORMAL" },
+    {{ species = "TEAM_B", method = "level", level = 18 }}),
+  rivalEntry("TEAM_B", 360, { "NORMAL" }),
+  rivalEntry("OLD_A", 170, { "NORMAL" },
+    {{ species = "OLD_B", method = "level", level = 20 }}),
+  rivalEntry("OLD_B", 340, { "NORMAL" }),
+  rivalEntry("NEW_A", 220, { "NORMAL" }),
+  rivalEntry("SRC_START_A", 200, { "GRASS" },
+    {{ species = "SRC_START_B", method = "level", level = 16 }}),
+  rivalEntry("SRC_START_B", 405, { "GRASS" }),
+  rivalEntry("RSTART_A", 210, { "WATER" },
+    {{ species = "RSTART_B", method = "level", level = 16 }}),
+  rivalEntry("RSTART_B", 410, { "WATER" }),
+  rivalEntry("WATER_A", 190, { "WATER" },
+    {{ species = "WATER_B", method = "level", level = 18 }}),
+  rivalEntry("WATER_B", 390, { "WATER" }),
+}
+local rivalById = {}
+for _, row in ipairs(rivalEntries) do rivalById[row.id] = row end
+local rivalManifest = { entries = rivalEntries, byId = rivalById }
+local function three(party)
+  local result = {}
+  for _ = 1, 3 do
+    local copy = {}
+    for index, slot in ipairs(party) do
+      copy[index] = { species = slot.species, level = slot.level }
+    end
+    result[#result + 1] = copy
+  end
+  return result
+end
+local rivalSources = {
+  trainers = {
+    OPP_RIVAL1 = { parties = {} },
+    OPP_RIVAL2 = { parties = {} },
+  },
+  starters = {
+    LEFT = { rivalSpecies = "RSTART_A" },
+    MIDDLE = { rivalSpecies = "RSTART_A" },
+    RIGHT = { rivalSpecies = "RSTART_A" },
+  },
+  starterFlags = { partyOffsetSlots = { "LEFT", "MIDDLE", "RIGHT" } },
+}
+local rivalStages = {
+  three({ { species = "SRC_START_A", level = 5 } }),
+  three({
+    { species = "TEAM_A", level = 9 },
+    { species = "SRC_START_A", level = 8 },
+  }),
+  three({
+    { species = "TEAM_B", level = 18 },
+    { species = "OLD_A", level = 15 },
+    { species = "SRC_START_B", level = 17 },
+  }),
+}
+for _, group in ipairs(rivalStages) do
+  for _, party in ipairs(group) do
+    rivalSources.trainers.OPP_RIVAL1.parties[
+      #rivalSources.trainers.OPP_RIVAL1.parties + 1] = party
+  end
+end
+for _, party in ipairs(three({
+  { species = "TEAM_B", level = 22 },
+  { species = "OLD_B", level = 20 },
+  { species = "SRC_START_B", level = 21 },
+})) do
+  rivalSources.trainers.OPP_RIVAL2.parties[
+    #rivalSources.trainers.OPP_RIVAL2.parties + 1] = party
+end
+for _, party in ipairs(three({
+  { species = "TEAM_B", level = 25 },
+  { species = "NEW_A", level = 23 },
+  { species = "SRC_START_B", level = 24 },
+})) do
+  rivalSources.trainers.OPP_RIVAL2.parties[
+    #rivalSources.trainers.OPP_RIVAL2.parties + 1] = party
+end
+
+local rivalSettings = {
+  trainer_pokemon = "by_slot",
+  trainer_levels = "unchanged",
+  boss_trainers = "include",
+  rival_pokemon = "themed",
+  rival_keep_pokemon = "yes",
+  party_size = "random_1_6",
+  progression_guard = "off",
+  duplicate_policy = "allow",
+  similar_strength = "off",
+  legendaries = "allow",
+}
+local keptRival = Category.generate(
+  rivalManifest, rivalSources, rivalSettings, rngs("kept-rival"))
+local keptR1 = keptRival.trainerParties.OPP_RIVAL1
+assert(keptR1.themes[1] == "WATER",
+  "kept themed rival must use its starter primary type")
+assert(keptR1.theme == nil,
+  "branch-themed rival must not save a misleading class-wide theme")
+assert(#keptR1[4] == 2 and #keptR1[7] == 3,
+  "kept rival must retain the vanilla add/remove party schedule")
+for classId, classMappings in pairs(keptRival.trainerParties) do
+  if classId == "OPP_RIVAL1" or classId == "OPP_RIVAL2" then
+    for partyIndex, party in pairs(classMappings) do
+      if type(partyIndex) == "number" then
+        for slotIndex = 1, math.max(0, #party - 1) do
+          local slot = party[slotIndex]
+          assert(slot.fallback or rivalById[slot.species].primaryType == "WATER",
+            "kept themed rival teammate must match starter type")
+        end
+      end
+    end
+  end
+end
+assert(keptR1.rivalStarters[1].species == "RSTART_A"
+    and keptR1.rivalStarters[7].species == "RSTART_B",
+  "rival starter must advance when its vanilla counterpart evolves")
+local firstTeam = keptR1[4][1].species
+local evolvedTeam = keptR1[7][1].species
+local firstEntry = rivalById[firstTeam]
+local expectedEvolution = firstEntry.evolutions[1]
+  and firstEntry.evolutions[1].species or firstTeam
+assert(evolvedTeam == expectedEvolution,
+  "recurring rival family must retain identity and advance evolution")
+
+local noKeepSettings = {}
+for key, value in pairs(rivalSettings) do noKeepSettings[key] = value end
+noKeepSettings.rival_pokemon = "include"
+noKeepSettings.rival_keep_pokemon = "no"
+noKeepSettings.party_size = "unchanged"
+local noKeep = Category.generate(
+  rivalManifest, rivalSources, noKeepSettings, rngs("no-keep-rival"))
+local noKeepRun = {
+  settings = noKeepSettings,
+  mappings = {
+    trainerParties = noKeep.trainerParties,
+    starters = rivalSources.starters,
+    starterFlags = rivalSources.starterFlags,
+  },
+  _speciesSet = rivalById,
+}
+local labParty = StarterRuntime.party(
+  {{ species = "SRC_START_A", level = 5 }},
+  "OPP_RIVAL1", 1, noKeepRun)
+assert(labParty[1].species == "RSTART_A",
+  "no-keep mode must still use the selected starter in Oak's Lab")
+local laterParty = noKeep.trainerParties.OPP_RIVAL1[4]
+local laterProjected = StarterRuntime.party(
+  laterParty, "OPP_RIVAL1", 4, noKeepRun)
+assert(laterProjected[2].species == laterParty[2].species,
+  "no-keep mode must not re-project the selected starter after Oak's Lab")
+
+local vanillaRivalSettings = {}
+for key, value in pairs(rivalSettings) do
+  vanillaRivalSettings[key] = value
+end
+vanillaRivalSettings.rival_pokemon = "vanilla"
+local vanillaRival = Category.generate(
+  rivalManifest, rivalSources, vanillaRivalSettings,
+  rngs("vanilla-rival"))
+for _, slot in ipairs(vanillaRival.trainerParties.OPP_RIVAL1[7]) do
+  assert(slot.fallback == true,
+    "vanilla rival mode must preserve every non-projected source slot")
+end
+
+local separationSources = {
+  trainers = {
+    OPP_BROCK = trainers.OPP_BROCK,
+    OPP_RIVAL1 = trainers.OPP_RIVAL1,
+  },
+}
+local rivalIncludedSettings = {}
+for key, value in pairs(settings) do rivalIncludedSettings[key] = value end
+rivalIncludedSettings.boss_trainers = "vanilla"
+rivalIncludedSettings.rival_pokemon = "include"
+rivalIncludedSettings.rival_keep_pokemon = "no"
+local rivalIncluded = Category.generate(
+  manifest, separationSources, rivalIncludedSettings,
+  rngs("rival-included-boss-vanilla"))
+assert(rivalIncluded.trainerParties.OPP_BROCK == nil,
+  "boss vanilla must not disable or generate rival mappings")
+assert(type(rivalIncluded.trainerParties.OPP_RIVAL1) == "table",
+  "rival include must remain enabled when bosses are vanilla")
+
+local rivalVanillaSettings = {}
+for key, value in pairs(settings) do rivalVanillaSettings[key] = value end
+rivalVanillaSettings.boss_trainers = "include"
+rivalVanillaSettings.rival_pokemon = "vanilla"
+rivalVanillaSettings.rival_keep_pokemon = "yes"
+local rivalVanillaBossIncluded = Category.generate(
+  manifest, separationSources, rivalVanillaSettings,
+  rngs("rival-vanilla-boss-included"))
+assert(type(rivalVanillaBossIncluded.trainerParties.OPP_BROCK) == "table",
+  "boss include must remain enabled when rivals are vanilla")
+for _, slot in ipairs(
+    rivalVanillaBossIncluded.trainerParties.OPP_RIVAL1[1]) do
+  assert(slot.fallback == true,
+    "rival vanilla must not inherit the boss include setting")
+end
+
+local trainerOffRivalSettings = {}
+for key, value in pairs(settings) do trainerOffRivalSettings[key] = value end
+trainerOffRivalSettings.trainer_pokemon = "off"
+trainerOffRivalSettings.rival_pokemon = "include"
+trainerOffRivalSettings.rival_keep_pokemon = "yes"
+local trainerOffRival = Category.generate(
+  rivalManifest, rivalSources, trainerOffRivalSettings,
+  rngs("trainer-off-rival-keep"))
+local trainerOffParty = trainerOffRival.trainerParties.OPP_RIVAL1[7]
+assert(trainerOffParty[1].fallback == true
+    and trainerOffParty[2].fallback == true,
+  "rival include must follow trainer OFF for non-starter species")
+assert(trainerOffRival.trainerParties.OPP_RIVAL1
+    .rivalStarters[7].species == "RSTART_B",
+  "rival keep must still evolve the starter when trainers are off")
+
 print("trainer_m13_test: ok")

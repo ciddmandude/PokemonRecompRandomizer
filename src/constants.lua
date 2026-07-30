@@ -2,7 +2,7 @@
 -- dependencies and is safe to load in headless tests.
 return {
   MOD_ID = "pokemon_randomizer",
-  MOD_VERSION = "0.34.4",
+  MOD_VERSION = "0.35.0",
   MOD_API = 2,
   GAME_VERSION_RANGE = ">=0.1.30 <0.2.0",
 
@@ -18,7 +18,7 @@ return {
   SPOILER_BROWSER_SCREEN_ID = "PokemonRandomizerSpoilerBrowser",
 
   -- The algorithm contract is locked while category implementations land.
-  ALGORITHM_VERSION = "1.4.0-dev",
+  ALGORITHM_VERSION = "1.5.0-dev",
   HASH_VERSION = "fnv1a32x4-v1",
   PRNG_VERSION = "xoshiro128ss-v1",
 
@@ -37,6 +37,7 @@ return {
     "trainers.species",
     "trainers.levels",
     "trainers.sizes",
+    "trainers.rival",
     "validation.swaps",
   },
 }

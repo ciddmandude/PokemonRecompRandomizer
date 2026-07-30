@@ -84,7 +84,9 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 |---|---|---|---|
 | Trainer Pokémon | `OFF`, `GLOBAL MAP`, `BY SLOT`, `TYPE THEMED` | `BY SLOT` | Keeps parties vanilla, consistently maps source species, resolves every party slot independently, or gives each trainer class a saved type theme. Enabled modes avoid self-maps whenever another valid candidate exists. |
 | Trainer Levels | `UNCHANGED`, `±10%`, `PROGRESSIVE` | `UNCHANGED` | Preserves levels, applies a saved 90–110% multiplier, or adjusts them by the source party's progression tier. |
-| Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Makes bosses follow the main mode, guarantees a per-boss type theme, or leaves boss parties vanilla. |
+| Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Makes Gym Leaders and Elite Four members follow the main mode, guarantees a per-boss type theme, or leaves boss parties vanilla. |
+| Rival Pokémon | `INCLUDE`, `THEMED`, `VANILLA` | `INCLUDE` | Makes rival battles follow Trainer Pokémon, use a rival-specific type theme, or preserve vanilla non-starter party members. |
+| Rival Keep Pokémon | `NO`, `YES` | `YES` | `YES` assigns recurring rival slots randomized evolution families, advances them when their vanilla counterparts evolve, and removes/adds slots on the vanilla schedule. `NO` independently randomizes every later rival party, including the starter slot after Oak's Lab. |
 | Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | Preserves party count or generates a saved count, with early-game limits when Progression Guard is on. |
 | Progression Guard | `OFF`, `ON` | `ON` | Enforces valid, nonempty required parties and guards the first rival and other early mandatory battles against extreme results. |
 
@@ -106,9 +108,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.34.4`
+- randomizer mod version: `0.35.0`
 - generator contract: `1`
-- algorithm build: `1.4.0-dev`
+- algorithm build: `1.5.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)
@@ -253,8 +255,14 @@ belong in the project’s release-artifact storage.
   its deterministic fallback to Random.
 - The saved offer drives the preview, confirmation, gift, level, removed
   balls, rival pickup, and all vanilla rival party branches.
-- Rival projection copies the prior trainer party and changes only its final
-  species; original levels, moves, and party sizes remain intact.
+- Rival Pokémon is controlled independently from Gym Leaders and the Elite
+  Four. The first Oak's Lab battle always uses the selected counterpick.
+- With Rival Keep Pokémon on, each recurring vanilla team identity receives
+  one randomized evolution family, evolves when its vanilla counterpart does,
+  and follows the vanilla add/remove schedule. The selected starter follows
+  the same evolution timing.
+- With Rival Keep Pokémon off, every later rival slot is independently
+  resolved by the selected Rival Pokémon mode.
 - An out-of-pool trainer source falls back only for its affected saved slot;
   eligible neighboring slots and unrelated trainer classes still randomize.
 - Scoped static and gift mappings are generated once and stored with the save.

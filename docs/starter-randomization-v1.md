@@ -30,8 +30,8 @@ triad.
 ### Starter Level
 
 The configured integer from 2 through 20 is saved in every offer and used by
-the award command. Rival party levels remain the engine's original levels;
-M10 changes only the rival starter species.
+the award command. The first rival battle uses the selected counterpick;
+later rival behavior is controlled by Rival Pokémon and Rival Keep Pokémon.
 
 ### Rival Counterpick
 
@@ -86,6 +86,8 @@ still exist in merged content.
 
 The M9 API-2 handlers resolve the saved offer before building Oak's Lab
 commands. A `trainer.party` wrapper calls the prior hook first and then, only
-for `OPP_RIVAL1`, `OPP_RIVAL2`, or `OPP_RIVAL3`, copies the party and replaces
-its final species with the saved counterpick for that choice branch. Levels,
-moves, earlier party members, and party size remain untouched.
+for `OPP_RIVAL1`, `OPP_RIVAL2`, or `OPP_RIVAL3`, copies the party and projects
+the saved rival starter for that branch. Oak's Lab always uses the selected
+counterpick. With Rival Keep Pokémon on, later battles use its saved evolved
+form; with it off, later parties retain the independently generated final
+slot. The projection never mutates the prior hook's party.

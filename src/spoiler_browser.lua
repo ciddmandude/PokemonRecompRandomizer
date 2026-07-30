@@ -466,6 +466,15 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
         }
       end
     end
+    local rivalStarters = type(mappedClass) == "table"
+      and mappedClass.rivalStarters
+    local projected = type(rivalStarters) == "table"
+      and rivalStarters[partyIndex]
+    if #party > 0 and type(projected) == "table"
+        and type(projected.species) == "string" then
+      party[#party].species = projected.species
+      party[#party].vanilla = false
+    end
     return party, false
   end
 

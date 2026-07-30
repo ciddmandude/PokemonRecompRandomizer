@@ -36,12 +36,16 @@ equal(casual.preset, "casual", "casual preset marker")
 equal(casual.similar_strength, "10", "casual strength")
 equal(casual.trade_fairness, "no_downgrade", "casual trades")
 equal(casual.boss_trainers, "vanilla", "casual bosses")
+equal(casual.rival_pokemon, "vanilla", "casual rival mode")
+equal(casual.rival_keep_pokemon, "yes", "casual rival continuity")
 
 local chaos = General.applyPreset(defaults, "chaos")
 equal(chaos.species_pool, "merged", "chaos merged pool")
 equal(chaos.legendaries, "allow", "chaos legendaries")
 equal(chaos.catchability_guard, "off", "chaos catch guard")
 equal(chaos.party_size, "random_1_6", "chaos party size")
+equal(chaos.rival_pokemon, "include", "chaos rival mode")
+equal(chaos.rival_keep_pokemon, "no", "chaos rival continuity")
 equal(General.detectPreset(chaos), "chaos", "chaos detection")
 chaos.party_size = "unchanged"
 equal(General.detectPreset(chaos), "custom", "custom detection")
@@ -174,7 +178,7 @@ equal(created.compatibility.settingsHash,
 local savedModsBytes =
   Canonical.encode(created.compatibility.relevantMods)
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.34.4", api = 2 },
+  { id = "pokemon_randomizer", version = "0.35.0", api = 2 },
   { id = "added_mid_run", version = "1.0.0", api = 2 },
 }
 local loaded, compatibilityReport = lifecycle:onLoaded({

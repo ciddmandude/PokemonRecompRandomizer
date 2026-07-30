@@ -37,7 +37,8 @@ return function()
     {
       "TRAINERS",
       {
-        "trainer_pokemon", "trainer_levels", "boss_trainers", "party_size",
+        "trainer_pokemon", "trainer_levels", "boss_trainers",
+        "rival_pokemon", "rival_keep_pokemon", "party_size",
         "progression_guard",
       },
     },
@@ -57,6 +58,8 @@ return function()
     randomizer = "Randomizer",
     generate_spoiler_log = "Enable Spoiler Log",
     rival_counterpick = "Rival Counterpick",
+    rival_keep_pokemon = "Rival Keep Pokemon",
+    rival_pokemon = "Rival Pokemon",
     seed_mode = "Seed Mode",
     seed_text = "Seed Text",
     similar_strength = "Similar Strength",
@@ -443,8 +446,14 @@ return function()
           if type(partyIndex) == "number"
               and type(class[partyIndex]) == "table" then
             local members = {}
-            for _, member in ipairs(class[partyIndex]) do
-              if member.fallback == true then
+            local party = class[partyIndex]
+            local rivalStarters = type(class.rivalStarters) == "table"
+              and class.rivalStarters[partyIndex]
+            for memberIndex, member in ipairs(party) do
+              if memberIndex == #party and type(rivalStarters) == "table"
+                  and type(rivalStarters.species) == "string" then
+                members[#members + 1] = speciesName(rivalStarters.species)
+              elseif member.fallback == true then
                 members[#members + 1] = ("Vanilla source slot %s"):format(
                   tostring(member.sourceSlot or "?"))
               else
@@ -452,8 +461,14 @@ return function()
                   speciesName(member.species) .. levelText(member.level)
               end
             end
-            add(lines, ("    Party %-3s %s"):format(
-              tostring(partyIndex), table.concat(members, ", ")))
+            local branch = ((partyIndex - 1) % 3) + 1
+            local partyTheme = type(class.themes) == "table"
+              and class.themes[branch]
+            local themeText = partyTheme
+              and (" (theme: " .. readableId(partyTheme) .. ")") or ""
+            add(lines, ("    Party %-3s%s %s"):format(
+              tostring(partyIndex), themeText,
+              table.concat(members, ", ")))
           end
         end
       end

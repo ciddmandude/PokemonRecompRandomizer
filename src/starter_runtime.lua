@@ -28,6 +28,10 @@ function StarterRuntime.party(party, oppClass, partyIndex, run)
   local flags = run.mappings.starterFlags
   local slots = type(flags) == "table" and flags.partyOffsetSlots
   if type(starters) ~= "table" or type(slots) ~= "table" then return party end
+  local keep = type(run.settings) ~= "table"
+    or run.settings.rival_keep_pokemon ~= "no"
+  local firstBattle = oppClass == "OPP_RIVAL1" and partyIndex <= 3
+  if not keep and not firstBattle then return party end
   local offset = ((partyIndex - 1) % 3) + 1
   local chosen = starters[slots[offset]]
   if type(chosen) ~= "table" or type(chosen.rivalSpecies) ~= "string"
@@ -36,8 +40,22 @@ function StarterRuntime.party(party, oppClass, partyIndex, run)
         and not run._speciesSet[chosen.rivalSpecies]) then
     return party
   end
+  local projected = chosen.rivalSpecies
+  local trainerParties = run.mappings.trainerParties
+  local classMappings = type(trainerParties) == "table"
+    and trainerParties[oppClass]
+  local rivalStarters = type(classMappings) == "table"
+    and classMappings.rivalStarters
+  local saved = type(rivalStarters) == "table"
+    and rivalStarters[partyIndex]
+  if type(saved) == "table" and type(saved.species) == "string"
+      and saved.species ~= "" then
+    projected = saved.species
+  end
+  if type(run._speciesSet) == "table"
+      and not run._speciesSet[projected] then return party end
   local output = copyParty(party)
-  output[#output].species = chosen.rivalSpecies
+  output[#output].species = projected
   return output
 end
 
