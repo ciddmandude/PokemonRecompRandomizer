@@ -78,6 +78,11 @@ return function(mod)
     "src/validation_category.lua",
     StableSort, Canonical, Progression, TradePrizeCatalog)
   local SpoilerLog = loadModule("src/spoiler_log.lua")
+  local SpoilerBrowser = loadModule(
+    "src/spoiler_browser.lua",
+    StableSort, StaticGiftCatalog, TradePrizeCatalog)
+  local SpoilerBrowserScreen = loadModule(
+    "src/spoiler_browser_screen.lua", Constants, SpoilerBrowser)
   local Generator = loadModule(
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
@@ -110,7 +115,8 @@ return function(mod)
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
-    SpoilerController, SpoilerLog, PublicFacade)
+    SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
+    PublicFacade)
 
   return Bootstrap.start(mod)
 end

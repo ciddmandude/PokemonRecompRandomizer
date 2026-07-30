@@ -47,9 +47,9 @@ return function(Constants, Spoiler)
   end
 
   function Controller.lines(run)
-    local text, err = Controller.text(run)
-    if not text then return nil, err end
-    return lines(text)
+    local allowed, err = access(run)
+    if not allowed then return nil, err end
+    return lines(Spoiler.text(allowed, { includeSettings = false }))
   end
 
   function Controller.export(run, filesystem)
@@ -58,14 +58,14 @@ return function(Constants, Spoiler)
     return Spoiler.export(allowed, { filesystem = filesystem })
   end
 
-  function Controller.viewAction(mod, lifecycle)
+  function Controller.viewAction(mod, lifecycle, modelFor)
     return function(game)
-      local content, err = Controller.lines(lifecycle:activeRun())
-      if not content then return unavailable(mod, game, err) end
-      mod.ui.push(game, Constants.REVIEW_SCREEN_ID, {
-        title = "SPOILER LOG",
-        lines = content,
-      })
+      local run = lifecycle:activeRun()
+      local allowed, err = access(run)
+      if not allowed then return unavailable(mod, game, err) end
+      local model = type(modelFor) == "function"
+        and modelFor(game, allowed) or { run = allowed }
+      mod.ui.push(game, Constants.SPOILER_BROWSER_SCREEN_ID, model)
       return "SPOILER LOG"
     end
   end

@@ -4,7 +4,8 @@ return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
-    SpoilerController, SpoilerLog, PublicFacade)
+    SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
+    PublicFacade)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -198,7 +199,36 @@ return function(
       mod, function() return lifecycle:activeRun() end)
     TradePrizeCompat.install(
       mod, function() return lifecycle:activeRun() end)
-    local viewSpoilers = SpoilerController.viewAction(mod, lifecycle)
+    local function spoilerBrowserModel(game, run)
+      local data = type(game) == "table" and game.data or {}
+      local field = {}
+      for key, value in pairs(type(data.field) == "table"
+          and data.field or {}) do
+        field[key] = value
+      end
+      local generatedField, generatedVersion = mergedFieldRecords(
+        type(game) == "table" and game.save)
+      for key, value in pairs(generatedField) do field[key] = value end
+      return {
+        index = SpoilerBrowser.build(run, {
+          species = next(type(data.pokemon) == "table"
+              and data.pokemon or {}) and data.pokemon
+            or mergedSpeciesRecords(),
+          encounters = next(type(data.encounters) == "table"
+              and data.encounters or {}) and data.encounters
+            or mergedEncounterRecords(),
+          trainers = next(type(data.trainers) == "table"
+              and data.trainers or {}) and data.trainers
+            or mergedTrainerRecords(),
+          maps = type(data.maps) == "table" and data.maps or {},
+          field = field,
+          gameVersion = type(game) == "table" and type(game.save) == "table"
+              and game.save.version or generatedVersion,
+        }),
+      }
+    end
+    local viewSpoilers = SpoilerController.viewAction(
+      mod, lifecycle, spoilerBrowserModel)
     local exportSpoilers = SpoilerController.exportAction(mod, lifecycle)
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
@@ -320,6 +350,12 @@ return function(
     mod.content.screens:register(Constants.REVIEW_SCREEN_ID, {
       new = function(game, model)
         return Options.ReviewScreen.new(game, model, mod.ui)
+      end,
+    })
+
+    mod.content.screens:register(Constants.SPOILER_BROWSER_SCREEN_ID, {
+      new = function(game, model)
+        return SpoilerBrowserScreen.new(game, model, mod.ui)
       end,
     })
 

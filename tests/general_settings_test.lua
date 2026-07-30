@@ -174,7 +174,7 @@ equal(created.compatibility.settingsHash,
 local savedModsBytes =
   Canonical.encode(created.compatibility.relevantMods)
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.26.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.27.20", api = 2 },
   { id = "added_mid_run", version = "1.0.0", api = 2 },
 }
 local loaded, compatibilityReport = lifecycle:onLoaded({

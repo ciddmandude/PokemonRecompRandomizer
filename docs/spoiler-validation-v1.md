@@ -7,17 +7,36 @@
 behavior-settings hash because it cannot affect generation.
 
 New Game never writes a spoiler file automatically. When the saved run setting
-is `ON`, `VIEW SPOILERS` opens the complete readable V2 log in a scrollable
-in-game viewer and `EXPORT SPOILERS` explicitly writes:
+is `ON`, `VIEW SPOILERS` opens an unrestricted Pokémon/map browser:
+
+- Pokémon mode lists every merged-registry species in Pokédex order, placing
+  unnumbered species alphabetically afterward. `SELECT` opens partial-name
+  search. Each species has one entry per obtainable/encounter location.
+- Map mode renders the extracted Kanto Town Map, groups relevant buildings and
+  floors under their map coordinate, and presents `GRASS`, `SURF`, `OLD ROD`,
+  `GOOD ROD`, `SUPER ROD`, `TRAINERS`,
+  `STARTERS`, `STATICS`, `GIFTS`, `TRADES`, and `PRIZES` tabs.
+- Encounter tabs combine slot probability by current species and distinct
+  level, display every level directly, and do not open a detail screen.
+- Trainer entries open a complete generic class/party listing with levels.
+  Categories configured `OFF` remain visible and show their actual Pokémon
+  without `VANILLA` or `RANDOMIZED` status labels.
+- Pokémon locations include wild, fishing, starters, statics, gifts, received
+  trades, and Game Corner prizes; trainer ownership and requested trades are
+  excluded.
+
+The viewer omits the saved settings section. `EXPORT SPOILERS` explicitly
+writes the complete report, including settings:
 
 ```text
 pokemon_randomizer/spoilers/SEEDHASH.txt
 ```
 
-The viewer and file contain run identity, settings, category mappings, and
-diagnostics without ROM bytes. Location and species identifiers are converted
-to readable names where possible. Export failure is logged and does not
-invalidate or remove the generated run.
+The viewer and file contain run identity, category mappings, and diagnostics
+without ROM bytes; the exported file additionally contains saved settings.
+Location and species identifiers are converted to readable names where
+possible. Export failure is logged and does not invalidate or remove the
+generated run.
 
 When the saved run setting is `OFF`, both actions show `SPOILERS DISABLED`,
 the public spoiler formatter/exporter returns an access error, and no file is
@@ -49,6 +68,8 @@ count. The complete-namespace budget is 256 KiB.
 ## Tests
 
 The headless suite verifies the default, absence of automatic writes,
-saved-run access gating, the in-game viewer, manual plaintext export, output
-paths, legacy-save visibility, reachability repairs, missing-content
+saved-run access gating, merged-species ordering/search, reverse location
+indexing, global-map expansion, duplicate-slot probability aggregation,
+map/building grouping, trainer-party drill-down, manual plaintext export,
+output paths, legacy-save visibility, reachability repairs, missing-content
 fallbacks, and mapping immutability.

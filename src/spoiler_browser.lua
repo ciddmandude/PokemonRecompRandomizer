@@ -1,0 +1,635 @@
+-- Pure read-only index for the in-game spoiler browser.
+return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
+  local Browser = {}
+
+  local DEFAULT_BUCKETS = { 51, 102, 141, 166, 191, 216, 229, 242, 253, 256 }
+  local TERRAINS = { "grass", "water" }
+  local RODS = { "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }
+  local ROD_TABS = {
+    OLD_ROD = "old_rod",
+    GOOD_ROD = "good_rod",
+    SUPER_ROD = "super_rod",
+  }
+  local TABS = {
+    "grass", "surf", "old_rod", "good_rod", "super_rod", "trainers",
+    "starters", "statics", "gifts", "trades", "prizes",
+  }
+  local TAB_LABELS = {
+    grass = "GRASS", surf = "SURF", old_rod = "OLD ROD",
+    good_rod = "GOOD ROD", super_rod = "SUPER ROD",
+    trainers = "TRAINERS", starters = "STARTERS", statics = "STATICS",
+    gifts = "GIFTS", trades = "TRADES", prizes = "PRIZES",
+  }
+  local STARTERS = {
+    { id = "LEFT", source = "CHARMANDER" },
+    { id = "MIDDLE", source = "SQUIRTLE" },
+    { id = "RIGHT", source = "BULBASAUR" },
+  }
+  local SCRIPTED_TRAINERS = {
+    { mapId = "OAKS_LAB", classId = "OPP_RIVAL1", first = 1, last = 3 },
+    { mapId = "ROUTE_22", classId = "OPP_RIVAL1", first = 4, last = 6 },
+    { mapId = "CERULEAN_CITY", classId = "OPP_RIVAL1", first = 7, last = 9 },
+    { mapId = "SS_ANNE_2F", classId = "OPP_RIVAL2", first = 1, last = 3 },
+    { mapId = "POKEMON_TOWER_2F", classId = "OPP_RIVAL2", first = 4, last = 6 },
+    { mapId = "SILPH_CO_7F", classId = "OPP_RIVAL2", first = 7, last = 9 },
+    { mapId = "ROUTE_22", classId = "OPP_RIVAL2", first = 10, last = 12 },
+    { mapId = "CHAMPIONS_ROOM", classId = "OPP_RIVAL3", first = 1, last = 3 },
+    { mapId = "ROCKET_HIDEOUT_B4F", classId = "OPP_GIOVANNI",
+      first = 1, last = 1 },
+    { mapId = "CERULEAN_CITY", classId = "OPP_ROCKET",
+      first = 5, last = 5 },
+    { mapId = "CELADON_CHIEF_HOUSE", classId = "OPP_CHIEF",
+      first = 1, last = 1 },
+    { mapId = "PALLET_TOWN", classId = "OPP_PROF_OAK",
+      first = 1, last = 3 },
+  }
+
+  local SPECIAL_NAMES = {
+    FARFETCHD = "Farfetch'd", MR_MIME = "Mr. Mime",
+    NIDORAN_F = "Nidoran F", NIDORAN_M = "Nidoran M",
+  }
+
+  local function words(id)
+    local output = {}
+    for token in tostring(id or ""):gmatch("[^_]+") do
+      local upper = token:upper()
+      if upper == "SS" then
+        output[#output + 1] = "S.S."
+      elseif upper == "CO" then
+        output[#output + 1] = "Co."
+      elseif upper:match("^%d+[FB]?$") then
+        output[#output + 1] = upper
+      else
+        output[#output + 1] =
+          upper:sub(1, 1) .. upper:sub(2):lower()
+      end
+    end
+    return table.concat(output, " ")
+  end
+
+  local function speciesName(id, records)
+    if SPECIAL_NAMES[id] then return SPECIAL_NAMES[id] end
+    local row = type(records) == "table" and records[id]
+    local name = type(row) == "table" and (row.name or row.label)
+    return type(name) == "string" and name ~= "" and name or words(id)
+  end
+
+  local function mapName(mapId, maps, townLocations)
+    if mapId == "*" then return "Any fishable area" end
+    local town = type(townLocations) == "table" and townLocations[mapId]
+    local map = type(maps) == "table" and maps[mapId]
+    local explicit = type(map) == "table" and map.name
+    if type(explicit) == "string" and explicit ~= "" then return explicit end
+    if type(town) == "table" and type(town.name or town.label) == "string"
+        and tostring(town.name or town.label) ~= "" then
+      local townName = tostring(town.name or town.label)
+      if mapId:find("_", 1, true) then return words(mapId) end
+      return townName
+    end
+    return words(mapId)
+  end
+
+  local function copyArray(source)
+    local output = {}
+    for index, value in ipairs(source or {}) do output[index] = value end
+    return output
+  end
+
+  local function townLocations(field)
+    local town = type(field) == "table" and field.townMap
+    if type(town) == "table" and type(town.locations) == "table" then
+      return town.locations, town
+    end
+    return type(town) == "table" and town or {}, type(town) == "table" and town
+      or {}
+  end
+
+  local function coords(entry)
+    if type(entry) ~= "table" then return nil, nil end
+    local source = entry.coords or entry
+    return tonumber(source.x or source.col), tonumber(source.y or source.row)
+  end
+
+  local function hasRows(tabs)
+    for _, tab in ipairs(TABS) do
+      if type(tabs[tab]) == "table" and #tabs[tab] > 0 then return true end
+    end
+    return false
+  end
+
+  local function newMap(index, mapId)
+    local hit = index.maps[mapId]
+    if hit then return hit end
+    local tabs = {}
+    for _, tab in ipairs(TABS) do tabs[tab] = {} end
+    hit = {
+      id = mapId,
+      label = mapName(mapId, index.sources.maps, index.townLocations),
+      tabs = tabs,
+    }
+    index.maps[mapId] = hit
+    return hit
+  end
+
+  local function addSpeciesLocation(index, species, mapId, category, row)
+    if type(species) ~= "string" then return end
+    index.locationsBySpecies[species] =
+      index.locationsBySpecies[species] or {}
+    local locations = index.locationsBySpecies[species]
+    local location = locations[mapId]
+    if not location then
+      location = {
+        mapId = mapId,
+        label = mapName(mapId, index.sources.maps, index.townLocations),
+        categories = {},
+        rows = {},
+      }
+      locations[mapId] = location
+    end
+    location.categories[category] = true
+    location.rows[#location.rows + 1] = row
+  end
+
+  local function addMapRow(index, mapId, tab, row, obtainableSpecies)
+    local map = newMap(index, mapId)
+    map.tabs[tab][#map.tabs[tab] + 1] = row
+    if obtainableSpecies then
+      addSpeciesLocation(index, obtainableSpecies, mapId, tab, row)
+    end
+  end
+
+  local function wildDestination(run, mapId, terrain, slotIndex, source)
+    local settings = run.settings or {}
+    local mappings = run.mappings or {}
+    local area = mappings.wildAreaSlots
+    area = type(area) == "table" and area[mapId]
+    area = type(area) == "table" and area[terrain]
+    local record = type(area) == "table" and area[slotIndex]
+    if settings.wild_pokemon == "global_map" then
+      local mapped = type(mappings.wildGlobal) == "table"
+        and mappings.wildGlobal[source]
+      return mapped or source,
+        type(record) == "table" and record.level or nil,
+        mapped == nil
+    elseif settings.wild_pokemon == "area_slots" then
+      return type(record) == "table" and record.species or source,
+        type(record) == "table" and record.level or nil,
+        not (type(record) == "table" and record.species)
+    end
+    return source, nil, true
+  end
+
+  local function fishingDestination(
+      run, rod, mapId, slotIndex, source)
+    local settings = run.settings or {}
+    local fishing = type(run.mappings) == "table" and run.mappings.fishing
+    local slots = type(fishing) == "table" and fishing.slots
+    slots = type(slots) == "table" and slots[rod]
+    slots = type(slots) == "table" and slots[mapId]
+    local record = type(slots) == "table" and slots[slotIndex]
+    if settings.fishing ~= "randomized" then return source, nil, true end
+    if settings.wild_pokemon == "global_map" then
+      local mapped = type(fishing) == "table"
+        and type(fishing.global) == "table" and fishing.global[source]
+      return mapped or source,
+        type(record) == "table" and record.level or nil,
+        mapped == nil
+    elseif settings.wild_pokemon == "area_slots" then
+      return type(record) == "table" and record.species or source,
+        type(record) == "table" and record.level or nil,
+        not (type(record) == "table" and record.species)
+    end
+    return source, nil, true
+  end
+
+  local function addWild(index)
+    local raw = {}
+    local function addSlot(row)
+      local key = table.concat({
+        row.mapId, row.category, row.method, row.species,
+      }, "\0")
+      local group = raw[key]
+      if not group then
+        group = {
+          kind = "wild", mapId = row.mapId, method = row.method,
+          category = row.category, species = row.species,
+          chance = 0, minLevel = row.level,
+          maxLevel = row.level, slots = {},
+        }
+        raw[key] = group
+      end
+      group.chance = group.chance + row.chance
+      group.minLevel = math.min(group.minLevel, row.level)
+      group.maxLevel = math.max(group.maxLevel, row.level)
+      group.slots[#group.slots + 1] = row
+    end
+
+    for _, mapId in ipairs(StableSort.keys(index.sources.encounters or {})) do
+      local encounter = index.sources.encounters[mapId]
+      for _, terrain in ipairs(TERRAINS) do
+        local definition = type(encounter) == "table" and encounter[terrain]
+        local slots = type(definition) == "table" and definition.slots or {}
+        local buckets = type(definition) == "table" and definition.buckets
+          or DEFAULT_BUCKETS
+        local previous = 0
+        for slotIndex, slot in ipairs(slots or {}) do
+          if type(slot) == "table" and type(slot.species) == "string"
+              and type(slot.level) == "number" then
+            local threshold = tonumber(buckets[slotIndex]) or previous
+            local chance = math.max(0, threshold - previous) * 100 / 256
+            previous = threshold
+            local destination, level, vanilla = wildDestination(
+              index.run, mapId, terrain, slotIndex, slot.species)
+            addSlot({
+              mapId = mapId,
+              method = terrain == "water" and "SURF" or "GRASS",
+              category = terrain == "water" and "surf" or "grass",
+              source = slot.species,
+              species = destination,
+              level = level or slot.level,
+              chance = chance,
+              slot = slotIndex,
+              vanilla = vanilla,
+            })
+          end
+        end
+      end
+    end
+
+    local field = index.sources.field or {}
+    local fishableMaps = {}
+    for mapId, encounter in pairs(index.sources.encounters or {}) do
+      local water = type(encounter) == "table" and encounter.water
+      if type(water) == "table" and type(water.slots) == "table"
+          and #water.slots > 0 then
+        fishableMaps[mapId] = true
+      end
+    end
+    for _, rod in ipairs(RODS) do
+      local definition = type(field.fishing) == "table" and field.fishing[rod]
+      local perMap = type(definition) == "table" and definition.perMap
+      local records = type(perMap) == "string" and field[perMap]
+      if type(records) == "table" then
+        for mapId in pairs(records) do fishableMaps[mapId] = true end
+      end
+    end
+    for _, rod in ipairs(RODS) do
+      local definition = type(field.fishing) == "table" and field.fishing[rod]
+      if type(definition) == "table" then
+        local groups = {}
+        if type(definition.always) == "table" then
+          groups["*"] = { definition.always }
+        elseif type(definition.pool) == "table" then
+          groups["*"] = definition.pool
+        elseif type(definition.perMap) == "string"
+            and type(field[definition.perMap]) == "table" then
+          groups = field[definition.perMap]
+        end
+        for _, mapId in ipairs(StableSort.keys(groups)) do
+          local slots = groups[mapId]
+          local chance = definition.always and 100
+            or 100 / (#slots + 4)
+          local method = words(rod)
+          local category = ROD_TABS[rod]
+          for slotIndex, slot in ipairs(slots or {}) do
+            if type(slot) == "table" and type(slot.species) == "string"
+                and type(slot.level) == "number" then
+              local destination, level, vanilla = fishingDestination(
+                index.run, rod, mapId, slotIndex, slot.species)
+              addSlot({
+                mapId = mapId, method = method, category = category,
+                source = slot.species, species = destination,
+                level = level or slot.level, chance = chance,
+                slot = slotIndex, vanilla = vanilla,
+              })
+            end
+          end
+          raw[table.concat({ mapId, category, method, "NO_BITE" }, "\0")] = {
+            kind = "fishing_no_bite",
+            mapId = mapId,
+            category = category,
+            method = method,
+            chance = definition.always and 0 or (4 * chance),
+          }
+        end
+      end
+    end
+
+    for _, key in ipairs(StableSort.keys(raw)) do
+      local row = raw[key]
+      if row.kind == "fishing_no_bite" then
+        if row.mapId == "*" then
+          for _, mapId in ipairs(StableSort.keys(fishableMaps)) do
+            addMapRow(index, mapId, row.category, row)
+          end
+        else
+          addMapRow(index, row.mapId, row.category, row)
+        end
+      elseif row.mapId == "*" then
+        addSpeciesLocation(index, row.species, "*", row.category, row)
+        for _, mapId in ipairs(StableSort.keys(fishableMaps)) do
+          addMapRow(index, mapId, row.category, row)
+        end
+      else
+        addMapRow(index, row.mapId, row.category, row, row.species)
+      end
+    end
+  end
+
+  local function mappedOrVanilla(mapping, source)
+    if type(mapping) == "table" and type(mapping.species) == "string" then
+      return mapping.species, mapping.level, false
+    end
+    return source.species, source.level, true
+  end
+
+  local function addStarters(index)
+    local mappings = index.run.mappings.starters or {}
+    for _, source in ipairs(STARTERS) do
+      local mapped = mappings[source.id]
+      local species = type(mapped) == "table" and mapped.species or source.source
+      local level = type(mapped) == "table" and mapped.level
+        or tonumber(index.run.settings.starter_level) or 5
+      addMapRow(index, "OAKS_LAB", "starters", {
+        kind = "starter", label = words(source.id) .. " BALL",
+        source = source.source, species = species, level = level,
+        vanilla = type(mapped) ~= "table",
+      }, species)
+    end
+  end
+
+  local function addStaticGifts(index)
+    local mappings = index.run.mappings or {}
+    for _, source in ipairs(StaticGiftCatalog.statics or {}) do
+      local mapped = type(mappings.staticEncounters) == "table"
+        and mappings.staticEncounters[source.id]
+      local species, level, vanilla = mappedOrVanilla(mapped, source)
+      addMapRow(index, source.mapId, "statics", {
+        kind = "static", label = words(source.id),
+        source = source.species, species = species,
+        level = level or source.level, vanilla = vanilla,
+      }, species)
+    end
+    for _, source in ipairs(StaticGiftCatalog.gifts or {}) do
+      local mapped = type(mappings.gifts) == "table"
+        and mappings.gifts[source.id]
+      local species, level, vanilla = mappedOrVanilla(mapped, source)
+      addMapRow(index, source.mapId, "gifts", {
+        kind = "gift", label = words(source.id),
+        source = source.species, species = species,
+        level = level or source.level, price = source.price,
+        vanilla = vanilla,
+      }, species)
+    end
+  end
+
+  local function fieldTrade(index, source)
+    local trades = index.sources.field and index.sources.field.trades
+    local row = type(trades) == "table" and trades[source.index]
+    return {
+      give = type(row) == "table" and row.give or source.give,
+      get = type(row) == "table" and row.get or source.get,
+    }
+  end
+
+  local function addTradesPrizes(index)
+    local mappings = index.run.mappings or {}
+    for _, source in ipairs(TradePrizeCatalog.trades or {}) do
+      local vanilla = fieldTrade(index, source)
+      local mapped = type(mappings.trades) == "table"
+        and mappings.trades[source.id]
+      local requested = type(mapped) == "table" and mapped.requested or {}
+      local received = type(mapped) == "table" and mapped.received or {}
+      local requestedSpecies = requested.species or vanilla.give
+      local receivedSpecies = received.species or vanilla.get
+      local row = {
+        kind = "trade", label = words(source.id),
+        requestedSource = vanilla.give, requested = requestedSpecies,
+        receivedSource = vanilla.get, received = receivedSpecies,
+        vanilla = type(mapped) ~= "table",
+      }
+      addMapRow(index, source.mapId, "trades", row, receivedSpecies)
+    end
+
+    local version = tostring(index.sources.gameVersion or "red"):lower()
+    local prizes = TradePrizeCatalog.prizes[version] or {}
+    for _, source in ipairs(prizes) do
+      local mapped = type(mappings.prizes) == "table"
+        and mappings.prizes[source.id]
+      local species, level, vanilla = mappedOrVanilla(mapped, source)
+      addMapRow(index, "GAME_CORNER_PRIZE_ROOM", "prizes", {
+        kind = "prize", label = words(source.id),
+        source = source.species, species = species,
+        level = level or source.level,
+        sourceCost = source.cost,
+        cost = type(mapped) == "table" and mapped.cost or source.cost,
+        vanilla = vanilla,
+      }, species)
+    end
+  end
+
+  local function trainerParty(index, classId, partyIndex)
+    local sourceClass = index.sources.trainers[classId]
+    local sourceParty = type(sourceClass) == "table"
+      and type(sourceClass.parties) == "table"
+      and sourceClass.parties[partyIndex]
+    if type(sourceParty) ~= "table" then return nil end
+    local mappedClass = index.run.mappings.trainerParties or {}
+    mappedClass = mappedClass[classId]
+    local mapped = type(mappedClass) == "table" and mappedClass[partyIndex]
+    local party = {}
+    if type(mapped) ~= "table" then
+      for _, member in ipairs(sourceParty) do
+        party[#party + 1] = {
+          source = member.species, species = member.species,
+          level = member.level, vanilla = true,
+        }
+      end
+      return party, true
+    end
+    for slotIndex, member in ipairs(mapped) do
+      local sourceIndex = tonumber(member.sourceSlot) or slotIndex
+      local source = sourceParty[sourceIndex] or sourceParty[slotIndex]
+      if member.fallback then
+        party[#party + 1] = {
+          source = source and source.species,
+          species = source and source.species,
+          level = source and source.level, vanilla = true,
+        }
+      else
+        party[#party + 1] = {
+          source = source and source.species,
+          species = member.species,
+          level = member.level,
+          vanilla = false,
+        }
+      end
+    end
+    return party, false
+  end
+
+  local function addTrainer(index, seen, mapId, classId, partyIndex)
+    partyIndex = tonumber(partyIndex)
+    if type(classId) ~= "string" or not partyIndex then return end
+    local key = mapId .. "\0" .. classId .. "\0" .. tostring(partyIndex)
+    if seen[key] then return end
+    local party, vanilla = trainerParty(index, classId, partyIndex)
+    if not party then return end
+    seen[key] = true
+    addMapRow(index, mapId, "trainers", {
+      kind = "trainer", classId = classId, partyIndex = partyIndex,
+      label = words(classId:gsub("^OPP_", "")) .. " - "
+        .. tostring(partyIndex),
+      party = party, vanilla = vanilla,
+    })
+  end
+
+  local function addTrainers(index)
+    local seen = {}
+    for _, mapId in ipairs(StableSort.keys(index.sources.maps or {})) do
+      local map = index.sources.maps[mapId]
+      for _, object in ipairs(type(map) == "table" and map.objects or {}) do
+        addTrainer(index, seen, mapId,
+          object.trainerClass, object.trainerParty)
+      end
+    end
+    for _, record in ipairs(SCRIPTED_TRAINERS) do
+      for party = record.first, record.last do
+        addTrainer(index, seen, record.mapId, record.classId, party)
+      end
+    end
+  end
+
+  local function buildSpecies(index)
+    for id, record in pairs(index.sources.species or {}) do
+      if type(id) == "string" and type(record) == "table" then
+        index.species[#index.species + 1] = {
+          id = id,
+          name = speciesName(id, index.sources.species),
+          dex = tonumber(record.dex),
+        }
+        index.names[id] = speciesName(id, index.sources.species)
+      end
+    end
+    table.sort(index.species, function(a, b)
+      if a.dex and b.dex and a.dex ~= b.dex then return a.dex < b.dex end
+      if a.dex ~= nil and b.dex == nil then return true end
+      if a.dex == nil and b.dex ~= nil then return false end
+      if a.name ~= b.name then return a.name < b.name end
+      return a.id < b.id
+    end)
+  end
+
+  local function finalizeSpecies(index)
+    for species, keyed in pairs(index.locationsBySpecies) do
+      local rows = {}
+      for _, mapId in ipairs(StableSort.keys(keyed)) do
+        local row = keyed[mapId]
+        local categories = {}
+        for _, tab in ipairs(TABS) do
+          if row.categories[tab] then
+            if tab == "statics" then
+              local identities, seen = {}, {}
+              for _, entry in ipairs(row.rows) do
+                if entry.kind == "static" and type(entry.source) == "string"
+                    and not seen[entry.source] then
+                  seen[entry.source] = true
+                  identities[#identities + 1] =
+                    speciesName(entry.source, index.sources.species):upper()
+                end
+              end
+              table.sort(identities)
+              for _, identity in ipairs(identities) do
+                categories[#categories + 1] = "STATIC - " .. identity
+              end
+            else
+              categories[#categories + 1] = TAB_LABELS[tab]
+            end
+          end
+        end
+        row.summary = table.concat(categories, "/")
+        rows[#rows + 1] = row
+      end
+      table.sort(rows, function(a, b)
+        if a.label ~= b.label then return a.label < b.label end
+        return a.mapId < b.mapId
+      end)
+      index.locationsBySpecies[species] = rows
+    end
+  end
+
+  local function buildAreas(index)
+    local grouped = {}
+    for mapId, entry in pairs(index.townLocations) do
+      local x, y = coords(entry)
+      if x and y then
+        local name = tostring(entry.name or entry.label or words(mapId))
+        local key = name .. "\0" .. tostring(x) .. "\0" .. tostring(y)
+        local area = grouped[key]
+        if not area then
+          area = { key = key, name = name, x = x, y = y, maps = {} }
+          grouped[key] = area
+        end
+        area.maps[#area.maps + 1] = newMap(index, mapId)
+      end
+    end
+    for _, area in pairs(grouped) do
+      local relevant = {}
+      for _, map in ipairs(area.maps) do
+        if hasRows(map.tabs) then relevant[#relevant + 1] = map end
+      end
+      if #relevant == 0 then
+        local tabs = {}
+        for _, tab in ipairs(TABS) do tabs[tab] = {} end
+        relevant[1] = {
+          id = area.key, label = area.name, tabs = tabs, empty = true,
+        }
+      end
+      table.sort(relevant, function(a, b)
+        if a.label ~= b.label then return a.label < b.label end
+        return a.id < b.id
+      end)
+      area.maps = relevant
+      index.areas[#index.areas + 1] = area
+    end
+    table.sort(index.areas, function(a, b)
+      if a.y ~= b.y then return a.y < b.y end
+      if a.x ~= b.x then return a.x < b.x end
+      return a.name < b.name
+    end)
+  end
+
+  function Browser.build(run, sources)
+    assert(type(run) == "table", "active run is required")
+    sources = type(sources) == "table" and sources or {}
+    local locations, townMap = townLocations(sources.field or {})
+    local index = {
+      run = run,
+      sources = sources,
+      townLocations = locations,
+      townMap = townMap,
+      species = {},
+      names = {},
+      locationsBySpecies = {},
+      maps = {},
+      areas = {},
+      tabs = copyArray(TABS),
+      tabLabels = TAB_LABELS,
+    }
+    buildSpecies(index)
+    addWild(index)
+    addStarters(index)
+    addStaticGifts(index)
+    addTradesPrizes(index)
+    addTrainers(index)
+    finalizeSpecies(index)
+    buildAreas(index)
+    return index
+  end
+
+  Browser.words = words
+  Browser.speciesName = speciesName
+  Browser.tabs = copyArray(TABS)
+  Browser.tabLabels = TAB_LABELS
+  return Browser
+end

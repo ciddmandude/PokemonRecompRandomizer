@@ -95,7 +95,7 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 | Review Next Run | Shows every editable setting and any validation warnings before starting. |
 | Reset Defaults | Restores the `STANDARD` preset and clears manual Seed Text after confirmation. |
 | Copy Active Seed | Copies the active seed and run code, or displays them when clipboard access is unavailable. |
-| View Spoiler Log | Opens the active run's seed, settings, mappings, and diagnostics in a scrollable in-game viewer. Available only when that run saved Spoiler Log as `ON`. |
+| View Spoiler Log | Opens an unrestricted Pokémon/map browser. Pokémon mode lists every merged-registry species in Pokédex order, supports partial-name search, and shows obtainable/encounter locations. Displayed location names longer than 16 characters are abbreviated without changing their internal map identity. Wild locations display their method and one combined `PCT`/level line for every distinct level directly in the location list and do not drill down. Static locations identify the encounter inline as `STATIC - <Pokémon>` and also do not drill down. Starter and gift locations display their source plus the current Pokémon and level inline, also without drill-down. Trade locations replace the generic category with the complete numbered offer and current `REQUESTED`/`RECEIVED` Pokémon, also without drill-down. Prize locations replace the generic category with the Game Corner version and slot, current Pokémon, level, and coin cost, also without drill-down. Other locations with one result open it directly; locations with multiple results retain a chooser. Map mode uses the Kanto map, groups relevant buildings and floors, and offers populated categories from `GRASS`, `SURF`, `OLD ROD`, `GOOD ROD`, `SUPER ROD`, `TRAINERS`, `STARTERS`, `STATICS`, `GIFTS`, `TRADES`, and `PRIZES`; empty tabs are omitted per map. Starter and gift tabs show each current Pokémon and level inline and do not open detail screens. Encounter tabs show each Pokémon followed by one combined `PCT` line for every distinct level and do not open a separate detail screen. Each rod has its own tab and per-cast `NO BITE` percentage. The Trades tab displays every numbered offer inline with its requested and received Pokémon and has no detail screen. Trainer rows still open complete parties with levels. Browser entries show only the Pokémon, levels, prices, and offers currently present; original Pokémon and prices are omitted. Bottom control legends are hidden except for `SEARCH:SELECT` on the Pokémon list. Settings are omitted. Available only when that run saved Spoiler Log as `ON`. |
 | Export Spoiler Log | Manually writes the same active-run spoiler information without ROM bytes. Available only when that run saved Spoiler Log as `ON`; starting a game never creates the file. Saved at `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. |
 
 For exact formulas, fallback order, supported encounter IDs, presets, and
@@ -106,7 +106,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.26.0`
+- randomizer mod version: `0.27.20`
 - generator contract: `1`
 - algorithm build: `1.3.0-dev`
 - hash: `fnv1a32x4-v1`

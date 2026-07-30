@@ -79,6 +79,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'trainer_m13_test failed' }
   & $luaPath 'tests/spoiler_validation_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'spoiler_validation_test failed' }
+  & $luaPath 'tests/spoiler_browser_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'spoiler_browser_test failed' }
   & (Join-Path $ProjectRoot 'tools/validate-scaffold.ps1')
   & (Join-Path $ProjectRoot 'tools/package-test.ps1')
 } finally {

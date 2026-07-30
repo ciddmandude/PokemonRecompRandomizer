@@ -113,8 +113,10 @@ assert(Controller.canAccess(run) == true)
 assert(Controller.text(run) == plaintext)
 local viewerLines = assert(Controller.lines(run))
 assert(viewerLines[1] == "POKEMON GEN 1 RECOMP RANDOMIZER")
-assert(table.concat(viewerLines, "\n"):find(
-  "Cerulean Cave B1F", 1, true))
+local viewerText = table.concat(viewerLines, "\n")
+assert(viewerText:find("Cerulean Cave B1F", 1, true))
+assert(not viewerText:find("=== SETTINGS ===", 1, true))
+assert(not viewerText:find("Enable Spoiler Log", 1, true))
 
 local public = Spoiler.publicRun(run)
 assert(public.seed.canonical == "SPOILER TEST")
@@ -133,7 +135,8 @@ assert(public.seed.canonical == "SPOILER TEST"
 local pushed = {}
 local actionMod = {
   ui = {
-    push = function(_, _, model)
+    push = function(_, screenId, model)
+      model.screenId = screenId
       pushed[#pushed + 1] = model
     end,
   },
@@ -145,8 +148,8 @@ local lifecycle = {
   activeRun = function() return run end,
 }
 assert(Controller.viewAction(actionMod, lifecycle)({}) == "SPOILER LOG")
-assert(pushed[#pushed].title == "SPOILER LOG")
-assert(table.concat(pushed[#pushed].lines, "\n") == plaintext)
+assert(pushed[#pushed].screenId == Constants.SPOILER_BROWSER_SCREEN_ID)
+assert(pushed[#pushed].run == run)
 
 run.settings.generate_spoiler_log = "off"
 written.path, written.data = nil, nil

@@ -194,8 +194,8 @@ Trainer randomization runs before the engine constructs battlers. Vanilla specia
 | Review Next Run | Opens a scrollable summary of all editable settings and validation warnings. |
 | Reset Defaults | Confirms, then restores the `STANDARD` preset and clears manual Seed Text. |
 | Copy Active Seed | Copies the active seed and run code to the system clipboard when clipboard support exists; otherwise displays both for transcription. |
-| View Spoiler Log | Opens a scrollable in-game log containing the active seed, hashes, settings, mappings, and diagnostics. Available only when the active run saved Enable Spoiler Log as `ON`. |
-| Export Spoiler Log | Explicitly writes the same information as readable plaintext without ROM bytes. Available only when the active run saved Enable Spoiler Log as `ON`. |
+| View Spoiler Log | Opens an unrestricted Pokémon/map browser. Pokémon mode lists every merged species in Pokédex order, supports partial-name search, and indexes obtainable/encounter locations. Displayed location names longer than 16 characters are abbreviated without changing the indexed map identity. Wild locations display their method and one combined chance/level line for each distinct level directly in the location list and do not drill down. Static locations identify their encounter inline as `STATIC - <Pokémon>` and also do not drill down. Starter and gift locations display their source plus the current Pokémon and level inline and also do not drill down. Trade locations display the complete numbered offer with current `REQUESTED` and `RECEIVED` Pokémon inline and also do not drill down. Prize locations display the Game Corner version and slot, current Pokémon, level, and coin cost inline and also do not drill down. Selecting another location with exactly one result opens that result directly; only locations with multiple results show an intermediate chooser. Map mode uses the Kanto map, groups relevant floors/buildings, and presents only populated category tabs with offers, prizes, and complete trainer parties. Starter and gift tabs show each current Pokémon and level inline and do not open detail screens. Grass, surf, Old Rod, Good Rod, and Super Rod use separate tabs. Encounter tabs show each Pokémon followed by one combined chance line per distinct level and do not open a separate detail screen. Every rod tab includes its per-cast no-bite percentage so its outcomes total 100%. The Trades tab renders all numbered offers inline with `REQUESTED` and `RECEIVED` fields and does not open a detail screen. Browser rows show current results without original species or prices. The saved settings section is omitted. Available only when the active run saved Enable Spoiler Log as `ON`. |
+| Export Spoiler Log | Explicitly writes a complete readable plaintext report, including saved settings, without ROM bytes. Available only when the active run saved Enable Spoiler Log as `ON`. |
 
 ## 6. Determinism and generation algorithm
 
@@ -261,6 +261,14 @@ Spoiler logs are saved-run-gated readable reports:
 - the option defaults to `ON` and is saved with the run;
 - New Game performs no automatic filesystem write in either mode;
 - `ON` permits the in-game viewer and explicit manual file export;
+- the in-game viewer omits settings, while the exported file includes them;
+- Pokémon mode indexes only obtainable/encounter destinations and excludes
+  trainer ownership and requested trade species;
+- identical current wild results at one map and method collapse to one entry;
+  the encounter tab combines slot probability by distinct level and displays
+  every resulting level directly without a detail view;
+- map mode groups relevant buildings/floors, separates grass, surf, and each
+  individual fishing rod, and omits empty category tabs;
 - `OFF` denies both viewing and export for that run;
 - changing the next-run preference cannot reveal an existing `OFF` run;
 - files are written under `pokemon_randomizer/spoilers/SEEDHASH.txt`;

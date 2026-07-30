@@ -506,8 +506,9 @@ return function()
     end
   end
 
-  function Spoiler.text(run)
+  function Spoiler.text(run, options)
     assert(type(run) == "table", "active run is required")
+    options = options or {}
     local lines = {
       "POKEMON GEN 1 RECOMP RANDOMIZER",
       "SPOILER LOG - READABLE FORMAT V2",
@@ -534,7 +535,9 @@ return function()
       tostring(compatibility.settingsHash or "")))
     add(lines, ("Pool hash:     %s"):format(
       tostring(compatibility.poolHash or "")))
-    formatSettings(lines, run.settings or {})
+    if options.includeSettings ~= false then
+      formatSettings(lines, run.settings or {})
+    end
     local mappings = run.mappings or {}
     formatWild(lines, mappings)
     formatStarters(lines, mappings)
