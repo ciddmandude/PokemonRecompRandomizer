@@ -1,7 +1,7 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.34.3
+Mod version .......... 0.34.4
 Algorithm build ...... 1.4.0-dev
 Engine range ......... >=0.1.30 <0.2.0  (0.1.38 recommended)
 Mod API .............. 2
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.34.3.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.34.4.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -68,8 +68,12 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   F1 .... quick save
   F2 .... quick load
-  F10 ... open / close the mod manager (per-mod errors, options, state)
+  F10 ... open / close the in-game mod manager
   - / =  zoom out / in
+
+  The mod manager shows per-mod state, load errors, and option rows. It is NOT
+  confirmed to be a live log viewer - see 1.5 before relying on it to observe
+  a warning.
 
 1.4 Baseline artifacts to capture before you start
 
@@ -79,6 +83,44 @@ whether one-time events stay consistent, and whether the engine seams behave.
     - a screenshot of the RANDOMIZER options screen header line
   You will diff these constantly. Most failures in this mod present as "two
   things that should agree, don't", and you need both halves to prove it.
+
+1.5 Seeing the mod's log output  (DO THIS BEFORE ANY TEST THAT EXPECTS A LOG LINE)
+
+  The mod reports through mod.log:info / :warn / :error, which the engine
+  renders as attributed "[pokemon_randomizer] ..." lines. The engine docs do
+  not state where those lines are delivered, so establish that for your build
+  ONCE, at the start of a session, and write it in your notes.
+
+  Candidate destinations, in the order worth checking:
+    (a) stdout / stderr - launch the game from a terminal rather than by
+        double-clicking:
+            love .                      (from the engine repo root)
+            love "path\to\game"         (packaged build)
+        On Windows use a console that keeps output, e.g. run it from
+        PowerShell and do not close the window.
+    (b) a log file next to the save data, under
+        %APPDATA%\love\pokemon-love2d\
+    (c) the F10 mod manager panel.
+
+  CALIBRATION STEP - prove you can see output at all:
+    1. Just launch the game. On the mods.loaded event - at boot, before the
+       title screen - the mod emits one INFO line reporting its contract
+       version, save schema, species manifest version, hash, and PRNG.
+       At the time of writing it is prefixed "milestone 14 ready (contract=...".
+    2. Confirm you can actually see that line somewhere. No save or New Game
+       is required.
+    If you cannot find it, you have no working log channel. Any later test
+    whose expected result is "no warning appears" is meaningless until you
+    fix this - absence of a warning and absence of logging look identical.
+
+  KNOWN GAP: some diagnostics are emitted at DEBUG level, and mod.log:debug is
+  not part of the documented API-2 surface. The mod guards those calls, so a
+  missing debug method is harmless, but the message is silently dropped. Two
+  messages are affected:
+    - the auto-seed "best-effort runtime material" notice (SEED-08)
+    - the suppressed boot-skeleton save.created notice (SAVE-10)
+  If your build has no debug channel, treat those two as NOT OBSERVABLE rather
+  than as passes, and verify them by the alternative means given in the tests.
 
 
 --------------------------------------------------------------------------------
@@ -356,7 +398,7 @@ OPT-03 [P1] Preset expansion and CUSTOM detection
   EXPECT: after step 4 PRESET reads STANDARD again (it re-detects, it does not
           latch on CUSTOM).
 
-OPT-04 [P1] Preset handling of master / seed / spoiler rows
+OPT-04 [P1] Preset handling of master / seed / spoiler rows - PASSED
   1. Set RANDOMIZER = OFF, SEED MODE = MANUAL, SEED TEXT = KEEPME,
      ENABLE SPOILERS = OFF.
   2. Set PRESET = CHAOS. Confirm ENABLE SPOILERS, then set it back to OFF.
@@ -367,19 +409,52 @@ OPT-04 [P1] Preset handling of master / seed / spoiler rows
   EXPECT: ENABLE SPOILERS changes to ON whenever CHAOS, CASUAL, or STANDARD is
           selected.
 
-OPT-05 [P1] Seed text entry and normalization
+OPT-05 [P1] Seed text entry and normalization  - PASSED
+  The seed limit is 32 characters. Note there are three separate gates and
+  they measure different things - test them separately:
+    (a) the naming screen caps RAW keystrokes at 32;
+    (b) stored-value validation rejects a stored string longer than 32;
+    (c) Seed.normalize reports TOO_LONG on the CANONICAL string, i.e. after
+        whitespace is collapsed, the ends are trimmed, and it is uppercased.
+
   1. SEED TEXT, enter:  "  my   seed  "  (leading/trailing/repeated spaces)
   2. Re-open the row and read the stored value.
   3. Enter "race_seed-01".
-  4. Try to enter a 33rd character.
-  5. Enter punctuation such as "MEW!".
-  6. Clear the field to blank with SEED MODE = MANUAL, then REVIEW NEXT RUN.
+  4. Type 32 characters (e.g. "A" thirty-two times), then attempt to type one
+     more character - the 33rd.
+  5. Enter 32 characters that include repeated internal spaces, for example
+     "AAAA    BBBB    CCCC    DDDD  EEE" trimmed to exactly 32 raw characters.
+     Save it, then REVIEW NEXT RUN.
+  6. Enter punctuation such as "MEW!".
+  7. Clear the field to blank with SEED MODE = MANUAL, then REVIEW NEXT RUN.
   EXPECT: step 2 shows MY SEED (uppercased, collapsed, trimmed).
   EXPECT: step 3 stores RACE_SEED-01.
-  EXPECT: step 4 is refused at 32 characters.
-  EXPECT: step 5 is either refused at entry or reported by REVIEW NEXT RUN as
-          WARNING INVALID_MANUAL_SEED. It must never silently be accepted.
-  EXPECT: step 6 shows WARNING INVALID_MANUAL_SEED in REVIEW NEXT RUN.
+  EXPECT: step 4 - the 33rd keystroke is ignored. The field stays at 32
+          characters and the entry screen does not error or close.
+  EXPECT: step 5 is ACCEPTED. Collapsing runs of spaces makes the canonical
+          seed SHORTER than 32, so this is a valid seed, and REVIEW NEXT RUN
+          shows VALIDATION: OK. Record the canonical value - a later run with
+          the collapsed form as the seed must produce the same run code
+          (cross-check with SEED-02).
+  EXPECT: step 6 is rejected on commit, shows INVALID SEED, and leaves the
+          previous valid seed unchanged. It must never be stored.
+  EXPECT: step 7 shows WARNING INVALID_MANUAL_SEED in REVIEW NEXT RUN.
+
+OPT-05b [P2] Over-long seed from outside the UI
+  Gate (c) above cannot be reached through the naming screen: raw input is
+  capped at 32 and normalization only ever shrinks a string. Reach it directly.
+  1. Close the game. Open %APPDATA%\love\pokemon-love2d\options.lua.
+  2. In the pokemon_randomizer block set seed_text to a 40-character string of
+     letters with no spaces, e.g. forty "A" characters.
+  3. Launch the game, set SEED MODE = MANUAL, and open REVIEW NEXT RUN.
+  4. Start a NEW GAME.
+  EXPECT: the stored value is rejected as invalid. Either the row falls back
+          to the declared default (blank) and REVIEW NEXT RUN reports
+          INVALID_MANUAL_SEED, or the value is shown but flagged. It must not
+          be accepted as a usable seed.
+  EXPECT: the NEW GAME in step 4 produces a vanilla run with the options
+          header reading ACTIVE:VANILLA - never a partially randomized save.
+  EXPECT: the game does not crash and options.lua is not corrupted.
 
 OPT-06 [P1] Reset defaults
   1. Change at least six settings across different pages, set SEED TEXT.
@@ -404,7 +479,7 @@ OPT-08 [P2] REVIEW NEXT RUN content
   EXPECT: MERGED DATA reports >= 151, and POOL EXCLUDED: <n> appears only if
           some merged species failed validation.
 
-OPT-09 [P2] Active run is read-only
+OPT-09 [P2] Active run is read-only  - PASSED
   1. Start any randomized run (CFG-A). Return to OPTIONS > RANDOMIZER.
   2. Change several settings.
   3. Walk into grass and check encounters; check the starter you already have.
@@ -423,7 +498,7 @@ OPT-10 [P3] Accessibility
 6. NEW GAME, SEEDS, AND RUN IDENTITY
 --------------------------------------------------------------------------------
 
-SEED-01 [P0] Manual seed produces a stable run code
+SEED-01 [P0] Manual seed produces a stable run code - PASSED
   1. CFG-A. NEW GAME.
   2. Actions > COPY ACTIVE SEED. Record seed, run code, algorithm.
   3. Delete the save. Repeat steps 1-2 with identical settings.
@@ -432,7 +507,7 @@ SEED-01 [P0] Manual seed produces a stable run code
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
   EXPECT: ALGORITHM reads 1.4.0-dev.
 
-SEED-02 [P0] Same seed, same everything, identical mappings
+SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
   2. Diff the two exported .txt files.
   EXPECT: the two spoiler logs are byte-identical apart from nothing at all.
@@ -476,11 +551,30 @@ SEED-07 [P1] Auto seed
           if you re-enter that seed manually (verify once with SEED-02).
 
 SEED-08 [P1] Entropy diagnostic
-  1. CFG-H. NEW GAME with the engine log visible (mod manager F10).
-  EXPECT: no warning about the auto-seed entropy provider under normal LOVE
-          conditions. If a warning appears it must name which source was
-          unavailable (love.timer / love.math), and the run must still be
-          created successfully.
+  PRECONDITION: complete the calibration step in section 1.5 first. Without a
+  working log channel this test cannot distinguish success from silence.
+
+  1. CFG-H. NEW GAME with your log channel open.
+  2. Read the log for lines attributed to [pokemon_randomizer].
+  EXPECT: the run is created successfully and a valid 26-character auto seed
+          is stored (verify via COPY ACTIVE SEED).
+  EXPECT: no WARN or ERROR line about the auto-seed entropy provider under
+          normal LOVE conditions.
+  EXPECT: if a WARN does appear, it names which source was unavailable
+          (LOVE timer / LOVE random) and the run is STILL created with a
+          usable seed - degraded entropy must never block New Game.
+
+  NOTE: the "best-effort runtime material" notice is emitted at DEBUG level.
+  If your build has no debug channel it will not appear even when the
+  condition holds. Do not record a PASS on the absence of that line alone -
+  base the PASS on the seed being generated correctly (SEED-07) plus the
+  absence of a WARN/ERROR.
+
+  NEGATIVE CHECK (optional, [P3]): if you can run the engine in an environment
+  where love.timer or love.math is unavailable, repeat step 1 there.
+  EXPECT: a WARN naming the unavailable source, and a still-valid 26-character
+          seed. This is the only way to positively confirm the diagnostic path
+          fires rather than merely being silent.
 
 SEED-09 [P1] Invalid manual seed disables cleanly
   1. SEED MODE = MANUAL, SEED TEXT blank. RANDOMIZER = ON. NEW GAME.
@@ -508,7 +602,7 @@ SEED-11 [P2] All categories OFF with the master ON
 7. SAVE LIFECYCLE AND INTEGRITY
 --------------------------------------------------------------------------------
 
-SAVE-01 [P0] Settings snapshot is frozen at New Game
+SAVE-01 [P0] Settings snapshot is frozen at New Game -- PASSED
   1. CFG-A. NEW GAME. Catch or observe five wild species and record them.
   2. Save and quit. Reopen OPTIONS > RANDOMIZER and change ten settings,
      including SPECIES POOL, LEGENDARIES, and WILD POKEMON.
@@ -518,12 +612,12 @@ SAVE-01 [P0] Settings snapshot is frozen at New Game
           entirely.
   EXPECT: run code and seed unchanged in COPY ACTIVE SEED.
 
-SAVE-02 [P0] Continue restores everything
+SAVE-02 [P0] Continue restores everything - PASSED
   1. CFG-A. NEW GAME, play to Viridian, save, quit, relaunch, CONTINUE.
   EXPECT: header LOCKED:<same prefix>, same run code, same starter, same
           encounters, same trainer teams.
 
-SAVE-03 [P1] Vanilla save stays vanilla
+SAVE-03 [P1] Vanilla save stays vanilla - PASSED
   1. Disable the randomizer mod. Start a NEW GAME, play a little, save, quit.
   2. Re-enable the randomizer mod. CONTINUE.
   EXPECT: header ACTIVE:NONE or ACTIVE:VANILLA. Content stays vanilla.
@@ -584,7 +678,7 @@ SAVE-09 [P2] Save size budget
   EXPECT: the estimated save bytes value is well under 262144.
   EXPECT: no SAVE_SIZE_BUDGET_EXCEEDED warning.
 
-SAVE-10 [P3] Boot does not create a phantom run
+SAVE-10 [P3] Boot does not create a phantom run  - PASSED
   1. With no save present, launch the game and sit on the title screen.
   2. Open OPTIONS > RANDOMIZER.
   EXPECT: header reads ACTIVE:NONE, not LOCKED. The mod must not treat the
@@ -600,7 +694,7 @@ SAVE-10 [P3] Boot does not create a phantom run
 Use the save editor to set EVENT_FOLLOWED_OAK_INTO_LAB and warp to OAKS_LAB.
 To retest a different ball on the same seed, restore the pre-choice save.
 
-STR-01 [P0] Preview, confirmation, and award all agree
+STR-01 [P0] Preview, confirmation, and award all agree  - PASSED
   1. CFG-A. NEW GAME. Reach the starter balls.
   2. Examine the LEFT ball. Read the Pokedex preview screen and the
      "So! You want X?" prompt. Say NO.
@@ -611,7 +705,7 @@ STR-01 [P0] Preview, confirmation, and award all agree
   EXPECT: the level matches STARTER LEVEL (5 on CFG-A).
   EXPECT: saying NO awards nothing and leaves all three balls available.
 
-STR-02 [P0] All three balls, three separate runs
+STR-02 [P0] All three balls, three separate runs - PASSED
   1. Same seed, CFG-A. Take the LEFT ball. Record species.
   2. Restore the pre-choice save. Take MIDDLE. Record.
   3. Restore. Take RIGHT. Record.
@@ -621,7 +715,7 @@ STR-02 [P0] All three balls, three separate runs
   EXPECT: the three species match the STARTERS section of the spoiler log,
           mapped LEFT / MIDDLE / RIGHT.
 
-STR-03 [P0] Ball removal and rival pickup
+STR-03 [P0] Ball removal and rival pickup  - PASSED
   1. Take one starter and watch the scene through to the end.
   EXPECT: your chosen ball disappears from the table.
   EXPECT: the rival walks to a different ball, that ball disappears, and the
@@ -630,7 +724,7 @@ STR-03 [P0] Ball removal and rival pickup
   EXPECT: the third ball remains on the table and, if examined, gives the
           vanilla "those are Poke Balls" message.
 
-STR-04 [P1] Rival's first battle team
+STR-04 [P1] Rival's first battle team - PASSED
   1. Continue from STR-03 to the first rival battle in Oak's Lab / Route 22.
   EXPECT: the rival's last party member is the counterpick species from the
           spoiler log.
@@ -646,16 +740,16 @@ STR-05 [P1] Rival at every later branch
   EXPECT: party sizes and the levels of the non-starter slots follow the
           trainer settings, not the starter settings.
 
-STR-06 [P1] BASIC ONLY is enforced
+STR-06 [P1] BASIC ONLY is enforced - PASSED
   1. CFG-A (STARTER STAGE = BASIC ONLY). NEW GAME across five different seeds.
   EXPECT: none of the fifteen offered starters is an evolved form (nothing that
           has a pre-evolution inside the eligible pool).
 
-STR-07 [P1] ANY stage allows evolved forms
+STR-07 [P1] ANY stage allows evolved forms - PASSED
   1. CFG-G (STARTER STAGE = ANY). NEW GAME across five seeds.
   EXPECT: evolved forms appear at least once. No error or warning is produced.
 
-STR-08 [P1] Starter level bounds
+STR-08 [P1] Starter level bounds  - PASSED
   1. CFG-F (STARTER LEVEL = 2). Take a starter.
   2. CFG-F20 (STARTER LEVEL = 20). Take a starter.
   EXPECT: the level shown in the lab preview equals the level of the received
@@ -1363,7 +1457,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.34.3.
+          compatibility block, and the archive file name all read 0.34.4.
 
 REL-05 [P1] Unsupported engine version
   1. Install on an engine outside >=0.1.30 <0.2.0 if one is available.

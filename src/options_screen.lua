@@ -113,7 +113,10 @@ return function(Constants)
         default = self.preferences:get(row.key, self.game),
         onDone = function(value)
           if value ~= nil then
-            self.preferences:set(row.key, value, self.game)
+            local saved = self.preferences:set(row.key, value, self.game)
+            if not saved and row.key == "seed_text" then
+              self.notice = "INVALID SEED"
+            end
           end
         end,
       })

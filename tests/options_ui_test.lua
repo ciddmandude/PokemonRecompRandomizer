@@ -185,8 +185,15 @@ namingOptions.onDone("race_seed-01")
 equal(preferences:get("seed_text", game), "RACE_SEED-01",
   "text editor uppercases valid seed")
 namingOptions.onDone("MEW!")
-equal(preferences:get("seed_text", game), "MEW!",
-  "text editor preserves invalid seed for review warning")
+equal(preferences:get("seed_text", game), "RACE_SEED-01",
+  "text editor rejects invalid seed")
+equal(screen.notice, "INVALID SEED", "invalid seed notice")
+namingOptions.onDone("   ")
+equal(preferences:get("seed_text", game), "",
+  "whitespace-only seed clears field")
+game.save.options.modOptions.pokemon_randomizer.seed_text = "OLD?"
+equal(preferences:get("seed_text", game), "",
+  "invalid legacy seed reads as blank")
 
 screen.page, screen.row = 5, 3
 screen:edit(screen:currentRow())

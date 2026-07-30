@@ -106,7 +106,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.34.3`
+- randomizer mod version: `0.34.4`
 - generator contract: `1`
 - algorithm build: `1.4.0-dev`
 - hash: `fnv1a32x4-v1`

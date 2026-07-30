@@ -123,6 +123,9 @@ return function(Constants, Schema, General, Seed)
       and game.save.options.modOptions[Constants.MOD_ID]
     if bucket then value = bucket[key] end
     if value == nil then value = self.mod.options:get(key) end
+    if key == "seed_text" and type(value) == "string" and value ~= "" then
+      value = Seed.normalize(value)
+    end
     if not validValue(row, value) then value = row.default end
     return copy(value)
   end
@@ -148,10 +151,15 @@ return function(Constants, Schema, General, Seed)
     local row = self.byKey[key]
     if not row then return nil, "unknown option" end
     if key == "seed_text" and type(value) == "string" then
-      local canonical = Seed.normalize(value)
-      -- Preserve invalid input so REVIEW NEXT RUN can explain the problem.
-      -- Valid input is stored in the same canonical form used for generation.
-      if canonical then value = canonical end
+      if value:match("^%s*$") then
+        value = ""
+      else
+        local canonical, seedError = Seed.normalize(value)
+        if not canonical then
+          return nil, seedError and seedError.message or "invalid seed"
+        end
+        value = canonical
+      end
     end
     if not validValue(row, value) then return nil, "invalid option value" end
     assert(type(game) == "table" and type(game.save) == "table",
