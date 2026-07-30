@@ -12,7 +12,6 @@ local commandRecords = {
   static_battle = function() end,
   give_pokemon = function() end,
   trade = function() end,
-  record_hall_of_fame = function() end,
 }
 local optionSchema
 local pushedScreen
@@ -21,7 +20,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.20.0",
+  version = "0.21.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -170,10 +169,6 @@ local mod = {
         commandRecords[id] = command
         return command
       end,
-      override = function(_, id, command)
-        commandRecords[id] = command
-        return command
-      end,
     },
   },
   exports = {},
@@ -245,8 +240,8 @@ assert(type(mod.exports.registerSpeciesMeta) == "function")
 assert(mod.exports.species.manifestVersion == 1)
 assert(mod.exports.save.checksumVersion == "fnv1a32x4-save-v1")
 assert(type(mod.exports.preferences.snapshot) == "function")
-assert(#mod.exports.preferences.schema() == 34)
-assert(#optionSchema == 34)
+assert(#mod.exports.preferences.schema() == 33)
+assert(#optionSchema == 33)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(hookCallbacks["ui.options.rows"]) == "function")
@@ -273,10 +268,9 @@ assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
 assert(type(callbacks["save.loaded"]) == "function")
 assert(type(callbacks["save.writing"]) == "function")
-assert(#migrations == 3)
+assert(#migrations == 2)
 assert(migrations[1].since == "0.4.0")
 assert(migrations[2].since == "0.6.0")
-assert(migrations[3].since == "0.14.0")
 
 mod.exports.registerSpeciesMeta("TESTMON", { legendary = true })
 local manifest = mod.exports.species.buildManifest({ poolMode = "merged" })
@@ -318,6 +312,18 @@ assert(optionRows[1].value() == "OPEN",
   "the title-screen randomizer must remain open after application boot")
 
 callbacks["game.ready"]({})
+local automaticSpoiler
+local oldLove = love
+love = {
+  filesystem = {
+    createDirectory = function() return true end,
+    write = function(path, contents)
+      automaticSpoiler = { path = path, contents = contents }
+      return true
+    end,
+  },
+}
+options.generate_spoiler_log = "on"
 local save = {
   version = "red",
   meta = { engine = "1.0.0", mods = {} },
@@ -325,10 +331,16 @@ local save = {
   modData = {},
 }
 callbacks["save.created"]({ save = save })
+love = oldLove
 local run = save.modData.pokemon_randomizer
 assert(type(run) == "table")
 assert(run.schemaVersion == 1)
 assert(run.enabled == true)
+assert(run.settings.generate_spoiler_log == "on")
+assert(automaticSpoiler
+    and automaticSpoiler.path:match("%.txt$")
+    and automaticSpoiler.contents:find("SPOILER LOG", 1, true),
+  "enabled option automatically writes the readable spoiler log")
 assert(run.checksum.version == "fnv1a32x4-save-v1")
 assert(run.diagnostics.validation.mappingBytes > 0)
 assert(run.diagnostics.validation.namespaceBytes
@@ -423,7 +435,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.20.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.21.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
@@ -461,11 +473,7 @@ local legacy = {
   compatibility = run.compatibility,
   mappings = run.mappings,
   diagnostics = { warnings = {}, fallbackCount = 0 },
-  race = {
-    enabled = false,
-    unlockPolicy = "hall_of_fame",
-    unlocked = false,
-  },
+  race = { enabled = true, unlockPolicy = "never", unlocked = false },
   futureField = "keep",
 }
 migrations[1].callback(legacy)
@@ -479,7 +487,6 @@ local legacyHash = legacy.compatibility.settingsHash
 migrations[2].callback(legacy)
 assert(type(legacy.compatibility.settingsHash) == "string")
 assert(legacy.compatibility.settingsHash == legacyHash)
-migrations[3].callback(legacy)
 local migratedValid = mod.exports.save.validate(legacy, nil, true)
 assert(migratedValid)
 

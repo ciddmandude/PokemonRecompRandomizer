@@ -70,14 +70,8 @@ local groups = {
       choice("duplicate_policy", "DUPLICATES", "one_to_one", {
         { "ALLOW", "allow" }, { "ONE-TO-ONE", "one_to_one" },
       }, "ALLOW OR AVOID REPEATED SPECIES."),
-      choice("race_mode", "RACE MODE", "off", ON_OFF,
-        "LOCK SPOILERS FOR A LOCAL RACE RUN."),
-      choice("spoiler_unlock", "SPOILER UNLOCK", "hall_of_fame", {
-        { "HALL OF FAME", "hall_of_fame" },
-        { "CREDITS", "credits" },
-        { "PASSPHRASE", "passphrase" },
-        { "NEVER", "never" },
-      }, "CHOOSE WHEN RACE SPOILERS MAY OPEN."),
+      choice("generate_spoiler_log", "SPOILER LOG", "off", ON_OFF,
+        "AUTO-WRITE LOG FOR NEW RUN."),
     },
   },
   {

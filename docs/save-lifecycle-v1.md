@@ -44,7 +44,7 @@ checksum = {
 
 The hash covers schema and algorithm versions, enabled state, canonical seed,
 the complete settings snapshot, compatibility data, every mapping bucket,
-diagnostics, and race state. Canonical serialization makes the result
+diagnostics, and any preserved legacy extension state. Canonical serialization makes the result
 independent of Lua table insertion order.
 
 This checksum detects accidental damage and ordinary editing. FNV is not a

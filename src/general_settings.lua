@@ -232,13 +232,10 @@ return function(SaveState)
       prefix(run.compatibility.settingsHash),
       prefix(run.compatibility.poolHash),
     }, "-")
-    if type(run.race) == "table" and run.race.enabled then
-      code = code .. "-R"
-    end
     return code
   end
 
-  function General.activeRunSummary(run, raceLocked)
+  function General.activeRunSummary(run)
     run = type(run) == "table" and run or {}
     local seed = type(run.seed) == "table" and run.seed or {}
     local settings = type(run.settings) == "table" and run.settings or {}
@@ -246,10 +243,9 @@ return function(SaveState)
       if input == nil or input == "" then return fallback end
       return tostring(input)
     end
-    local shownSeed = value(
-      raceLocked and seed.hash128 or seed.canonical, "UNAVAILABLE")
+    local shownSeed = value(seed.canonical, "UNAVAILABLE")
     local summary = {
-      seedLabel = raceLocked and "SEED HASH" or "SEED",
+      seedLabel = "SEED",
       seed = shownSeed,
       runCode = value(General.runCode(run), "UNAVAILABLE"),
       algorithm = value(run.algorithmVersion, "UNAVAILABLE"),

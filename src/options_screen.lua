@@ -148,11 +148,7 @@ return function(Constants)
     local status = self.saveStatus and self.saveStatus() or {}
     if status.active then
       local run = status.run
-      local raceLocked = run and run.race and run.race.enabled
-        and not run.race.unlocked
-      local identity = raceLocked
-          and run.seed and run.seed.hash128
-        or run and run.seed and run.seed.canonical
+      local identity = run and run.seed and run.seed.canonical
         or "RUN"
       return "LOCKED:" .. identity:sub(1, 8)
     end

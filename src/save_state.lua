@@ -107,7 +107,8 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
   local function behaviorSettings(settings)
     local result = {}
     for key, value in pairs(settings or {}) do
-      if key ~= "preset" and key ~= "seed_mode" and key ~= "seed_text" then
+      if key ~= "preset" and key ~= "seed_mode" and key ~= "seed_text"
+          and key ~= "generate_spoiler_log" then
         result[key] = clone(value)
       end
     end
@@ -314,21 +315,6 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
         or namespace.diagnostics.fallbackCount < 0 then
       addError(errors, "diagnostics", "TYPE",
         "diagnostics require warnings and fallbackCount")
-    end
-    local race = namespace.race
-    if type(race) ~= "table" or type(race.enabled) ~= "boolean"
-        or type(race.unlocked) ~= "boolean"
-        or (race.unlockPolicy ~= "hall_of_fame"
-          and race.unlockPolicy ~= "credits"
-          and race.unlockPolicy ~= "passphrase"
-          and race.unlockPolicy ~= "never")
-        or (race.encryptedSpoilerDigest ~= nil
-          and type(race.encryptedSpoilerDigest) ~= "string")
-        or (race.passphraseSalt ~= nil
-          and type(race.passphraseSalt) ~= "string")
-        or (race.passphraseVerifier ~= nil
-          and type(race.passphraseVerifier) ~= "string") then
-      addError(errors, "race", "TYPE", "race state is malformed")
     end
   end
 
@@ -544,17 +530,6 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
       compatibility = clone(input.compatibility),
       mappings = mappings,
       diagnostics = diagnostics,
-      race = {
-        enabled = input.settings
-          and input.settings.race_mode == "on" or false,
-        unlockPolicy = input.settings
-          and input.settings.spoiler_unlock or "hall_of_fame",
-        unlocked = not (input.settings
-          and input.settings.race_mode == "on"),
-        encryptedSpoilerDigest = nil,
-        passphraseSalt = nil,
-        passphraseVerifier = nil,
-      },
     }
   end
 
@@ -749,52 +724,6 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
         end
       end
     end
-    migrated.race = migrated.race or {
-      enabled = false,
-      unlockPolicy = "hall_of_fame",
-      unlocked = true,
-      encryptedSpoilerDigest = nil,
-      passphraseSalt = nil,
-      passphraseVerifier = nil,
-    }
-    return migrated
-  end
-
-  function SaveState.upgradeM14(namespace)
-    if type(namespace) ~= "table" then return namespace end
-    local migrated = clone(namespace)
-    local compatibility = migrated.compatibility
-    if type(compatibility) == "table"
-        and type(compatibility.relevantMods) == "table" then
-      for _, row in ipairs(compatibility.relevantMods) do
-        if type(row) == "table" and type(row.id) == "string"
-            and type(row.fingerprint) ~= "string" then
-          row.fingerprint = hashValue("relevant-mod-v1", {
-            id = row.id,
-            version = tostring(row.version or ""),
-            api = tonumber(row.api) or 0,
-          })
-        end
-      end
-    end
-    migrated.race = type(migrated.race) == "table"
-      and migrated.race or {}
-    local race = migrated.race
-    race.enabled = migrated.settings
-      and migrated.settings.race_mode == "on" or false
-    race.unlockPolicy = migrated.settings
-      and migrated.settings.spoiler_unlock or "hall_of_fame"
-    if type(race.unlocked) ~= "boolean" or not race.enabled then
-      race.unlocked = not race.enabled
-    end
-    if race.encryptedSpoilerDigest ~= nil
-        and type(race.encryptedSpoilerDigest) ~= "string" then
-      race.encryptedSpoilerDigest = nil
-    end
-    race.passphraseSalt = type(race.passphraseSalt) == "string"
-      and race.passphraseSalt or nil
-    race.passphraseVerifier = type(race.passphraseVerifier) == "string"
-      and race.passphraseVerifier or nil
     return migrated
   end
 

@@ -216,8 +216,7 @@ local function settings(profile, seedText, overrides)
   result.preset = profile
   result.seed_mode = "manual"
   result.seed_text = seedText
-  result.race_mode = "off"
-  result.spoiler_unlock = "hall_of_fame"
+  result.generate_spoiler_log = "off"
   for key, value in pairs(overrides or {}) do result[key] = value end
   if overrides and next(overrides) then result.preset = "custom" end
   return result

@@ -103,7 +103,7 @@ Shift amounts at least 32 return zero. Rotation amounts are reduced modulo 32.
 This is a stable non-cryptographic 128-bit content hash composed of four
 independently salted FNV-1a/32 lanes followed by Murmur3's `fmix32` avalanche.
 It is not the standardized FNV-1a/128 algorithm and must not be used for
-passwords or Race Mode encryption.
+passwords, authentication, or encryption.
 
 Constants:
 

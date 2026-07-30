@@ -1,5 +1,5 @@
--- Plaintext and locked-race spoiler serialization/export.
-return function(Canonical, Crypto)
+-- Readable plaintext spoiler serialization and export.
+return function()
   local Spoiler = {}
 
   local SETTING_GROUPS = {
@@ -7,8 +7,8 @@ return function(Canonical, Crypto)
       "GENERAL",
       {
         "randomizer", "preset", "seed_mode", "seed_text", "species_pool",
-        "similar_strength", "legendaries", "duplicate_policy", "race_mode",
-        "spoiler_unlock",
+        "similar_strength", "legendaries", "duplicate_policy",
+        "generate_spoiler_log",
       },
     },
     {
@@ -55,13 +55,12 @@ return function(Canonical, Crypto)
     prize_prices = "Prize Prices",
     progression_guard = "Progression Guard",
     randomizer = "Randomizer",
-    race_mode = "Race Mode",
+    generate_spoiler_log = "Generate Spoiler Log",
     rival_counterpick = "Rival Counterpick",
     seed_mode = "Seed Mode",
     seed_text = "Seed Text",
     similar_strength = "Similar Strength",
     species_pool = "Species Pool",
-    spoiler_unlock = "Spoiler Unlock",
     starter_level = "Starter Level",
     starter_stage = "Starter Stage",
     static_pokemon = "Static Pokemon",
@@ -257,7 +256,10 @@ return function(Canonical, Crypto)
     end
     local extra = {}
     for _, key in ipairs(sortedKeys(settings)) do
-      if not documented[key] then extra[#extra + 1] = key end
+      if not documented[key]
+          and key ~= "race_mode" and key ~= "spoiler_unlock" then
+        extra[#extra + 1] = key
+      end
     end
     if #extra > 0 then
       add(lines, "")
@@ -504,15 +506,6 @@ return function(Canonical, Crypto)
     end
   end
 
-  local function locked(run)
-    return type(run) == "table" and type(run.race) == "table"
-      and run.race.enabled == true and run.race.unlocked ~= true
-  end
-
-  function Spoiler.isLocked(run)
-    return locked(run)
-  end
-
   function Spoiler.text(run)
     assert(type(run) == "table", "active run is required")
     local lines = {
@@ -523,7 +516,6 @@ return function(Canonical, Crypto)
     }
     local seed = run.seed or {}
     local compatibility = run.compatibility or {}
-    local race = run.race or {}
     section(lines, "RUN SUMMARY")
     add(lines, ("Seed:          %s"):format(
       tostring(seed.canonical or seed.display or "")))
@@ -542,10 +534,6 @@ return function(Canonical, Crypto)
       tostring(compatibility.settingsHash or "")))
     add(lines, ("Pool hash:     %s"):format(
       tostring(compatibility.poolHash or "")))
-    add(lines, ("Race Mode:     %s"):format(
-      race.enabled and (race.unlocked and "On (unlocked)" or "On (locked)")
-        or "Off"))
-
     formatSettings(lines, run.settings or {})
     local mappings = run.mappings or {}
     formatWild(lines, mappings)
@@ -585,59 +573,31 @@ return function(Canonical, Crypto)
       local ok, err = fs.createDirectory("pokemon_randomizer/spoilers")
       if ok == false then return nil, tostring(err) end
     end
-    local content, path, digest
-    if locked(run) then
-      if type(options.passphrase) ~= "string"
-          or #options.passphrase < 4 then
-        return nil, "a passphrase of at least four characters is required"
-      end
-      if type(options.entropy) ~= "string" or options.entropy == "" then
-        return nil, "cryptographic entropy is unavailable"
-      end
-      local ok, encrypted, auth = pcall(Crypto.encrypt,
-        Spoiler.text(run), options.passphrase, run, options.entropy)
-      if not ok then return nil, "encrypted export initialization failed" end
-      content, digest = encrypted, auth
-      path = filename(run, ".race")
-    else
-      content = Spoiler.text(run)
-      path = filename(run, ".txt")
-    end
+    local content = Spoiler.text(run)
+    local path = filename(run, ".txt")
     local ok, err = fs.write(path, content)
     if not ok then return nil, tostring(err or "spoiler write failed") end
-    return { path = path, digest = digest, encrypted = locked(run) }, nil
+    return { path = path, encrypted = false }, nil
   end
 
   function Spoiler.publicRun(run)
     if type(run) ~= "table" then return nil end
-    if not locked(run) then
-      local output = {}
-      for key, value in pairs(run) do
-        if type(key) ~= "string" or key:sub(1, 1) ~= "_" then
-          output[key] = value
+    local output = {}
+    for key, value in pairs(run) do
+      if key ~= "race"
+          and (type(key) ~= "string" or key:sub(1, 1) ~= "_") then
+        output[key] = value
+      end
+    end
+    if type(run.settings) == "table" then
+      output.settings = {}
+      for key, value in pairs(run.settings) do
+        if key ~= "race_mode" and key ~= "spoiler_unlock" then
+          output.settings[key] = value
         end
       end
-      return output
     end
-    return {
-      schemaVersion = run.schemaVersion,
-      algorithmVersion = run.algorithmVersion,
-      enabled = run.enabled,
-      seed = {
-        mode = run.seed and run.seed.mode,
-        hash128 = run.seed and run.seed.hash128,
-      },
-      settings = run.settings,
-      compatibility = run.compatibility,
-      mappings = nil,
-      diagnostics = {
-        warningCount = type(run.diagnostics) == "table"
-          and #(run.diagnostics.warnings or {}) or 0,
-        fallbackCount = type(run.diagnostics) == "table"
-          and run.diagnostics.fallbackCount or 0,
-      },
-      race = run.race,
-    }
+    return output
   end
 
   return Spoiler

@@ -172,20 +172,13 @@ migrated = assert(SaveState.stamp(migrated, set))
 valid, errors = SaveState.validate(migrated, set, true)
 assert(valid, errors[1] and errors[1].message)
 
-local preM14 = SaveState.clone(namespace)
-for _, row in ipairs(preM14.compatibility.relevantMods) do
-  row.fingerprint = nil
-end
-preM14.race = {
-  enabled = false, unlockPolicy = "hall_of_fame", unlocked = false,
+local oldRaceSave = SaveState.clone(namespace)
+oldRaceSave.race = {
+  enabled = true, unlockPolicy = "never", unlocked = false,
 }
-local upgraded = SaveState.upgradeM14(preM14)
-assert(upgraded ~= preM14 and upgraded.race.unlocked,
-  "M14 migration copies and unlocks non-race saves")
-assert(type(upgraded.compatibility.relevantMods[1].fingerprint) == "string",
-  "M14 migration adds relevant-mod fingerprints")
-upgraded = assert(SaveState.stamp(upgraded, set))
-assert(SaveState.validate(upgraded, set, true))
+oldRaceSave = assert(SaveState.stamp(oldRaceSave, set))
+assert(SaveState.validate(oldRaceSave, set, true),
+  "legacy race metadata remains loadable after feature removal")
 
 local largeInput = SaveState.clone(input)
 largeInput.settings.padding =

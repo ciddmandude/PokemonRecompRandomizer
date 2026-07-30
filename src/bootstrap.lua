@@ -4,7 +4,7 @@ return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
-    RaceController, RaceCrypto, SpoilerLog)
+    SpoilerController, SpoilerLog)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -57,8 +57,6 @@ return function(
       "mod.content.commands:get")
     assertFunction(mod.content.commands, "register",
       "mod.content.commands:register")
-    assertFunction(mod.content.commands, "override",
-      "mod.content.commands:override")
     assertFunction(mod.content.field, "get",
       "mod.content.field:get")
     assertFunction(mod.log, "info", "mod.log:info")
@@ -202,7 +200,7 @@ return function(
       mod, function() return lifecycle:activeRun() end)
     TradePrizeCompat.install(
       mod, function() return lifecycle:activeRun() end)
-    local raceActions = RaceController.install(mod, lifecycle)
+    local exportSpoilers = SpoilerController.exportAction(mod, lifecycle)
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
       validate = SaveState.validate,
@@ -222,10 +220,8 @@ return function(
     }
     publicApi.runCode = Options.General.runCode
     publicApi.spoilers = {
-      locked = SpoilerLog.isLocked,
-      decrypt = RaceCrypto.decrypt,
-      format = RaceCrypto.format,
-      kdf = RaceCrypto.kdf,
+      export = SpoilerController.export,
+      format = SpoilerLog.text,
     }
 
     for key, value in pairs(publicApi) do mod.exports[key] = value end
@@ -281,9 +277,7 @@ return function(
         local function copyActiveSeed(activeGame)
           local run = lifecycle:activeRun()
           if not run then return "NO ACTIVE RUN" end
-          local raceLocked = SpoilerLog.isLocked(run)
-          local summary =
-            Options.General.activeRunSummary(run, raceLocked)
+          local summary = Options.General.activeRunSummary(run)
           local text = summary.seedLabel .. ": " .. summary.seed
             .. "\nRUN CODE: " .. summary.runCode
           local copied = false
@@ -317,8 +311,7 @@ return function(
           game, preferences, mod.ui, screenStatus, {
             review_next_run = reviewNextRun,
             copy_active_seed = copyActiveSeed,
-            export_spoiler_log = raceActions.export_spoiler_log,
-            unlock_spoilers = raceActions.unlock_spoilers,
+            export_spoiler_log = exportSpoilers,
           })
       end,
     })
@@ -411,19 +404,6 @@ return function(
         for key, value in pairs(stamped) do namespace[key] = value end
       end)
 
-    mod.migrations:add(
-      Constants.RACE_MIGRATION_VERSION, function(namespace)
-        local migrated = SaveState.upgradeM14(namespace)
-        if migrated == namespace then return end
-        local stamped, errors = SaveState.stamp(migrated)
-        if not stamped then
-          error(("M14 migration failed validation (%d issue%s)")
-            :format(#errors, #errors == 1 and "" or "s"))
-        end
-        for key in pairs(namespace) do namespace[key] = nil end
-        for key, value in pairs(stamped) do namespace[key] = value end
-      end)
-
     -- Recomp constructs a disposable New Game-shaped save during boot so
     -- title-screen systems have options and player defaults available.  It
     -- emits save.created for that skeleton before game.ready, then emits a
@@ -436,7 +416,8 @@ return function(
     end)
     mod.events:on("save.created", function(event)
       if not gameReady then return end
-      lifecycle:onCreated(event)
+      local namespace = lifecycle:onCreated(event)
+      if namespace then SpoilerController.autoExport(mod, namespace) end
     end)
     mod.events:on("save.loading", function(event)
       lifecycle:onLoading(event)

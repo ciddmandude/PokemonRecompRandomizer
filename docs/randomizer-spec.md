@@ -112,8 +112,7 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Similar Strength | `OFF`, `±10%`, `±20%` | `±20%` | Restricts candidate base-stat totals to the selected percentage around the source. If no candidate exists, widen in 5-point increments until at least one exists. Legendary filtering and other hard rules still apply. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | `EXCLUDE` removes legendary/mythical species from destinations. `MATCH` lets legendary sources map only to legendary destinations and non-legendaries only to non-legendaries. `ALLOW` treats them like any species. The built-in classification is Articuno, Zapdos, Moltres, Mewtwo, and Mew; merged species may declare randomizer metadata through the mod's exported API. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | `ALLOW` samples with replacement. `ONE-TO-ONE` uses a deterministic shuffled destination pool, maximizing variety and preventing duplicate destinations until the eligible pool is exhausted. Category-specific uniqueness rules take precedence for starters. |
-| Race Mode | `OFF`, `ON` | `OFF` | `ON` marks the run as a race seed, locks spoiler viewing/export according to Spoiler Unlock, includes race state in the run code, and suppresses mapping details from errors and UI. This is a best-effort local race aid, not tamper-proof anti-cheat. |
-| Spoiler Unlock | `HALL OF FAME`, `CREDITS`, `PASSPHRASE`, `NEVER` | `HALL OF FAME` | Used when Race Mode is on. `HALL OF FAME` unlocks after the first valid Hall of Fame record; `CREDITS` unlocks after the ending completes; `PASSPHRASE` requires an organizer-supplied passphrase; `NEVER` keeps in-game and plaintext export locked. Before unlock, export may create only an authenticated encrypted spoiler file. |
+| Generate Spoiler Log | `OFF`, `ON` | `OFF` | `ON` automatically writes a readable plaintext spoiler log after a randomized New Game is generated successfully. It does not affect the seed, behavior-settings hash, or mappings. `OFF` skips automatic generation; manual export remains available. |
 
 ### 5.2 Wild Pokémon settings
 
@@ -195,8 +194,7 @@ Trainer randomization runs before the engine constructs battlers. Vanilla specia
 | Review Next Run | Opens a scrollable summary of all editable settings and validation warnings. |
 | Reset Defaults | Confirms, then restores the `STANDARD` preset and clears manual Seed Text. |
 | Copy Active Seed | Copies the active seed and run code to the system clipboard when clipboard support exists; otherwise displays both for transcription. |
-| Export Spoiler Log | Outside Race Mode, writes an optional human-readable log containing the seed, hashes, settings, and mappings but no ROM bytes. In Race Mode before unlock, plaintext export and on-screen mappings are unavailable; export produces only an authenticated encrypted file. After the configured unlock condition, normal export becomes available. |
-| Unlock Spoilers | Visible for a locked `PASSPHRASE` race. Opens a masked passphrase-entry screen, derives a candidate key, and unlocks only after authenticated verification succeeds. Failed attempts reveal no mapping data and do not alter the save. |
+| Export Spoiler Log | Writes a human-readable plaintext log containing the active seed, hashes, settings, mappings, and diagnostics but no ROM bytes. This action is available for every valid active randomized run. |
 
 ## 6. Determinism and generation algorithm
 
@@ -255,18 +253,17 @@ Build a sorted manifest containing, for every eligible species:
 
 Hash the manifest and store `poolHash`. On Continue, compare the active manifest to the saved hash. Because resolved mappings are saved, a mismatch is normally a warning rather than a reroll. If a mapped species no longer exists, use the save model's quarantine principles: report the missing content, substitute the original vanilla species for that lookup, and never rewrite the stored mapping silently.
 
-### 6.4 Race-mode spoiler protection
+### 6.4 Spoiler-log generation
 
-Race Mode is a local coordination feature, not an anti-cheat boundary:
+Spoiler logs are local readable text files:
 
-- while locked, the UI may show seed/settings hashes and category status but no species mappings;
-- logs and error messages must redact resolved species and mapping keys;
-- encrypted spoiler export uses authenticated encryption with a unique random salt and nonce and always prompts for an organizer passphrase before writing;
-- `PASSPHRASE` derives the encryption key with a memory-hard password KDF; neither the passphrase nor derived key is stored in the save;
-- automatic unlock policies set a one-way saved flag only after the corresponding engine event;
-- unlocking permits plaintext viewing/export but never changes gameplay mappings;
-- the encrypted file format is versioned and includes algorithm/settings/pool hashes as authenticated metadata;
-- failure to initialize cryptography disables encrypted export and reports the problem; it must never fall back to plaintext.
+- `GENERATE SPOILER LOG: ON` writes one after successful New Game generation;
+- `OFF` performs no automatic filesystem write;
+- manual export remains available for a valid active randomized run;
+- files are written under `pokemon_randomizer/spoilers/SEEDHASH.txt`;
+- generation failure is logged and never invalidates the save or mappings;
+- old saves containing retired Race Mode metadata remain loadable, but that
+  metadata no longer locks, redacts, encrypts, or changes run identity.
 
 ## 7. Saved data contract
 
@@ -318,12 +315,6 @@ save.modData.pokemon_randomizer = {
     fallbackCount = 0,
   },
 
-  race = {
-    enabled = false,
-    unlockPolicy = "hall_of_fame",
-    unlocked = false,
-    encryptedSpoilerDigest = nil,
-  },
 }
 ```
 
@@ -353,7 +344,7 @@ Requirements:
 | Scoped statics/gifts | Register namespaced commands that resolve saved stable IDs, then replace only the supported v0.1.30 `map_scripts` talk/wake handlers. Excluded paths remain entirely vanilla. |
 | NPC trades | Replace only the nine stock talk handlers with a namespaced command. Temporarily install a copied saved offer at its original trade index, delegate to the stock `trade` command, then restore the exact merged record. |
 | Game Corner prizes | Replace the three shared prize-counter talk handlers with a public `screens`/`mod.ui.ListMenu` implementation that resolves the active version's six saved Pokémon rows and preserves all three TM rows. |
-| Race unlock | Listen to Hall of Fame and credits completion events, validate the configured condition, persist the one-way unlock flag, and enable plaintext spoiler access only after unlock. |
+| Spoiler export | After successful New Game generation, write a readable log when `generate_spoiler_log` is `on`. Keep a manual export action for the active run. Export failure must not affect saved mappings. |
 | Options entry | Wrap `ui.options.rows` and register a custom `screens` entry. |
 
 ### 8.2 Optional future upstream seams
@@ -489,9 +480,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 `FR-20` Each gift in the catalog shall use its saved offer consistently across mapped names, payment, choice state, fossil preview and resurrection dialogue, and awards. Full storage shall preserve the offer and pending fossil quest for retry.
 
-`FR-21` Race Mode shall hide mapping details and block plaintext spoiler export until its saved unlock condition is satisfied.
+`FR-21` Generate Spoiler Log shall be `OFF` by default and shall not affect deterministic mappings or their behavior-settings hash.
 
-`FR-22` Locked Race Mode shall export spoilers only through authenticated encryption and shall never silently downgrade to plaintext.
+`FR-22` When enabled, automatic plaintext export shall run only after successful randomized New Game generation; export failure shall leave the valid save intact and produce an attributed log message.
 
 ## 11. Non-functional requirements
 
@@ -515,8 +506,6 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 `NFR-10 Documentation` Player documentation must define presets, seed normalization, compatibility requirements, and the meaning of every safeguard.
 
-`NFR-11 Race security` The documentation must state that local saves and client code are inspectable and that Race Mode deters accidental spoilers rather than providing server-grade anti-cheat.
-
 ## 12. Acceptance and test requirements
 
 ### 12.1 Golden determinism tests
@@ -535,9 +524,12 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Tamper with checksum and verify session-safe disable plus report.
 - Remove a mapped species through a test mod and verify vanilla fallback without rewriting the stored mapping.
 - Disable and re-enable the randomizer mod and verify the original namespace is reclaimed.
-- Exercise every race unlock policy, confirm the unlock flag is one-way, and verify unlocking never alters mappings.
-- Verify a locked race save cannot export or display a plaintext mapping through normal UI, logs, errors, or spoiler actions.
-- Verify encrypted export decrypts with the correct passphrase, rejects an incorrect passphrase or modified ciphertext, and never stores the passphrase/key in the save.
+- Verify automatic spoiler generation is skipped when `OFF` and writes a
+  readable `.txt` file when `ON`.
+- Verify the generation option does not alter behavior-settings hashes or
+  mappings.
+- Verify old saves containing retired Race Mode metadata load with normal
+  seed and mapping visibility.
 
 ### 12.3 Gameplay integration tests
 
@@ -614,7 +606,10 @@ and cover:
     screen, preserve flags/dialogue/animation/TM rows/payment/storage
     behavior, and document the unwired trade-table row.
 13. **Trainer randomization** — Implement global/slot/themed modes, level/party-size/boss/progression rules, special-move legality, all party variants, and O(1) saved lookup.
-14. **Race mode, validation, and compatibility** — Add spoiler locking, automatic/passphrase unlock, authenticated encrypted export, cross-category reachability, deterministic repair swaps, missing-content fallbacks, relevant-mod fingerprints, fuzzing, and performance/save-size budgets.
+14. **Validation, compatibility, and spoiler logs** — Add optional readable
+    spoiler export, cross-category reachability, deterministic repair swaps,
+    missing-content fallbacks, relevant-mod fingerprints, fuzzing, and
+    performance/save-size budgets.
 15. **Release qualification** — Complete Red/Blue regression passes, controller/touch accessibility review, vanilla-disabled parity suite, migration rehearsal, documentation, packaging validation, and a release candidate with reproducible checksums.
 
 ## 16. Resolved product decisions
@@ -624,4 +619,6 @@ and cover:
    Gift coverage includes all eight vanilla non-starter, non-trade,
    non-Game-Corner sources in Section 9.4. Excluded static paths remain
    vanilla until a public pre-battle seam exists.
-3. Race-oriented spoiler locking and authenticated encrypted export are included. Race Mode is explicitly a local accidental-spoiler safeguard, not tamper-proof anti-cheat.
+3. Race Mode and encrypted/passphrase spoiler locking are removed. Players may
+   enable automatic readable spoiler generation or export the active run
+   manually.

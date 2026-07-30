@@ -23,8 +23,7 @@ vanilla run without deleting saved preferences.
 | Similar Strength | `OFF`, `±10%`, `±20%` | `±20%` | Restricts candidates by base-stat total, widening deterministically if the band is empty. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | Excludes legendaries, maps legendary status like-for-like, or treats them like any species. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | Samples with replacement or maximizes unique destinations until the eligible pool is exhausted. |
-| Race Mode | `OFF`, `ON` | `OFF` | Locks spoiler access, hides mapping details, and records race state in the run code. This is a local race aid, not tamper-proof anti-cheat. |
-| Spoiler Unlock | `HALL OF FAME`, `CREDITS`, `PASSPHRASE`, `NEVER` | `HALL OF FAME` | Selects when spoilers for a Race Mode save become available. |
+| Generate Spoiler Log | `OFF`, `ON` | `OFF` | When `ON`, automatically writes a readable spoiler log after a randomized New Game is generated successfully. It does not affect the seed or mappings. |
 
 ### Wild Pokémon
 
@@ -96,10 +95,9 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 | Review Next Run | Shows every editable setting and any validation warnings before starting. |
 | Reset Defaults | Restores the `STANDARD` preset and clears manual Seed Text after confirmation. |
 | Copy Active Seed | Copies the active seed and run code, or displays them when clipboard access is unavailable. |
-| Export Spoiler Log | Writes seed, hashes, settings, and mappings without ROM bytes. Locked Race Mode saves cannot export plaintext. Saved at %APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers |
-| Unlock Spoilers | Verifies the organizer passphrase for a Race Mode save configured to use `PASSPHRASE`. |
+| Export Spoiler Log | Manually writes the active run's seed, hashes, settings, and mappings without ROM bytes. Saved at `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. |
 
-For exact formulas, fallback order, supported encounter IDs, presets, and race
+For exact formulas, fallback order, supported encounter IDs, presets, and
 validation rules, see the linked design documents above or the
 [complete randomizer specification](docs/randomizer-spec.md).
 
@@ -107,7 +105,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.20.0`
+- randomizer mod version: `0.21.0`
 - generator contract: `1`
 - algorithm build: `1.1.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -173,7 +171,7 @@ archive.
 - Invalid stored preferences fall back to declared defaults.
 - Reset defaults requires confirmation and persists as one options write.
 - Standard exactly equals the declared default snapshot.
-- Presets never overwrite master, seed, or race choices.
+- Presets never overwrite the master switch, seed, or spoiler-log choice.
 - Manual seed errors disable generation atomically and remain reviewable.
 - Auto seeds are saved as deterministic 128-bit Crockford Base32 identities.
 - Run codes bind canonical seed, behavior settings, and eligible pool.

@@ -53,9 +53,9 @@ cosmetic.seed_mode = "manual"
 cosmetic.seed_text = "DISPLAY ONLY"
 equal(General.settingsHash(cosmetic), hashA,
   "display-only fields excluded from settings hash")
-cosmetic.race_mode = "on"
-assert(General.settingsHash(cosmetic) ~= hashA,
-  "race state changes settings hash")
+cosmetic.generate_spoiler_log = "on"
+equal(General.settingsHash(cosmetic), hashA,
+  "spoiler generation does not change randomized mappings")
 
 local manual, seedError = General.resolveSeed({
   seed_mode = "manual",
@@ -141,7 +141,7 @@ local liveSettings = {
   seed_mode = "manual",
   seed_text = " lifecycle seed ",
   species_pool = "merged",
-  race_mode = "off",
+  generate_spoiler_log = "off",
 }
 local log = {
   warn = function() end,
@@ -174,7 +174,7 @@ equal(created.compatibility.settingsHash,
 local savedModsBytes =
   Canonical.encode(created.compatibility.relevantMods)
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.20.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.21.0", api = 2 },
   { id = "added_mid_run", version = "1.0.0", api = 2 },
 }
 local loaded, compatibilityReport = lifecycle:onLoaded({

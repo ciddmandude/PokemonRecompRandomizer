@@ -21,7 +21,6 @@ return function(mod)
   local UInt32 = loadModule("src/uint32.lua")
   local Seed = loadModule("src/seed.lua")
   local Hash128 = loadModule("src/hash128.lua", Constants, UInt32)
-  local Sha256 = loadModule("src/sha256.lua", UInt32)
   local StableSort = loadModule("src/stable_sort.lua")
   local Matching = loadModule("src/matching.lua", StableSort)
   local Rng = loadModule("src/rng.lua", Constants, UInt32, Hash128)
@@ -75,10 +74,7 @@ return function(mod)
   local TrainerRuntime = loadModule("src/trainer_runtime.lua")
   local ValidationCategory = loadModule(
     "src/validation_category.lua", StableSort, Canonical)
-  local RaceCrypto = loadModule(
-    "src/race_crypto.lua", Canonical, Sha256)
-  local SpoilerLog = loadModule(
-    "src/spoiler_log.lua", Canonical, RaceCrypto)
+  local SpoilerLog = loadModule("src/spoiler_log.lua")
   local Generator = loadModule(
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
@@ -91,8 +87,8 @@ return function(mod)
     "src/general_settings.lua", SaveState)
   local SaveLifecycle = loadModule(
     "src/save_lifecycle.lua", Constants, Generator, SaveState, GeneralSettings)
-  local RaceController = loadModule(
-    "src/race_controller.lua", Constants, SaveState, RaceCrypto, SpoilerLog)
+  local SpoilerController = loadModule(
+    "src/spoiler_controller.lua", Constants, SpoilerLog)
   local OptionsSchema = loadModule("src/options_schema.lua")
   local Preferences = loadModule(
     "src/preferences.lua", Constants, OptionsSchema, GeneralSettings)
@@ -110,7 +106,7 @@ return function(mod)
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
-    RaceController, RaceCrypto, SpoilerLog)
+    SpoilerController, SpoilerLog)
 
   return Bootstrap.start(mod)
 end

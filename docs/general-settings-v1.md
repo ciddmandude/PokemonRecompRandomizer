@@ -21,8 +21,7 @@ Presets control 28 category and safeguard fields. They do not change:
 - Randomizer;
 - Seed Mode;
 - Seed Text;
-- Race Mode;
-- Spoiler Unlock.
+- Generate Spoiler Log.
 
 Selecting a named preset applies its complete bundle in one options write.
 Editing a bundled field recalculates the preset marker. A configuration that
@@ -108,16 +107,17 @@ Later category generators consume these normalized rules.
 
 ## Settings identity
 
-The saved namespace retains the complete 34-field snapshot. The settings hash,
+The saved namespace retains the complete 33-field snapshot. The settings hash,
 however, includes only behavior-affecting fields. It excludes:
 
 - Preset, because it is a label for the expanded bundle;
 - Seed Mode and Seed Text, because the resolved canonical seed has its own
-  saved identity.
+  saved identity;
+- Generate Spoiler Log, because filesystem output does not affect gameplay.
 
-Randomizer and race fields remain included. This means two runs with the same
+Randomizer remains included. This means two runs with the same
 canonical seed and behavior receive the same identity even if one player typed
-the seed differently.
+the seed differently or chose a different spoiler-log preference.
 
 Version `0.6.0` registers an ordered migration that updates old full-snapshot
 settings hashes and the namespace checksum without regenerating mappings.
@@ -132,14 +132,14 @@ The compact code is:
 R1-<seed hash first 8>-<settings hash first 8>-<pool hash first 8>
 ```
 
-All components use uppercase hexadecimal. Race state is covered by the
-settings component. The full canonical seed remains visible separately.
+All components use uppercase hexadecimal. The full canonical seed remains
+visible separately.
 
 ## Review and clipboard behavior
 
 The Actions page now provides:
 
-- `REVIEW NEXT RUN`, a scrollable list of all 34 editable values, manual-seed
+- `REVIEW NEXT RUN`, a scrollable list of all 33 editable values, manual-seed
   warnings, eligible pool count, exclusion count, and manifest warnings;
 - `COPY ACTIVE SEED`, which displays the full active seed, run code, algorithm
   version, locked status, and category summary.

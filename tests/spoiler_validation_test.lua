@@ -1,0 +1,181 @@
+-- Plaintext spoiler generation, repair, fallback, and export tests.
+local function loadFactory(path, ...)
+  local chunk, err = loadfile(path)
+  assert(chunk, err)
+  local value = chunk()
+  if type(value) == "function" then return value(...) end
+  return value
+end
+
+local Constants = loadFactory("src/constants.lua")
+local UInt32 = loadFactory("src/uint32.lua")
+local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
+local StableSort = loadFactory("src/stable_sort.lua")
+local Canonical = loadFactory("src/canonical.lua", StableSort)
+local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
+local Spoiler = loadFactory("src/spoiler_log.lua")
+local Controller = loadFactory(
+  "src/spoiler_controller.lua", Constants, Spoiler)
+local Validation = loadFactory(
+  "src/validation_category.lua", StableSort, Canonical)
+local WildRuntime = loadFactory("src/wild_runtime.lua")
+local TrainerRuntime = loadFactory("src/trainer_runtime.lua")
+
+local run = {
+  schemaVersion = 1,
+  algorithmVersion = "1.1.0-dev",
+  enabled = true,
+  seed = { canonical = "SPOILER TEST", hash128 = ("A"):rep(32) },
+  settings = { generate_spoiler_log = "on" },
+  compatibility = {
+    settingsHash = ("B"):rep(32),
+    poolHash = ("C"):rep(32),
+  },
+  mappings = {
+    wildGlobal = { RAT = "CAT" },
+    wildAreaSlots = {
+      CERULEAN_CAVE_B1F = {
+        grass = {
+          [1] = { species = "MR_MIME", level = 42 },
+        },
+      },
+    },
+    fishing = { global = {}, slots = {} },
+    starters = {
+      LEFT = {
+        species = "CAT", level = 5, rivalSpecies = "RAT",
+      },
+    },
+    staticEncounters = {
+      MEWTWO = {
+        sourceSpecies = "MEWTWO", sourceLevel = 70,
+        species = "CAT", level = 70, mapId = "CERULEAN_CAVE_B1F",
+      },
+    },
+    gifts = {
+      SILPH_LAPRAS = {
+        sourceSpecies = "LAPRAS", sourceLevel = 15,
+        species = "RAT", level = 15, mapId = "SILPH_CO_7F",
+      },
+    },
+    trades = {
+      TRADE_01_TERRY = {
+        requested = { sourceSpecies = "NIDORINO", species = "RAT" },
+        received = { sourceSpecies = "NIDORINA", species = "CAT" },
+      },
+    },
+    prizes = {
+      GAME_CORNER_RED_1 = {
+        version = "red", sourceSpecies = "ABRA", sourceLevel = 9,
+        sourceCost = 180, species = "CAT", level = 9, cost = 180,
+      },
+    },
+    trainerParties = {
+      OPP_FIX = {
+        [1] = {
+          { species = "CAT", level = 5 },
+          { fallback = true, sourceSlot = 2 },
+        },
+      },
+    },
+  },
+  diagnostics = { warnings = {}, fallbackCount = 0 },
+}
+
+local plaintext = Spoiler.text(run)
+assert(plaintext:find("SPOILER LOG %- READABLE FORMAT V2"))
+assert(plaintext:find("\n\n=== SETTINGS ===\n", 1, true))
+assert(plaintext:find("Generate Spoiler Log", 1, true)
+  and plaintext:find("On", 1, true))
+assert(plaintext:find("Cerulean Cave B1F", 1, true))
+assert(plaintext:find("Mr. Mime Lv.42", 1, true))
+assert(plaintext:find("Location: Route 11 Gate 2F", 1, true))
+assert(plaintext:find("Party 1   Cat Lv.5", 1, true))
+assert(plaintext:find("Vanilla source slot 2", 1, true))
+assert(not plaintext:find("MAPPINGS=", 1, true))
+
+local written = {}
+local fs = {
+  createDirectory = function() return true end,
+  write = function(path, data)
+    written.path, written.data = path, data
+    return true
+  end,
+}
+local exported = assert(Controller.export(run, fs))
+assert(exported.encrypted == false)
+assert(written.path == "pokemon_randomizer/spoilers/AAAAAAAA.txt")
+assert(written.data == plaintext)
+
+local public = Spoiler.publicRun(run)
+assert(public.seed.canonical == "SPOILER TEST")
+assert(public.mappings.wildGlobal.RAT == "CAT")
+run.race = { enabled = true, unlockPolicy = "never", unlocked = false }
+run.settings.race_mode = "on"
+run.settings.spoiler_unlock = "never"
+public = Spoiler.publicRun(run)
+assert(public.race == nil and public.settings.race_mode == nil
+    and public.settings.spoiler_unlock == nil,
+  "retired race metadata is hidden from the public active-run view")
+assert(public.seed.canonical == "SPOILER TEST"
+    and public.mappings.wildGlobal.RAT == "CAT",
+  "retired race metadata cannot redact the seed or mappings")
+
+local logs = {}
+local oldLove = love
+love = { filesystem = fs }
+local auto = Controller.autoExport({
+  log = {
+    info = function(_, message, path)
+      logs[#logs + 1] = message:format(path)
+    end,
+    error = function() error("automatic export unexpectedly failed") end,
+  },
+}, run)
+love = oldLove
+assert(auto == true)
+assert(logs[1]:find("AAAAAAAA.txt", 1, true))
+run.settings.generate_spoiler_log = "off"
+assert(Controller.autoExport({ log = {} }, run) == false)
+
+local mappings = {
+  wildGlobal = { A = "CAT", B = "CAT" },
+  wildAreaSlots = {}, fishing = {}, starters = {},
+  starterFlags = {}, staticEncounters = {}, gifts = {},
+  prizes = {}, trainerParties = {},
+  trades = {
+    TRADE = {
+      requested = { species = "DOG" },
+      received = { species = "BIRD" },
+    },
+  },
+}
+local repaired = Validation.apply(mappings, {
+  catchability_guard = "on",
+}, Rng.fromSeed("M14 REPAIR", "validation.swaps"))
+assert(repaired.repairSwaps == 1)
+local reach = Validation.reachableSpecies(mappings)
+assert(reach[mappings.trades.TRADE.requested.species])
+assert(repaired.mappingBytes == #Canonical.encode(mappings))
+
+local missingRun = {
+  enabled = true,
+  settings = { wild_pokemon = "global_map", wild_levels = "unchanged" },
+  mappings = {
+    wildGlobal = { RAT = "MISSING" },
+    wildAreaSlots = {},
+    trainerParties = {
+      OPP_FIX = { [1] = {{ species = "MISSING", level = 9 }} },
+    },
+  },
+  _speciesSet = { RAT = true, CAT = true },
+}
+local encounter = { species = "RAT", level = 4 }
+assert(WildRuntime.resolve(encounter,
+  { terrain = "grass", mapId = "MAP" }, missingRun) == encounter)
+local party = {{ species = "RAT", level = 5 }}
+assert(TrainerRuntime.party(
+  party, "OPP_FIX", 1, missingRun) == party)
+assert(missingRun.mappings.wildGlobal.RAT == "MISSING")
+
+print("spoiler_validation_test: ok")

@@ -17,8 +17,7 @@ review. Work is ordered by user impact and release urgency:
    results;
 3. protect saved-run identity and make failures visible;
 4. establish generator-level regression coverage before changing algorithms;
-5. bring Race Mode behavior and claims into line with what a mod-only build
-   can enforce;
+5. remove Race Mode and replace it with optional readable spoiler generation;
 6. strengthen progression guarantees and fragile scripted gifts;
 7. finish API, release, and maintenance cleanup.
 
@@ -35,9 +34,9 @@ part of these changes.
 - Immutable compatibility snapshots and defensive active-run UI.
 - Full-generator golden vectors and meaningful property tests.
 - Deterministic one-to-one assignment that avoids preventable pool resets.
-- Correct Hall of Fame and Race Mode unlock behavior.
-- Organizer-bound passphrase setup, masked entry, seed entropy, and honest
-  cryptographic capability reporting.
+- Complete removal of Race Mode, encrypted exports, passphrase workflows, and
+  Hall of Fame/Credits command overrides.
+- Optional automatic readable spoiler-log generation.
 - A real progression model for Catchability Guard.
 - Safer static/gift script control flow and box-full behavior.
 - Save-size budget reconciliation.
@@ -47,7 +46,8 @@ part of these changes.
 ### 2.2 Out of scope
 
 - Engine patches or a forked gen1recomp executable.
-- Server-authoritative races or anti-cheat.
+- Race coordination, encrypted spoilers, server-authoritative races, or
+  anti-cheat.
 - Mechanics-randomizer features from other branches.
 - Previously documented unsupported encounter paths.
 - Regenerating mappings in an existing save after an algorithm update.
@@ -64,8 +64,8 @@ part of these changes.
   category unexpectedly becomes vanilla.
 - **P2 — Run integrity and regression safety:** saved identity, validation, or
   tests cannot reliably detect behavior changes.
-- **P3 — Race Mode integrity:** advertised unlock or encryption behavior is
-  misleading or ineffective.
+- **P3 — Spoiler workflow:** optional filesystem output must be predictable,
+  plaintext, and unable to affect gameplay generation.
 - **P4 — Progression and script safety:** guarantees are materially weaker
   than their labels, or hand-authored scripts can consume a one-time reward.
 - **P5 — Maintenance:** API hardening, package size, repository hygiene, and
@@ -246,86 +246,29 @@ size, affected source, and active hard constraints.
 `GEN-14` Starter selection may continue using its existing shuffled selection
 when its uniqueness and type-triad requirements are satisfied.
 
-## 6. Race Mode requirements
+## 6. Spoiler-log requirements
 
-### 6.1 Mod-only security boundary
+`SPOILER-01` Race Mode, unlock policies, passphrase entry, encrypted `.race`
+files, and Hall of Fame/Credits command overrides shall be absent.
 
-`RACE-01` Documentation shall describe Race Mode as local accidental-spoiler
-deterrence, not anti-cheat.
+`SPOILER-02` `GENERATE SPOILER LOG` shall offer `OFF` and `ON`, default to
+`OFF`, and apply to the next New Game.
 
-`RACE-02` The mod shall not advertise OS entropy, organizer control, masked
-entry, or a memory-hard KDF unless that capability is actually active and
-tested.
+`SPOILER-03` `ON` shall write one readable plaintext log only after successful
+randomized generation. `OFF` shall perform no automatic filesystem write.
 
-`RACE-03` If a required cryptographic primitive is unavailable to the
-mod-only runtime, the affected encrypted mode shall be unavailable with a
-clear explanation. It shall not silently fall back to weaker encryption or
-plaintext.
+`SPOILER-04` The option shall be excluded from the behavior-settings hash and
+shall never affect seed derivation, RNG streams, or mappings.
 
-### 6.2 Automatic unlock policies
+`SPOILER-05` Manual plaintext export shall remain available for every valid
+active randomized run.
 
-`RACE-04` `HALL OF FAME` shall unlock only after the base command has
-successfully added a Hall of Fame entry.
+`SPOILER-06` Export failure shall be logged without disabling, rewriting, or
+removing the generated save.
 
-`RACE-05` `CREDITS` shall not unlock from the synchronous return of
-`record_hall_of_fame`, because Recomp `0.1.38` returns immediately after
-pushing asynchronous screens.
-
-`RACE-06` Because no public `credits.completed` event exists in the target
-mod-only API, the `CREDITS` option shall be removed or shown as unavailable
-until a public completion seam exists.
-
-`RACE-07` Failed Hall of Fame processing shall leave the run locked.
-
-`RACE-08` Unlock state shall be one-way, checksummed, saved immediately where
-appropriate, and incapable of changing gameplay mappings.
-
-### 6.3 Organizer passphrase
-
-`RACE-09` `PASSPHRASE` shall bind a verifier before gameplay begins. The
-racer shall not establish the verifier during spoiler export.
-
-`RACE-10` The verifier and salt shall be included in the initial checksummed
-run configuration. Changing them after New Game shall invalidate the
-configuration.
-
-`RACE-11` Passphrase entry and confirmation shall use a masked input screen.
-Plaintext characters shall not remain visible after entry.
-
-`RACE-12` Spoiler export may request the encryption passphrase, but exporting
-shall not create or replace the saved unlock verifier.
-
-`RACE-13` An organizer workflow shall be documented, including setup,
-confirmation, distribution, export, and unlock.
-
-### 6.4 Seed entropy and encrypted exports
-
-`RACE-14` Race Mode automatic seeds shall require at least 128 bits from a
-verified operating-system or engine cryptographic random-byte provider.
-
-`RACE-15` If no verified provider exists, Race Mode shall require an
-organizer-supplied manual seed with documented entropy guidance. Solo
-automatic seeding may remain available only if the UI and documentation do
-not describe it as cryptographically unpredictable.
-
-`RACE-16` Salt and nonce values shall be unique for every encrypted export.
-The implementation shall not depend on `os.time`, `os.clock`, a table address,
-or an unverified game PRNG as its sole entropy source.
-
-`RACE-17` The password KDF shall use an audited memory-hard primitive exposed
-to the mod-only runtime. Its identifier and parameters shall be stored in the
-versioned envelope.
-
-`RACE-18` If no audited memory-hard primitive is available, encrypted export
-shall be labeled experimental/local deterrence or disabled. The current
-256-block SHA-256 mixer shall not be described as memory-hard.
-
-`RACE-19` Envelope parsing shall reject empty salt, nonce, tag, and metadata
-fields as malformed before KDF execution.
-
-`RACE-20` Tests shall cover correct passphrases, wrong passphrases, modified
-ciphertext, modified metadata, malformed or empty fields, repeated exports,
-and unavailable entropy/KDF providers.
+`SPOILER-07` Old saves containing retired race metadata shall remain loadable,
+but that metadata shall not redact the seed or mappings, change the run code,
+or affect export behavior.
 
 ## 7. Progression and scripted-gift requirements
 
@@ -434,7 +377,8 @@ data. Because the product scope is Red/Blue, unsupported versions shall
 retain vanilla prizes and record a warning.
 
 `MAINT-03` README guarantees shall match fallback behavior, especially
-box-full handling, Catchability Guard, Race Mode, and platform support.
+box-full handling, Catchability Guard, spoiler generation, and platform
+support.
 
 ## 9. Nonfunctional requirements
 
@@ -550,52 +494,24 @@ Exit criteria:
 - unavoidable exhaustion is deterministic and attributed;
 - existing saves are not regenerated.
 
-### Milestone 6 — P3 correct automatic race unlocks
+### Milestones 6–8 — superseded by Race Mode removal
+
+Status: Superseded and completed through removal in `0.21.0`.
 
 Deliver:
 
-- move Hall of Fame unlock after successful base record creation;
-- remove or disable `CREDITS` on stock `0.1.38`;
-- add failure and one-way persistence tests;
-- correct UI and documentation.
+- remove Race Mode and Spoiler Unlock settings;
+- remove encrypted exports, passphrases, redaction, and automatic unlocks;
+- remove the Hall of Fame command override and `-R` run identity;
+- add `GENERATE SPOILER LOG: OFF/ON`;
+- retain manual readable export and legacy-save compatibility.
 
 Exit criteria:
 
-- Hall of Fame and Credits are no longer equivalent;
-- failed Hall of Fame processing leaves spoilers locked;
-- no unavailable policy can be selected for a new run.
-
-### Milestone 7 — P3 organizer-bound, masked passphrase workflow
-
-Deliver:
-
-- pre-run organizer verifier setup and confirmation;
-- masked passphrase entry;
-- immutable saved verifier state;
-- export behavior separated from verifier creation;
-- organizer workflow documentation.
-
-Exit criteria:
-
-- a racer cannot establish or replace the verifier during export;
-- the verifier is present in the initial checksum;
-- passphrases are not displayed in clear text.
-
-### Milestone 8 — P3 entropy and encryption capability correction
-
-Deliver:
-
-- verified strong entropy-provider detection;
-- manual organizer seed requirement when strong automatic entropy is absent;
-- audited memory-hard KDF integration if available to the mod-only runtime;
-- otherwise disable or explicitly downgrade encrypted mode claims;
-- strict envelope validation and repeated-export tests.
-
-Exit criteria:
-
-- no security path silently uses weak fallback entropy or KDF claims;
-- repeated exports cannot reuse nonce/salt material;
-- malformed empty fields are reported as malformed.
+- no race or encryption runtime module ships in the package;
+- automatic logs are opt-in and plaintext;
+- toggling the option cannot change mappings;
+- legacy race metadata has no runtime effect.
 
 ### Milestone 9 — P4 progression-aware Catchability Guard
 
@@ -669,8 +585,7 @@ A remediation release is ready only when:
 
 1. all P0 and P1 milestones are complete;
 2. generator golden vectors and cross-platform CI are active;
-3. any unfinished Race Mode security feature is unavailable or honestly
-   labeled rather than silently weakened;
+3. Race Mode and its encryption/passphrase surfaces are absent;
 4. all existing-save compatibility tests pass without regeneration;
 5. the exact published ZIP passes raw-entry inspection, Linux extraction,
    and Recomp `0.1.38` fixture loading;
@@ -680,13 +595,13 @@ A remediation release is ready only when:
 
 | Validated finding | Requirements | Milestone |
 |---|---|---|
-| Weak automatic seed entropy | `RACE-14`–`RACE-16` | 8 |
+| Weak race-export entropy | `SPOILER-01` | 6–8 (removed) |
 | Legendary exclusion bypass in no-downgrade trades | `TRD-01`–`TRD-04` | 2 |
 | Backslash ZIP entry names | `PKG-01`–`PKG-06` | 1 |
 | Trainer category-wide fallback | `TRN-01`–`TRN-06` | 2 |
-| Hall of Fame and Credits unlock together | `RACE-04`–`RACE-08` | 6 |
-| Racer establishes the passphrase verifier | `RACE-09`–`RACE-13` | 7 |
-| KDF and envelope capability overclaims | `RACE-17`–`RACE-20` | 8 |
+| Hall of Fame and Credits unlock together | `SPOILER-01` | 6–8 (removed) |
+| Racer establishes the passphrase verifier | `SPOILER-01` | 6–8 (removed) |
+| KDF and envelope capability overclaims | `SPOILER-01` | 6–8 (removed) |
 | Relevant-mod snapshot rewritten during saves | `SAV-01`–`SAV-03` | 3 |
 | 256 KiB versus 1 MiB budget contradiction | `SIZE-01`–`SIZE-04` | 3 |
 | Missing combined vectors and vacuous fuzz pass | `GEN-01`–`GEN-08` | 4 |
