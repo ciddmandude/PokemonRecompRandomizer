@@ -346,7 +346,7 @@ Requirements:
 |---|---|
 | Save initialization | Listen to `save.created` after `Game:adoptSave`; generate and store the complete run configuration atomically. |
 | Save verification | Listen to `save.loading`, `save.loaded`, and `save.writing`; use `mod.migrations` for schema changes. |
-| Wild walking/surfing | Wrap `encounter.species` for global mappings. Wrap `encounter.roll` only when area-slot mapping or saved level adjustment needs the original slot identity. |
+| Wild walking/surfing | Wrap `encounter.species` for global mappings. Wrap `encounter.roll` when area-slot mapping or saved level adjustment needs the original slot identity; on 0.1.38+, observe the delegated engine RNG's bucket draw without adding a draw or rerolling. |
 | Fishing | Wrap `encounter.fishing`. |
 | Trainers | Wrap `trainer.party` and return the saved party for `(trainerClass, partyIndex)`. |
 | Oak's Lab starters | Register API-2 `map_scripts` winners for only the three starter-ball talk keys. Each handler resolves one offer record before building the preview, confirmation, gift, flags, ball removal, and rival counterpick rows. |
@@ -368,7 +368,13 @@ hooks must return vanilla data unchanged.
 | `trade.offer` | `trade, ctx -> trade` where `ctx = { tradeIndex, doneFlag, save, game }` | `Commands.trade`, immediately after reading `field.trades[tradeIndex]`. Return a copied record; never mutate merged data. |
 | `shop.pokemon_prizes` | `prizes, ctx -> prizes` where `ctx = { shopId = "GAME_CORNER", version, save, game }` | Game Corner prize menu before rows are built. Moves the version-specific Pokémon/TM prize lists into `field.gameCornerPrizes` or an equivalent registry-backed record, then exposes the runtime list. |
 
-Additionally, `encounter.roll` should include the selected slot index in its returned encounter or context. If that API change is not accepted, `AREA SLOTS` must be omitted from version 1 rather than reimplementing vanilla encounter probability logic.
+For exact area-slot identity, `encounter.roll` should either include the
+selected slot index or expose the RNG function used by the vanilla roll.
+Engine 0.1.38 exposes that RNG in hook context, so the mod delegates to the
+engine once and observes its existing probability-bucket draw. It does not
+reimplement or reroll vanilla encounter probability logic. Earlier compatible
+engines fall back to species-and-level matching; indistinguishable duplicate
+slots remain vanilla on that fallback.
 
 All new hook results must be type-checked. Invalid results log an attributed error and fall back to vanilla data for that call.
 

@@ -21,7 +21,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.15.0",
+  version = "0.15.1",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -267,6 +267,7 @@ assert(type(mapScriptContributions.GAME_CORNER_PRIZE_ROOM) == "table")
 assert(type(mapScriptContributions.OAKS_LAB.talk
   .TEXT_OAKSLAB_CHARMANDER_POKE_BALL) == "function")
 assert(type(callbacks["mods.loaded"]) == "function")
+assert(type(callbacks["game.ready"]) == "function")
 assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
 assert(type(callbacks["save.loaded"]) == "function")
@@ -303,6 +304,19 @@ assert(optionRows[1].value() == "OPEN")
 optionRows[1].activate({})
 assert(pushedScreen == "PokemonRandomizerOptions")
 
+local bootPlaceholder = {
+  version = "red",
+  meta = { engine = "1.0.0", mods = {} },
+  player = { id = 999 },
+  modData = {},
+}
+callbacks["save.created"]({ save = bootPlaceholder })
+assert(bootPlaceholder.modData.pokemon_randomizer == nil,
+  "the pre-game.ready boot skeleton must not generate a run")
+assert(optionRows[1].value() == "OPEN",
+  "the title-screen randomizer must remain open after application boot")
+
+callbacks["game.ready"]({})
 local save = {
   version = "red",
   meta = { engine = "1.0.0", mods = {} },
@@ -327,6 +341,8 @@ assert(run.settings.preset == "standard")
 assert(run.settings.seed_text == "")
 assert(#run.seed.canonical == 26)
 assert(type(mod.exports.runCode(run)) == "string")
+assert(optionRows[1].value() == "LOCKED",
+  "an actual New Game must lock its generated run")
 
 local nextCalled = false
 local vanillaEncounter = { species = "BULBASAUR", level = 7, marker = true }
@@ -399,7 +415,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.15.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.15.1", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

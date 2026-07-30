@@ -121,6 +121,27 @@ for index = 1, 2 do
     == grass[index].level)
 end
 
+local duplicateSlots = WildCategory.generate(manifest, {
+  encounters = {
+    DUPLICATE_ROUTE = {
+      grass = {
+        rate = 30,
+        buckets = { 128, 256 },
+        slots = {
+          { species = "BULBASAUR", level = 3 },
+          { species = "BULBASAUR", level = 3 },
+        },
+      },
+    },
+  },
+  field = sources.field,
+}, settings, streams("DUPLICATE SLOTS"))
+assert(type(duplicateSlots.wildAreaSlots.DUPLICATE_ROUTE
+  .grass[1].species) == "string")
+assert(type(duplicateSlots.wildAreaSlots.DUPLICATE_ROUTE
+  .grass[2].species) == "string",
+  "0.1.38 RNG tracing must allow duplicate source slots to be generated")
+
 local run = {
   enabled = true,
   settings = {
@@ -149,14 +170,34 @@ assert(resolved.species == grass[1].species)
 assert(resolved.level == grass[1].level,
   "the saved final level must be used by the later repel check")
 
-local ambiguous = WildRuntime.roll(function()
+local rngValues = { 0, 200 }
+local rngIndex = 0
+local duplicateSelected = WildRuntime.roll(function(_, context)
+  context.rng(0, 255)
+  context.rng(0, 255)
   return { species = "BULBASAUR", level = 3 }
 end, { grass = { slots = {
   { species = "BULBASAUR", level = 3 },
   { species = "BULBASAUR", level = 3 },
-} } }, { mapId = "MOD_MAP", terrain = "grass" }, run)
-assert(ambiguous.slotIndex == nil,
-  "ambiguous modded slots must remain vanilla")
+}, buckets = { 128, 256 } } }, {
+  mapId = "MOD_MAP",
+  terrain = "grass",
+  rng = function()
+    rngIndex = rngIndex + 1
+    return rngValues[rngIndex]
+  end,
+}, run)
+assert(duplicateSelected.slotIndex == 2 and rngIndex == 2,
+  "the delegated engine bucket roll must identify duplicate slots")
+
+local untracedAmbiguous = WildRuntime.roll(function()
+  return { species = "BULBASAUR", level = 3 }
+end, { grass = { slots = {
+  { species = "BULBASAUR", level = 3 },
+  { species = "BULBASAUR", level = 3 },
+} } }, { mapId = "OLD_ENGINE", terrain = "grass" }, run)
+assert(untracedAmbiguous.slotIndex == nil,
+  "engines without an RNG context must safely keep ambiguous slots vanilla")
 
 local fishSource = { species = "IVYSAUR", level = 10 }
 local fish = WildRuntime.fishing(fishSource,
