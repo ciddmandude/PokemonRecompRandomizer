@@ -11,11 +11,12 @@ local Constants = loadFactory("src/constants.lua")
 local UInt32 = loadFactory("src/uint32.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Matching = loadFactory("src/matching.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Filters = loadFactory("src/species_filters.lua")
 local Catalog = loadFactory("src/static_gift_catalog.lua")
 local Category = loadFactory(
-  "src/static_gift_category.lua", StableSort, Filters, Catalog)
+  "src/static_gift_category.lua", StableSort, Filters, Catalog, Matching)
 local Compat = loadFactory("src/static_gift_compat.lua", Catalog)
 
 local legendary = {

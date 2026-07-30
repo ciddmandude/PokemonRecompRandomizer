@@ -51,6 +51,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'options_ui_test failed' }
   & $luaPath 'tests/general_settings_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'general_settings_test failed' }
+  & $luaPath 'tests/matching_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'matching_test failed' }
   & $luaPath 'tests/generator_golden_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'generator_golden_test failed' }
   & $luaPath 'tests/generator_property_test.lua'

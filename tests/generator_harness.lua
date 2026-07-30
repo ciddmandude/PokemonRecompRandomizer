@@ -12,6 +12,7 @@ local UInt32 = loadFactory("src/uint32.lua")
 local Seed = loadFactory("src/seed.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Matching = loadFactory("src/matching.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Canonical = loadFactory("src/canonical.lua", StableSort)
 local VanillaSpecies = loadFactory("src/vanilla_species.lua")
@@ -21,21 +22,21 @@ local SaveState = loadFactory("src/save_state.lua",
   Constants, Seed, Hash128, Canonical, StableSort, Contracts)
 local General = loadFactory("src/general_settings.lua", SaveState)
 local WildGlobal = loadFactory(
-  "src/wild_global.lua", StableSort, SpeciesFilters)
+  "src/wild_global.lua", StableSort, SpeciesFilters, Matching)
 local WildCategory = loadFactory(
-  "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal)
+  "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal, Matching)
 local StarterCategory = loadFactory(
   "src/starter_category.lua", StableSort)
 local StaticGiftCatalog = loadFactory("src/static_gift_catalog.lua")
 local StaticGiftCategory = loadFactory(
   "src/static_gift_category.lua",
-  StableSort, SpeciesFilters, StaticGiftCatalog)
+  StableSort, SpeciesFilters, StaticGiftCatalog, Matching)
 local TradePrizeCatalog = loadFactory("src/trade_prize_catalog.lua")
 local TradePrizeCategory = loadFactory(
   "src/trade_prize_category.lua",
-  StableSort, SpeciesFilters, TradePrizeCatalog)
+  StableSort, SpeciesFilters, TradePrizeCatalog, Matching)
 local TrainerCategory = loadFactory(
-  "src/trainer_category.lua", StableSort, SpeciesFilters)
+  "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
 local ValidationCategory = loadFactory(
   "src/validation_category.lua", StableSort, Canonical)
 local Generator = loadFactory(

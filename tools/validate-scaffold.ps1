@@ -19,6 +19,7 @@ $requiredFiles = @(
   'src/sha256.lua',
   'src/rng.lua',
   'src/stable_sort.lua',
+  'src/matching.lua',
   'src/canonical.lua',
   'src/vanilla_species.lua',
   'src/species_metadata.lua',
@@ -53,6 +54,7 @@ $requiredFiles = @(
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
+  'tests/matching_test.lua',
   'tests/golden_vectors.lua',
   'tests/species_fixture.lua',
   'tests/species_manifest_test.lua',
@@ -125,11 +127,11 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.19.0') {
-  throw "manifest version must be 0.19.0"
+if ($manifest.version -ne '0.20.0') {
+  throw "manifest version must be 0.20.0"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.19\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.19.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.20\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.20.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

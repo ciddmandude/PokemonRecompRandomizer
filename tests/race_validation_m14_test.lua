@@ -32,7 +32,7 @@ assert(Sha256.hmac("key", "The quick brown fox jumps over the lazy dog").hex
 
 local run = {
   schemaVersion = 1,
-  algorithmVersion = "1.0.0-dev",
+  algorithmVersion = "1.1.0-dev",
   enabled = true,
   seed = { canonical = "RACE TEST", hash128 = ("A"):rep(32) },
   settings = { race_mode = "on" },

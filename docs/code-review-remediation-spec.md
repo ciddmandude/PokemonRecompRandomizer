@@ -534,6 +534,8 @@ Exit criteria:
 
 ### Milestone 5 — P2 deterministic one-to-one matching
 
+Status: Implemented in `0.20.0`.
+
 Deliver:
 
 - stable candidate graphs;

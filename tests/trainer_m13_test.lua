@@ -11,10 +11,11 @@ local Constants = loadFactory("src/constants.lua")
 local UInt32 = loadFactory("src/uint32.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Matching = loadFactory("src/matching.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Filters = loadFactory("src/species_filters.lua")
 local Category = loadFactory(
-  "src/trainer_category.lua", StableSort, Filters)
+  "src/trainer_category.lua", StableSort, Filters, Matching)
 local Runtime = loadFactory("src/trainer_runtime.lua")
 local StarterRuntime = loadFactory("src/starter_runtime.lua")
 

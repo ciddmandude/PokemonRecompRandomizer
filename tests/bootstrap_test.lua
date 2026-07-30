@@ -21,7 +21,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.19.0",
+  version = "0.20.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -236,7 +236,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.0.0-dev")
+assert(mod.exports.algorithmVersion == "1.1.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -423,7 +423,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.19.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.20.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
@@ -471,6 +471,8 @@ local legacy = {
 migrations[1].callback(legacy)
 assert(legacy.schemaVersion == 1)
 assert(legacy.seed.canonical == "LEGACY")
+assert(legacy.algorithmVersion == "1.0.0-dev",
+  "migration must retain the algorithm that produced stored mappings")
 assert(legacy.futureField == "keep")
 assert(type(legacy.checksum.value) == "string")
 local legacyHash = legacy.compatibility.settingsHash

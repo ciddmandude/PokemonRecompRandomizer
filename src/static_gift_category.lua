@@ -1,5 +1,5 @@
 -- Deterministic generation for the explicitly scoped mod-only M11 catalog.
-return function(StableSort, SpeciesFilters, Catalog)
+return function(StableSort, SpeciesFilters, Catalog, Matching)
   local Category = {}
 
   local function rules(settings, excluded)
@@ -10,22 +10,36 @@ return function(StableSort, SpeciesFilters, Catalog)
     }
   end
 
-  local function choose(manifest, source, settings, rng, used, unique)
-    local candidates, diagnostics = SpeciesFilters.candidates(
-      manifest, source, rules(settings, unique and used or nil))
-    local exhausted = false
-    if #candidates == 0 and unique then
-      candidates, diagnostics = SpeciesFilters.candidates(
-        manifest, source, rules(settings, nil))
-      if #candidates > 0 then
-        exhausted = true
-        for id in pairs(used) do used[id] = nil end
+  local function assignments(
+      records, manifest, settings, rng, unique, category, code)
+    local units = {}
+    for _, record in ipairs(records) do
+      local candidates, diagnostics = SpeciesFilters.candidates(
+        manifest, record.species, rules(settings, nil))
+      units[#units + 1] = {
+        id = record.id, source = record.species,
+        candidates = candidates, diagnostics = diagnostics,
+        hardConstraints = {
+          similarStrength = tonumber(settings.similar_strength),
+          legendary = settings.legendaries or "allow",
+        },
+      }
+    end
+    if unique then
+      return Matching.assign(units, rng, {
+        category = category, code = code,
+      }), units
+    end
+    local output = { assignments = {}, resets = {}, unmatched = {} }
+    for _, unit in ipairs(units) do
+      if #unit.candidates == 0 then
+        output.unmatched[#output.unmatched + 1] = unit
+      else
+        output.assignments[unit.id] =
+          unit.candidates[rng:nextInt(1, #unit.candidates)].id
       end
     end
-    if #candidates == 0 then return nil, diagnostics, exhausted end
-    local species = candidates[rng:nextInt(1, #candidates)].id
-    if unique then used[species] = true end
-    return species, diagnostics, exhausted
+    return output, units
   end
 
   local function clamp(value, minimum, maximum)
@@ -69,23 +83,24 @@ return function(StableSort, SpeciesFilters, Catalog)
     if settings.static_pokemon == nil or settings.static_pokemon == "off" then
       return {}, {}, 0
     end
-    local mappings, warnings, used = {}, {}, {}
+    local mappings, warnings = {}, {}
     local unique = settings.duplicate_policy == "one_to_one"
+    local matched = assignments(Catalog.statics, manifest, settings,
+      rngs.species, unique, "static.encounters",
+      "STATIC_UNIQUENESS_EXHAUSTED")
+    if #matched.unmatched > 0 then
+      return {}, {
+        warning("STATIC_GENERATION_FAILED",
+          "a scoped static encounter has no valid candidate; statics are vanilla",
+          matched.unmatched[1].id),
+      }, 1
+    end
+    for _, reset in ipairs(matched.resets) do
+      warnings[#warnings + 1] = Matching.warning(reset,
+        "static destination pool was proven exhausted and restarted")
+    end
     for _, record in ipairs(Catalog.statics) do
-      local species, diagnostics, exhausted = choose(
-        manifest, record.species, settings, rngs.species, used, unique)
-      if not species then
-        return {}, {
-          warning("STATIC_GENERATION_FAILED",
-            "a scoped static encounter has no valid candidate; statics are vanilla",
-            record.id),
-        }, 1
-      end
-      if exhausted then
-        warnings[#warnings + 1] = warning(
-          "STATIC_UNIQUENESS_EXHAUSTED",
-          "static destination pool exhausted and restarted", record.id)
-      end
+      local species = matched.assignments[record.id]
       mappings[record.id] = {
         encounterId = record.id,
         sourceSpecies = record.species,
@@ -103,23 +118,23 @@ return function(StableSort, SpeciesFilters, Catalog)
     if settings.gift_pokemon == nil or settings.gift_pokemon == "off" then
       return {}, {}, 0
     end
-    local mappings, warnings, used = {}, {}, {}
+    local mappings, warnings = {}, {}
     local unique = settings.gift_uniqueness == "unique"
+    local matched = assignments(Catalog.gifts, manifest, settings,
+      rngs.species, unique, "gifts", "GIFT_UNIQUENESS_EXHAUSTED")
+    if #matched.unmatched > 0 then
+      return {}, {
+        warning("GIFT_GENERATION_FAILED",
+          "a scoped gift has no valid candidate; gifts are vanilla",
+          matched.unmatched[1].id),
+      }, 1
+    end
+    for _, reset in ipairs(matched.resets) do
+      warnings[#warnings + 1] = Matching.warning(reset,
+        "gift destination pool was proven exhausted and restarted")
+    end
     for _, record in ipairs(Catalog.gifts) do
-      local species, diagnostics, exhausted = choose(
-        manifest, record.species, settings, rngs.species, used, unique)
-      if not species then
-        return {}, {
-          warning("GIFT_GENERATION_FAILED",
-            "a scoped gift has no valid candidate; gifts are vanilla",
-            record.id),
-        }, 1
-      end
-      if exhausted then
-        warnings[#warnings + 1] = warning(
-          "GIFT_UNIQUENESS_EXHAUSTED",
-          "gift destination pool exhausted and restarted", record.id)
-      end
+      local species = matched.assignments[record.id]
       mappings[record.id] = {
         giftId = record.id,
         sourceSpecies = record.species,

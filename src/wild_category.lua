@@ -1,5 +1,5 @@
 -- Milestone-8 generation for area slots, fishing, levels, and coverage.
-return function(StableSort, SpeciesFilters, WildGlobal)
+return function(StableSort, SpeciesFilters, WildGlobal, Matching)
   local WildCategory = {}
   local TERRAIN_ORDER = { "grass", "water" }
   local ROD_ORDER = { "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }
@@ -12,23 +12,37 @@ return function(StableSort, SpeciesFilters, WildGlobal)
     }
   end
 
-  local function choose(manifest, source, settings, rng, used)
-    local unique = settings.duplicate_policy == "one_to_one"
-    local candidates, diagnostics = SpeciesFilters.candidates(
-      manifest, source, rules(settings, unique and used or nil))
-    local reset = false
-    if #candidates == 0 and unique and manifest.byId[source] then
-      candidates, diagnostics = SpeciesFilters.candidates(
-        manifest, source, rules(settings, nil))
-      reset = #candidates > 0
-      if reset then
-        for id in pairs(used) do used[id] = nil end
+  local function matchRows(manifest, rows, settings, rng, category, code, idFor)
+    local units = {}
+    for index, row in ipairs(rows) do
+      local candidates, diagnostics = SpeciesFilters.candidates(
+        manifest, row.source, rules(settings, nil))
+      units[#units + 1] = {
+        id = idFor and idFor(row, index) or tostring(index),
+        source = row.source,
+        candidates = candidates,
+        diagnostics = diagnostics,
+        hardConstraints = {
+          similarStrength = tonumber(settings.similar_strength),
+          legendary = settings.legendaries or "allow",
+        },
+      }
+    end
+    if settings.duplicate_policy == "one_to_one" then
+      return Matching.assign(units, rng, {
+        category = category, code = code,
+      }), units
+    end
+    local output = { assignments = {}, resets = {}, unmatched = {} }
+    for _, unit in ipairs(units) do
+      if #unit.candidates == 0 then
+        output.unmatched[#output.unmatched + 1] = unit
+      else
+        output.assignments[unit.id] =
+          unit.candidates[rng:nextInt(1, #unit.candidates)].id
       end
     end
-    if #candidates == 0 then return nil, diagnostics, false end
-    local destination = candidates[rng:nextInt(1, #candidates)].id
-    if unique then used[destination] = true end
-    return destination, diagnostics, reset
+    return output, units
   end
 
   local function clamp(value, minimum, maximum)
@@ -274,9 +288,13 @@ return function(StableSort, SpeciesFilters, WildGlobal)
       return result
     end
 
+    local fishRows, fishingAvailable = {}, false
+    if settings.fishing == "randomized" then
+      fishRows, fishingAvailable = fishingSlots(sources and sources.field)
+    end
     local occurrences = {}
     local globalUnits = {}
-    local areaUsed = {}
+    local areaMatch, areaUnitById
     if settings.wild_pokemon == "global_map" then
       local global = WildGlobal.generate(
         manifest, sources.encounters, settings, streams.global)
@@ -315,13 +333,32 @@ return function(StableSort, SpeciesFilters, WildGlobal)
         end
       end
     else
+      local combined = {}
       for _, slot in ipairs(encounterRows) do
-        local destination, diagnostics, reset = choose(
-          manifest, slot.source, settings, streams.area, areaUsed)
-        if reset then
-          addWarning(result, "WILD_UNIQUENESS_POOL_RESET",
-            "eligible destinations were exhausted; uniqueness pool restarted")
+        slot.matchId =
+          "W:" .. slot.mapId .. ":" .. slot.terrain .. ":" .. slot.index
+        combined[#combined + 1] = slot
+      end
+      if fishingAvailable then
+        for _, slot in ipairs(fishRows) do
+          slot.matchId =
+            "F:" .. slot.rod .. ":" .. slot.mapId .. ":" .. slot.index
+          combined[#combined + 1] = slot
         end
+      end
+      local areaUnits
+      areaMatch, areaUnits = matchRows(
+        manifest, combined, settings, streams.area, "wild.area_and_fishing",
+        "WILD_UNIQUENESS_POOL_RESET", function(slot) return slot.matchId end)
+      areaUnitById = {}
+      for _, unit in ipairs(areaUnits) do areaUnitById[unit.id] = unit end
+      for _, reset in ipairs(areaMatch.resets) do
+        result.warnings[#result.warnings + 1] = Matching.warning(reset)
+      end
+      for _, slot in ipairs(encounterRows) do
+        local unit = areaUnitById[slot.matchId]
+        local destination = areaMatch.assignments[unit.id]
+        local diagnostics = unit.diagnostics
         if destination then
           local record = {
             species = destination,
@@ -345,35 +382,57 @@ return function(StableSort, SpeciesFilters, WildGlobal)
       end
     end
 
-    local fishRows = {}
     if settings.fishing == "randomized" then
-      local fishingAvailable
-      fishRows, fishingAvailable = fishingSlots(sources and sources.field)
       if not fishingAvailable then
         addWarning(result, "FISHING_SOURCE_UNAVAILABLE",
           "merged fishing registry is unavailable; fishing is vanilla")
         result.fallbackCount = result.fallbackCount + 1
       else
         result.fishing = { global = {}, slots = {} }
-        local fishUsed = {}
-        for _, slot in ipairs(fishRows) do
-          local destination, diagnostics, reset
+        local fishMatch, fishUnits
+        if settings.wild_pokemon == "global_map" then
+          local uniqueRows, seen = {}, {}
+          for _, slot in ipairs(fishRows) do
+            if not seen[slot.source] then
+              seen[slot.source] = true
+              uniqueRows[#uniqueRows + 1] = slot
+            end
+          end
+          fishMatch, fishUnits = matchRows(
+            manifest, uniqueRows, settings, streams.global, "fishing.global",
+            "FISHING_UNIQUENESS_POOL_RESET", function(slot)
+              return slot.source
+            end)
+          for _, unit in ipairs(fishUnits) do
+            result.fishing.global[unit.source] =
+              fishMatch.assignments[unit.id]
+          end
+        else
+          fishMatch, fishUnits = areaMatch, {}
+          for _, slot in ipairs(fishRows) do
+            fishUnits[#fishUnits + 1] = areaUnitById[slot.matchId]
+          end
+        end
+        if settings.wild_pokemon == "global_map" then
+          for _, reset in ipairs(fishMatch.resets) do
+            result.warnings[#result.warnings + 1] = Matching.warning(reset,
+              "eligible fishing destinations were proven exhausted; pool restarted")
+          end
+        end
+        for index, slot in ipairs(fishRows) do
+          local destination, diagnostics
           if settings.wild_pokemon == "global_map" then
             destination = result.fishing.global[slot.source]
-            if not destination then
-              destination, diagnostics, reset = choose(
-                manifest, slot.source, settings, streams.global, fishUsed)
-              if destination then
-                result.fishing.global[slot.source] = destination
+            for _, unit in ipairs(fishUnits) do
+              if unit.source == slot.source then
+                diagnostics = unit.diagnostics
+                break
               end
             end
           else
-            destination, diagnostics, reset = choose(
-              manifest, slot.source, settings, streams.area, areaUsed)
-          end
-          if reset then
-            addWarning(result, "FISHING_UNIQUENESS_POOL_RESET",
-              "eligible fishing destinations were exhausted; pool restarted")
+            local unit = fishUnits[index]
+            destination = fishMatch.assignments[unit.id]
+            diagnostics = unit.diagnostics
           end
           if destination and (settings.wild_pokemon == "global_map"
               or slot.identifiable ~= false) then

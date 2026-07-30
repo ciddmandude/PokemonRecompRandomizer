@@ -1,6 +1,6 @@
 -- Deterministic mod-only M12 generation for nine wired NPC trades and the
 -- active version's six Celadon Game Corner Pokemon prize slots.
-return function(StableSort, SpeciesFilters, Catalog)
+return function(StableSort, SpeciesFilters, Catalog, Matching)
   local Category = {}
 
   local function clamp(value, minimum, maximum)
@@ -22,6 +22,23 @@ return function(StableSort, SpeciesFilters, Catalog)
   local function choose(candidates, rng)
     if #candidates == 0 then return nil end
     return candidates[rng:nextInt(1, #candidates)].id
+  end
+
+  local function assignUnits(units, rng, unique, category, code)
+    if unique then
+      return Matching.assign(units, rng, {
+        category = category, code = code,
+      })
+    end
+    local output = { assignments = {}, resets = {}, unmatched = {} }
+    for _, unit in ipairs(units) do
+      if #unit.candidates == 0 then
+        output.unmatched[#output.unmatched + 1] = unit
+      else
+        output.assignments[unit.id] = choose(unit.candidates, rng)
+      end
+    end
+    return output
   end
 
   local function sourceTrade(record, sources)
@@ -48,11 +65,8 @@ return function(StableSort, SpeciesFilters, Catalog)
   end
 
   local function receivedCandidates(
-      manifest, requested, settings, used, safety)
+      manifest, requested, settings, safety)
     local excluded = {}
-    if settings.duplicate_policy == "one_to_one" then
-      for id in pairs(used) do excluded[id] = true end
-    end
     if safety then excluded[requested] = true end
 
     if settings.trade_fairness == "no_downgrade" then
@@ -83,12 +97,12 @@ return function(StableSort, SpeciesFilters, Catalog)
       return {}, {}, 0
     end
     local mappings, warnings = {}, {}
-    local usedGive, usedGet = {}, {}
     local both = settings.in_game_trades == "both_sides"
     local safety = settings.trade_evolution_safety ~= "off"
-
+    local sourceById, requestUnits = {}, {}
     for _, record in ipairs(Catalog.trades) do
       local source = sourceTrade(record, sources)
+      sourceById[record.id] = source
       if not manifest.byId[source.give] or not manifest.byId[source.get] then
         return {}, {
           warning("TRADE_GENERATION_FAILED",
@@ -97,12 +111,9 @@ return function(StableSort, SpeciesFilters, Catalog)
         }, 1
       end
 
-      local requested = source.give
       if both then
-        local excluded = settings.duplicate_policy == "one_to_one"
-          and usedGive or nil
         local candidates = SpeciesFilters.candidates(
-          manifest, source.give, commonRules(settings, excluded))
+          manifest, source.give, commonRules(settings, nil))
         if settings.catchability_guard == "on" then
           local guarded = reachableCandidates(candidates, reachable)
           if #guarded > 0 then
@@ -114,34 +125,72 @@ return function(StableSort, SpeciesFilters, Catalog)
                 .. "the common pool was used", record.id)
           end
         end
-        requested = choose(candidates, rng)
-        if not requested then
-          return {}, {
-            warning("TRADE_GENERATION_FAILED",
-              "a requested trade species has no valid candidate; "
-                .. "NPC trades are vanilla", record.id),
-          }, 1
-        end
-        usedGive[requested] = true
+        requestUnits[#requestUnits + 1] = {
+          id = record.id, source = source.give, candidates = candidates,
+          hardConstraints = {
+            similarStrength = tonumber(settings.similar_strength),
+            legendary = settings.legendaries or "allow",
+            reachable = settings.catchability_guard == "on",
+          },
+        }
       end
+    end
 
+    local unique = settings.duplicate_policy == "one_to_one"
+    local requestedMatch = assignUnits(
+      requestUnits, rng, unique, "trades.requested",
+      "TRADE_REQUEST_UNIQUENESS_EXHAUSTED")
+    if #requestedMatch.unmatched > 0 then
+      return {}, { warning("TRADE_GENERATION_FAILED",
+        "a requested trade species has no valid candidate; NPC trades are vanilla",
+        requestedMatch.unmatched[1].id) }, 1
+    end
+    for _, reset in ipairs(requestedMatch.resets) do
+      warnings[#warnings + 1] = Matching.warning(reset)
+    end
+
+    local receiveUnits, fairnessById = {}, {}
+    for _, record in ipairs(Catalog.trades) do
+      local source = sourceById[record.id]
+      local requested = both
+          and requestedMatch.assignments[record.id] or source.give
       local candidates, fairnessRelaxed = receivedCandidates(
-        manifest, requested, settings, usedGet, safety)
-      local received = choose(candidates, rng)
-      if not received then
-        return {}, {
-          warning("TRADE_GENERATION_FAILED",
-            "a received trade species has no valid candidate; "
-              .. "NPC trades are vanilla", record.id),
-        }, 1
-      end
-      if fairnessRelaxed then
+        manifest, requested, settings, safety)
+      fairnessById[record.id] = fairnessRelaxed
+      receiveUnits[#receiveUnits + 1] = {
+        id = record.id, source = source.get, candidates = candidates,
+        hardConstraints = {
+          similarStrength = settings.trade_fairness == "any"
+              and nil or tonumber(settings.similar_strength),
+          legendary = settings.legendaries or "allow",
+          fairness = settings.trade_fairness,
+          tradeEvolutionSafety = safety,
+        },
+      }
+    end
+    local receivedMatch = assignUnits(
+      receiveUnits, rng, unique, "trades.received",
+      "TRADE_RECEIVED_UNIQUENESS_EXHAUSTED")
+    if #receivedMatch.unmatched > 0 then
+      return {}, { warning("TRADE_GENERATION_FAILED",
+        "a received trade species has no valid candidate; NPC trades are vanilla",
+        receivedMatch.unmatched[1].id) }, 1
+    end
+    for _, reset in ipairs(receivedMatch.resets) do
+      warnings[#warnings + 1] = Matching.warning(reset)
+    end
+
+    for _, record in ipairs(Catalog.trades) do
+      local source = sourceById[record.id]
+      local requested = both
+          and requestedMatch.assignments[record.id] or source.give
+      local received = receivedMatch.assignments[record.id]
+      if fairnessById[record.id] then
         warnings[#warnings + 1] = warning(
           "TRADE_NO_DOWNGRADE_RELAXED",
           "NO DOWNGRADE had no candidate and relaxed to the common pool",
           record.id)
       end
-      usedGet[received] = true
       mappings[record.id] = {
         tradeId = record.id,
         tradeIndex = record.index,
@@ -204,21 +253,32 @@ return function(StableSort, SpeciesFilters, Catalog)
     local version = type(sources) == "table"
       and (sources.gameVersion or sources.version) or "red"
     version = version == "blue" and "blue" or "red"
-    local mappings, warnings, used = {}, {}, {}
+    local mappings, warnings = {}, {}
+    local units = {}
     for _, record in ipairs(Catalog.prizes[version]) do
-      local excluded = settings.duplicate_policy == "one_to_one"
-        and used or nil
       local candidates = SpeciesFilters.candidates(
-        manifest, record.species, commonRules(settings, excluded))
-      local species = choose(candidates, rng)
-      if not species then
-        return {}, {
-          warning("PRIZE_GENERATION_FAILED",
-            "a Game Corner prize has no valid candidate; prizes are vanilla",
-            record.id),
-        }, 1
-      end
-      used[species] = true
+        manifest, record.species, commonRules(settings, nil))
+      units[#units + 1] = {
+        id = record.id, source = record.species, candidates = candidates,
+        hardConstraints = {
+          similarStrength = tonumber(settings.similar_strength),
+          legendary = settings.legendaries or "allow",
+        },
+      }
+    end
+    local matched = assignUnits(units, rng,
+      settings.duplicate_policy == "one_to_one", "game_corner.prizes",
+      "PRIZE_UNIQUENESS_EXHAUSTED")
+    if #matched.unmatched > 0 then
+      return {}, { warning("PRIZE_GENERATION_FAILED",
+        "a Game Corner prize has no valid candidate; prizes are vanilla",
+        matched.unmatched[1].id) }, 1
+    end
+    for _, reset in ipairs(matched.resets) do
+      warnings[#warnings + 1] = Matching.warning(reset)
+    end
+    for _, record in ipairs(Catalog.prizes[version]) do
+      local species = matched.assignments[record.id]
       mappings[record.id] = {
         prizeId = record.id,
         version = version,

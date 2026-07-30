@@ -1,5 +1,5 @@
 -- Deterministic saved trainer-party generation for milestone 13.
-return function(StableSort, SpeciesFilters)
+return function(StableSort, SpeciesFilters, Matching)
   local Category = {}
 
   local BOSSES = {
@@ -163,42 +163,28 @@ return function(StableSort, SpeciesFilters)
     return output
   end
 
-  local function choose(manifest, source, settings, theme, rng, used, early)
-    local unique = settings.duplicate_policy == "one_to_one"
+  local function candidateList(manifest, source, settings, theme, early)
     local candidates, diagnostics = SpeciesFilters.candidates(
-      manifest, source, rules(settings, theme, unique and used or nil, early))
+      manifest, source, rules(settings, theme, nil, early))
     candidates = earlyCandidates(candidates, early)
-    if #candidates == 0 and unique then
-      candidates, diagnostics = SpeciesFilters.candidates(
-        manifest, source, rules(settings, theme, nil, early))
-      candidates = earlyCandidates(candidates, early)
-      if #candidates > 0 then
-        for id in pairs(used) do used[id] = nil end
-      end
-    end
     if #candidates == 0 and theme then
       candidates, diagnostics = SpeciesFilters.candidates(
-        manifest, source, rules(
-          settings, nil, unique and used or nil, early))
+        manifest, source, rules(settings, nil, nil, early))
       candidates = earlyCandidates(candidates, early)
     end
-    if #candidates == 0 then return nil, diagnostics end
     -- A randomizer result that selects the source species is technically
     -- valid but visibly indistinguishable from vanilla. Prefer a real
     -- replacement whenever the active constraints leave any alternative.
     local replacements = withoutSource(candidates, source)
-    if #replacements == 0 and unique then
-      local restarted = SpeciesFilters.candidates(
-        manifest, source, rules(settings, theme, nil, early))
-      restarted = earlyCandidates(restarted, early)
-      replacements = withoutSource(restarted, source)
-      if #replacements > 0 then
-        for id in pairs(used) do used[id] = nil end
-      end
-    end
     if #replacements > 0 then candidates = replacements end
+    return candidates, diagnostics
+  end
+
+  local function choose(manifest, source, settings, theme, rng, early)
+    local candidates, diagnostics =
+      candidateList(manifest, source, settings, theme, early)
+    if #candidates == 0 then return nil, diagnostics end
     local chosen = candidates[rng:nextInt(1, #candidates)].id
-    if unique then used[chosen] = true end
     return chosen, diagnostics
   end
 
@@ -218,18 +204,47 @@ return function(StableSort, SpeciesFilters)
         end
       end
     end
-    local mapping, failures, used = {}, {}, {}
+    local mapping, failures, units = {}, {}, {}
     for _, source in ipairs(StableSort.keys(sources)) do
-      local species, diagnostics = choose(
-        manifest, source, settings, nil, rng, used,
+      local candidates, diagnostics = candidateList(
+        manifest, source, settings, nil,
         settings.progression_guard == "on")
-      if species then
-        mapping[source] = species
-      else
-        failures[source] = diagnostics
+      units[#units + 1] = {
+        id = source, source = source, candidates = candidates,
+        diagnostics = diagnostics,
+        hardConstraints = {
+          similarStrength = tonumber(settings.similar_strength),
+          legendary = settings.progression_guard == "on"
+              and "exclude" or (settings.legendaries or "allow"),
+          progression = settings.progression_guard,
+        },
+      }
+    end
+    local matched
+    if settings.duplicate_policy == "one_to_one" then
+      matched = Matching.assign(units, rng, {
+        category = "trainers.global",
+        code = "TRAINER_UNIQUENESS_POOL_RESET",
+      })
+    else
+      matched = { assignments = {}, resets = {}, unmatched = {} }
+      for _, unit in ipairs(units) do
+        if #unit.candidates > 0 then
+          matched.assignments[unit.id] =
+            unit.candidates[rng:nextInt(1, #unit.candidates)].id
+        else
+          matched.unmatched[#matched.unmatched + 1] = unit
+        end
       end
     end
-    return mapping, failures
+    for _, unit in ipairs(units) do
+      if matched.assignments[unit.id] then
+        mapping[unit.id] = matched.assignments[unit.id]
+      else
+        failures[unit.id] = unit.diagnostics
+      end
+    end
+    return mapping, failures, matched.resets
   end
 
   local function fallbackWarning(
@@ -264,12 +279,22 @@ return function(StableSort, SpeciesFilters)
     assert(type(trainers) == "table", "merged trainer registry is required")
     local themes = allTypes(manifest)
     assert(#themes > 0, "trainer type theme pool is empty")
-    local global, globalFailures
+    local global, globalFailures, globalResets
     if settings.trainer_pokemon == "global_map" then
-      global, globalFailures =
+      global, globalFailures, globalResets =
         globalMap(manifest, trainers, settings, rngs.species)
+      for _, reset in ipairs(globalResets) do
+        result.warnings[#result.warnings + 1] = Matching.warning(reset)
+      end
     end
-    local used = {}
+    local uniqueSession
+    if not global and settings.duplicate_policy == "one_to_one" then
+      uniqueSession = Matching.newSession(rngs.species, {
+        category = "trainers.slots",
+        code = "TRAINER_UNIQUENESS_POOL_RESET",
+      })
+    end
+    local pending = {}
 
     for _, classId in ipairs(StableSort.keys(trainers)) do
       local trainer = trainers[classId]
@@ -312,10 +337,29 @@ return function(StableSort, SpeciesFilters)
                 species = global[sourceSlot.species]
                 diagnostics = globalFailures
                   and globalFailures[sourceSlot.species]
+              elseif uniqueSession then
+                local candidates
+                candidates, diagnostics = candidateList(
+                  manifest, sourceSlot.species, settings, theme, early)
+                local matchId = classId .. ":" .. partyIndex .. ":" .. slotIndex
+                uniqueSession:add({
+                  id = matchId,
+                  source = sourceSlot.species,
+                  candidates = candidates,
+                  diagnostics = diagnostics,
+                  hardConstraints = {
+                    similarStrength = tonumber(settings.similar_strength),
+                    legendary = early and settings.progression_guard == "on"
+                        and "exclude" or (settings.legendaries or "allow"),
+                    theme = theme,
+                    progression = early,
+                  },
+                })
+                species = #candidates > 0 and "__PENDING__" or nil
               else
                 species, diagnostics = choose(
                   manifest, sourceSlot.species, settings, theme,
-                  rngs.species, used, early)
+                  rngs.species, early)
               end
             end
 
@@ -350,7 +394,16 @@ return function(StableSort, SpeciesFilters)
                 level = level,
                 sourceSlot = sourceIndex,
               }
-              if type(sourceSlot.moves) == "table" then
+              if uniqueSession then
+                row.species = nil
+                row.matchId =
+                  classId .. ":" .. partyIndex .. ":" .. slotIndex
+                pending[#pending + 1] = {
+                  row = row, sourceSlot = sourceSlot,
+                  classId = classId, partyIndex = partyIndex,
+                  slotIndex = slotIndex,
+                }
+              elseif type(sourceSlot.moves) == "table" then
                 row.moves = copyArray(sourceSlot.moves)
               else
                 local special = specialMove(
@@ -368,6 +421,30 @@ return function(StableSort, SpeciesFilters)
         end
         if next(classMappings) ~= nil then
           result.trainerParties[classId] = classMappings
+        end
+      end
+    end
+    if uniqueSession then
+      local matched = uniqueSession:finish()
+      for _, reset in ipairs(matched.resets) do
+        result.warnings[#result.warnings + 1] = Matching.warning(reset)
+      end
+      for _, item in ipairs(pending) do
+        local row = item.row
+        local species = matched.assignments[row.matchId]
+        row.matchId = nil
+        if species then
+          row.species = species
+          if type(item.sourceSlot.moves) == "table" then
+            row.moves = copyArray(item.sourceSlot.moves)
+          else
+            local special = specialMove(item.classId, item.partyIndex,
+              item.slotIndex, species)
+            local entry = manifest.byId[species]
+            if special and not moveLegal(entry, special) then
+              row.moves = movesAtLevel(entry, row.level)
+            end
+          end
         end
       end
     end

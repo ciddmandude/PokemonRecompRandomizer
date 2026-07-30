@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.0.0-dev`
+Algorithm build: `1.1.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -29,6 +29,13 @@ complete result hash must remain identical.
 `tools/print-generator-vectors.lua` prints replacement literals after an
 intentional algorithm change. Updating them requires an algorithm-version
 decision and review; existing saves continue using their stored mappings.
+
+Remediation M5 replaces greedy one-to-one selection with stable candidate
+graphs, category-stream Fisher-Yates preferences, and deterministic
+augmenting-path matching. Pool reuse is allowed only after matching proves the
+next source cannot join the current uniqueness pool. Saved mappings remain
+authoritative, so loading a run created by an earlier algorithm build never
+regenerates it.
 
 ## 1. Numeric model
 

@@ -11,6 +11,7 @@ local Constants = loadFactory("src/constants.lua")
 local UInt32 = loadFactory("src/uint32.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Matching = loadFactory("src/matching.lua", StableSort)
 local Canonical = loadFactory("src/canonical.lua", StableSort)
 local Vanilla = loadFactory("src/vanilla_species.lua")
 local Manifest = loadFactory("src/species_manifest.lua",
@@ -18,7 +19,7 @@ local Manifest = loadFactory("src/species_manifest.lua",
 local Filters = loadFactory("src/species_filters.lua")
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Category = loadFactory(
-  "src/trainer_category.lua", StableSort, Filters)
+  "src/trainer_category.lua", StableSort, Filters, Matching)
 local pokemon = assert(loadfile(root .. "/pokemon.lua"))()
 local trainers = assert(loadfile(root .. "/trainers.lua"))()
 local manifest = Manifest.build(pokemon, { poolMode = "vanilla151" })

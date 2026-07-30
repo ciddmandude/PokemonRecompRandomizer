@@ -1,6 +1,6 @@
 -- Deterministic global walking/surfing species mapping.
 -- Fishing is intentionally a separate category and is not inspected here.
-return function(StableSort, SpeciesFilters)
+return function(StableSort, SpeciesFilters, Matching)
   local WildGlobal = {}
 
   local TERRAIN_ORDER = { "grass", "water" }
@@ -69,25 +69,39 @@ return function(StableSort, SpeciesFilters)
       return result
     end
 
-    local used = {}
     local unique = settings.duplicate_policy == "one_to_one"
+    local units, diagnosticsBySource = {}, {}
     for _, sourceId in ipairs(sources) do
-      local excluded = unique and used or nil
       local candidates, diagnostics = SpeciesFilters.candidates(
-        manifest, sourceId, filterRules(settings, excluded))
-
-      if #candidates == 0 and unique and manifest.byId[sourceId] then
-        candidates, diagnostics = SpeciesFilters.candidates(
-          manifest, sourceId, filterRules(settings, nil))
-        if #candidates > 0 then
-          used = {}
-          result.warnings[#result.warnings + 1] = warning(
-            "WILD_UNIQUENESS_POOL_RESET",
-            "eligible destinations were exhausted; uniqueness pool restarted",
-            sourceId)
-        end
+        manifest, sourceId, filterRules(settings, nil))
+      diagnosticsBySource[sourceId] = diagnostics
+      units[#units + 1] = {
+        id = sourceId,
+        source = sourceId,
+        candidates = candidates,
+        diagnostics = diagnostics,
+        hardConstraints = {
+          similarStrength = tonumber(settings.similar_strength),
+          legendary = settings.legendaries or "allow",
+        },
+      }
+    end
+    local matched
+    if unique then
+      matched = Matching.assign(units, rng, {
+        category = "wild.global",
+        code = "WILD_UNIQUENESS_POOL_RESET",
+      })
+      for _, reset in ipairs(matched.resets) do
+        result.warnings[#result.warnings + 1] = Matching.warning(reset)
       end
-
+    end
+    for _, unit in ipairs(units) do
+      local sourceId = unit.source
+      local candidates = unit.candidates
+      local diagnostics = diagnosticsBySource[sourceId]
+      local selected = unique and matched.assignments[unit.id]
+        or (#candidates > 0 and candidates[rng:nextInt(1, #candidates)].id)
       if #candidates == 0 then
         result.fallbackCount = result.fallbackCount + 1
         local code = diagnostics.error and diagnostics.error.code
@@ -98,10 +112,8 @@ return function(StableSort, SpeciesFilters)
             or "source species has no eligible destination",
           sourceId)
       else
-        local selected = candidates[rng:nextInt(1, #candidates)].id
         result.mapping[sourceId] = selected
         result.mappedCount = result.mappedCount + 1
-        if unique then used[selected] = true end
       end
     end
     return result

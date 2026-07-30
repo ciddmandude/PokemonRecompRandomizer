@@ -11,6 +11,7 @@ local Constants = loadFactory("src/constants.lua")
 local UInt32 = loadFactory("src/uint32.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Matching = loadFactory("src/matching.lua", StableSort)
 local Canonical = loadFactory("src/canonical.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local VanillaSpecies = loadFactory("src/vanilla_species.lua")
@@ -18,9 +19,9 @@ local Manifest = loadFactory("src/species_manifest.lua",
   Constants, StableSort, Canonical, Hash128, VanillaSpecies)
 local Filters = loadFactory("src/species_filters.lua")
 local WildGlobal = loadFactory(
-  "src/wild_global.lua", StableSort, Filters)
+  "src/wild_global.lua", StableSort, Filters, Matching)
 local WildCategory = loadFactory(
-  "src/wild_category.lua", StableSort, Filters, WildGlobal)
+  "src/wild_category.lua", StableSort, Filters, WildGlobal, Matching)
 local WildRuntime = loadFactory("src/wild_runtime.lua")
 local Fixture = loadFactory("tests/species_fixture.lua")
 

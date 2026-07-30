@@ -23,6 +23,7 @@ return function(mod)
   local Hash128 = loadModule("src/hash128.lua", Constants, UInt32)
   local Sha256 = loadModule("src/sha256.lua", UInt32)
   local StableSort = loadModule("src/stable_sort.lua")
+  local Matching = loadModule("src/matching.lua", StableSort)
   local Rng = loadModule("src/rng.lua", Constants, UInt32, Hash128)
   local Canonical = loadModule("src/canonical.lua", StableSort)
   local VanillaSpecies = loadModule("src/vanilla_species.lua")
@@ -47,9 +48,9 @@ return function(mod)
     VanillaSpecies = VanillaSpecies,
   }
   local WildGlobal = loadModule(
-    "src/wild_global.lua", StableSort, SpeciesFilters)
+    "src/wild_global.lua", StableSort, SpeciesFilters, Matching)
   local WildCategory = loadModule(
-    "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal)
+    "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal, Matching)
   local WildRuntime = loadModule("src/wild_runtime.lua")
   local StarterCategory = loadModule(
     "src/starter_category.lua", StableSort)
@@ -60,17 +61,17 @@ return function(mod)
   local StaticGiftCatalog = loadModule("src/static_gift_catalog.lua")
   local StaticGiftCategory = loadModule(
     "src/static_gift_category.lua",
-    StableSort, SpeciesFilters, StaticGiftCatalog)
+    StableSort, SpeciesFilters, StaticGiftCatalog, Matching)
   local StaticGiftCompat = loadModule(
     "src/static_gift_compat.lua", StaticGiftCatalog)
   local TradePrizeCatalog = loadModule("src/trade_prize_catalog.lua")
   local TradePrizeCategory = loadModule(
     "src/trade_prize_category.lua",
-    StableSort, SpeciesFilters, TradePrizeCatalog)
+    StableSort, SpeciesFilters, TradePrizeCatalog, Matching)
   local TradePrizeCompat = loadModule(
     "src/trade_prize_compat.lua", TradePrizeCatalog)
   local TrainerCategory = loadModule(
-    "src/trainer_category.lua", StableSort, SpeciesFilters)
+    "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
   local TrainerRuntime = loadModule("src/trainer_runtime.lua")
   local ValidationCategory = loadModule(
     "src/validation_category.lua", StableSort, Canonical)
