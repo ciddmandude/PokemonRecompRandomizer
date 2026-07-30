@@ -33,6 +33,12 @@ The marker copies that source slot from the prior runtime hook. It therefore
 preserves the merged species, level, and explicit moves without putting an
 ineligible species ID into the randomizer's validated mapping pool.
 
+The same marker is used defensively if a pending one-to-one slot has no final
+assignment. Only that row falls back: unresolved `species`, `level`, and
+`matchId` fields are removed, while `sourceSlot` is retained. Generation adds
+one deterministic `TRAINER_NO_CANDIDATE` diagnostic with category, trainer
+source identity, and reason `UNMATCHED`, and increments `fallbackCount` once.
+
 The optional `moves` field is present only when the source party already
 specified moves or when an incompatible v0.1.30 legacy boss move must be
 suppressed. Type-themed classes also save a `theme` field beside their numeric

@@ -252,7 +252,11 @@ return function(StableSort, SpeciesFilters, Matching)
     return {
       code = code,
       message = message,
+      category = "trainers",
       id = classId,
+      sourceIdentity = table.concat({
+        tostring(classId), tostring(partyIndex), tostring(slotIndex or "?"),
+      }, ":"),
       trainerClass = classId,
       partyIndex = partyIndex,
       slotIndex = slotIndex,
@@ -445,6 +449,18 @@ return function(StableSort, SpeciesFilters, Matching)
               row.moves = movesAtLevel(entry, row.level)
             end
           end
+        else
+          row.species = nil
+          row.level = nil
+          row.moves = nil
+          row.fallback = true
+          result.warnings[#result.warnings + 1] = fallbackWarning(
+            "TRAINER_NO_CANDIDATE",
+            "trainer slot had no final uniqueness assignment; "
+              .. "slot remains vanilla",
+            item.classId, item.partyIndex, item.slotIndex,
+            item.sourceSlot.species, "UNMATCHED")
+          result.fallbackCount = result.fallbackCount + 1
         end
       end
     end

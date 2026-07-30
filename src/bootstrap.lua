@@ -152,7 +152,7 @@ return function(
       registerSpeciesMeta = function(id, metadata)
         return Species.Metadata:register(id, metadata)
       end,
-      species = {
+      species = PublicFacade.species({
         manifestVersion = Constants.SPECIES_MANIFEST_VERSION,
         buildManifest = function(options)
           return Generator.buildSpeciesManifest(
@@ -168,7 +168,7 @@ return function(
         metadataDiagnostics = function()
           return Species.Metadata:diagnostics()
         end,
-      },
+      }),
       contracts = PublicFacade.contracts(Contracts),
     }
 
@@ -201,36 +201,54 @@ return function(
       mod, function() return lifecycle:activeRun() end)
     local function spoilerBrowserModel(game, run)
       local data = type(game) == "table" and game.data or {}
+      local save = type(game) == "table" and game.save or nil
       local field = {}
       for key, value in pairs(type(data.field) == "table"
           and data.field or {}) do
         field[key] = value
       end
       local generatedField, generatedVersion = mergedFieldRecords(
-        type(game) == "table" and game.save)
+        save)
       for key, value in pairs(generatedField) do field[key] = value end
+      local dataSpecies = type(data.pokemon) == "table"
+          and next(data.pokemon) and data.pokemon or nil
+      local dataEncounters = type(data.encounters) == "table"
+          and next(data.encounters) and data.encounters or nil
+      local dataTrainers = type(data.trainers) == "table"
+          and next(data.trainers) and data.trainers or nil
+      local species = dataSpecies or mergedSpeciesRecords()
+      local encounters = dataEncounters or mergedEncounterRecords()
+      local trainers = dataTrainers or mergedTrainerRecords()
+      local maps = type(data.maps) == "table" and data.maps or {}
+      local sourceIdentity = table.concat({
+        tostring(dataSpecies or mod.content.pokemon),
+        tostring(dataEncounters or mod.content.encounters),
+        tostring(dataTrainers or mod.content.trainers),
+        tostring(maps),
+        tostring(type(data.field) == "table" and data.field
+          or mod.content.field),
+      }, "|")
       return {
-        index = SpoilerBrowser.build(run, {
-          species = next(type(data.pokemon) == "table"
-              and data.pokemon or {}) and data.pokemon
-            or mergedSpeciesRecords(),
-          encounters = next(type(data.encounters) == "table"
-              and data.encounters or {}) and data.encounters
-            or mergedEncounterRecords(),
-          trainers = next(type(data.trainers) == "table"
-              and data.trainers or {}) and data.trainers
-            or mergedTrainerRecords(),
-          maps = type(data.maps) == "table" and data.maps or {},
+        index = SpoilerBrowser.buildCached(run, {
+          species = species,
+          encounters = encounters,
+          trainers = trainers,
+          maps = maps,
           field = field,
-          gameVersion = type(game) == "table" and type(game.save) == "table"
-              and game.save.version or generatedVersion,
+          gameVersion = type(save) == "table"
+              and save.version or generatedVersion,
+          saveIdentity = table.concat({
+            tostring(save),
+            tostring(lifecycle:status().revision),
+          }, ":"),
+          cacheIdentity = sourceIdentity,
         }),
       }
     end
     local viewSpoilers = SpoilerController.viewAction(
       mod, lifecycle, spoilerBrowserModel)
     local exportSpoilers = SpoilerController.exportAction(mod, lifecycle)
-    publicApi.save = {
+    publicApi.save = PublicFacade.save({
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
       validate = SaveState.validate,
       checksum = SaveState.checksum,
@@ -238,21 +256,21 @@ return function(
         return SpoilerLog.publicRun(lifecycle:activeRun())
       end,
       status = function() return lifecycle:status() end,
-    }
-    publicApi.preferences = {
+    })
+    publicApi.preferences = PublicFacade.preferences({
       schema = function() return preferences:schema() end,
       pages = function() return preferences:pages() end,
       snapshot = function() return preferences:snapshot() end,
       preset = Options.General.preset,
       detectPreset = Options.General.detectPreset,
       behaviorSettings = Options.General.behaviorSettings,
-    }
+    })
     publicApi.runCode = Options.General.runCode
-    publicApi.spoilers = {
+    publicApi.spoilers = PublicFacade.spoilers({
       canAccess = SpoilerController.canAccess,
       export = SpoilerController.export,
       format = SpoilerController.text,
-    }
+    })
 
     for key, value in pairs(publicApi) do mod.exports[key] = value end
 
@@ -448,11 +466,21 @@ return function(
     -- Generating on the boot event made the title-screen options report
     -- LOCKED after every application restart, even when nothing was saved.
     local gameReady = false
+    local bootSuppressionLogged = false
     mod.events:on("game.ready", function()
       gameReady = true
     end)
     mod.events:on("save.created", function(event)
-      if not gameReady then return end
+      if not gameReady then
+        if not bootSuppressionLogged then
+          bootSuppressionLogged = true
+          if type(mod.log.debug) == "function" then
+            mod.log:debug(
+              "suppressed disposable pre-game.ready save.created boot skeleton")
+          end
+        end
+        return
+      end
       lifecycle:onCreated(event)
     end)
     mod.events:on("save.loading", function(event)

@@ -53,7 +53,8 @@ try {
   if ($firstFiles -cne $secondFiles) {
     throw 'Repeated packages have different payload paths or hashes'
   }
-  Write-Output 'package-test: ok'
+  Write-Output (
+    'package-test: ok (hidden .modkit/pack.json ledger verified twice)')
 } finally {
   foreach ($archive in $archives) {
     if (Test-Path -LiteralPath $archive) {

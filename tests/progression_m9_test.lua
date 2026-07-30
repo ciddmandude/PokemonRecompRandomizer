@@ -10,6 +10,20 @@ end
 local StableSort = loadFactory("src/stable_sort.lua")
 local Progression = loadFactory("src/progression.lua", StableSort)
 
+local progressionFile = assert(io.open("src/progression.lua", "rb"))
+local progressionSource = progressionFile:read("*a")
+progressionFile:close()
+assert(progressionSource:find(
+    "\n  local Progression = {}", 1, true),
+  "progression module body must use a two-space indentation level")
+assert(not progressionSource:find("\t", 1, true),
+  "progression source must not use tab indentation")
+for line in (progressionSource .. "\n"):gmatch("(.-)\n") do
+  local leading = line:match("^( *)")
+  assert(#leading % 2 == 0,
+    "progression indentation must use two-space increments")
+end
+
 for stage = Progression.STAGES.PEWTER, Progression.STAGES.POSTGAME do
   assert(Progression.GRAPH[stage].previous == stage - 1)
 end
@@ -23,8 +37,30 @@ assert(Progression.locationName("ROUTE_11_GATE_2F") == "Route 11 Gate 2F")
 local routeOneWater = Progression.access("ROUTE_1", "surf", nil, "red")
 assert(routeOneWater.stage == Progression.STAGES.SURF)
 assert(routeOneWater.stage > walk.stage)
-assert(table.concat(routeOneWater.requirements, ","):find("HM03_SURF", 1, true))
-assert(table.concat(routeOneWater.requirements, ","):find("SOUL_BADGE", 1, true))
+assert(table.concat(routeOneWater.requirements, ",")
+    == "HM03_SURF,SOUL_BADGE",
+  "surf requirements use deterministic identifier order")
+
+local rockTunnelWater =
+  Progression.access("ROCK_TUNNEL_1F", "surf", nil, "red")
+assert(table.concat(rockTunnelWater.requirements, ",")
+    == "HM03_SURF,HM05_FLASH,SOUL_BADGE",
+  "Rock Tunnel requirements are sorted after Surf gates are appended")
+local towerWater =
+  Progression.access("POKEMON_TOWER_3F", "surf", nil, "red")
+assert(table.concat(towerWater.requirements, ",")
+    == "HM03_SURF,SILPH_SCOPE,SOUL_BADGE",
+  "Pokemon Tower requirements are sorted after Surf gates are appended")
+local routeThreeWater =
+  Progression.access("ROUTE_3", "surf", nil, "red")
+assert(table.concat(routeThreeWater.requirements, ",")
+    == "BOULDER_BADGE,HM03_SURF,SOUL_BADGE",
+  "route requirements are sorted after Surf gates are appended")
+
+local dojo = Progression.access("FIGHTING_DOJO", "walk", nil, "red")
+assert(dojo.stage == Progression.STAGES.LAVENDER_CELADON
+  and table.concat(dojo.requirements, ",") == "SAFFRON_ACCESS",
+  "Fighting Dojo requires Saffron access, not Silph Co completion")
 
 local oldRod = Progression.access("*", "fish", "OLD_ROD", "red")
 local goodRod = Progression.access("*", "fish", "GOOD_ROD", "red")

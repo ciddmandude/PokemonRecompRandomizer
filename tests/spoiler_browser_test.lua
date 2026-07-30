@@ -48,6 +48,14 @@ assert(spacedLayout.rows == 4
 
 local run = {
   enabled = true,
+  checksum = {
+    version = "fnv1a32x4-save-v1",
+    value = "11111111111111111111111111111111",
+  },
+  seed = {
+    canonical = "CACHE TEST",
+    hash128 = "22222222222222222222222222222222",
+  },
   settings = {
     generate_spoiler_log = "on",
     wild_pokemon = "global_map",
@@ -433,5 +441,127 @@ giftLocationScreen.rows = { { location = giftLocation } }
 giftLocationScreen:choose()
 assert(giftLocationScreen.mode == "locations",
   "gift Pokemon locations do not drill down")
+
+Browser.clearCache()
+sources.cacheIdentity = "merged-revision-1"
+sources.saveIdentity = "save-1"
+local cachedFirst = Browser.buildCached(run, sources)
+local cachedSecond = Browser.buildCached(run, sources)
+local cacheStats = Browser.cacheStats()
+assert(cachedFirst == cachedSecond
+    and cacheStats.builds == 1 and cacheStats.hits == 1,
+  "two opens of one immutable run must reuse the spoiler index")
+
+local priorBuilds = cacheStats.builds
+sources.gameVersion = "blue"
+assert(Browser.buildCached(run, sources) ~= cachedFirst)
+assert(Browser.cacheStats().builds == priorBuilds + 1,
+  "active game-version changes must invalidate the spoiler index")
+sources.gameVersion = "red"
+Browser.buildCached(run, sources)
+priorBuilds = Browser.cacheStats().builds
+sources.saveIdentity = "save-2"
+Browser.buildCached(run, sources)
+assert(Browser.cacheStats().builds == priorBuilds + 1,
+  "switching loaded saves must invalidate the spoiler index")
+priorBuilds = Browser.cacheStats().builds
+sources.cacheIdentity = "merged-revision-2"
+Browser.buildCached(run, sources)
+assert(Browser.cacheStats().builds == priorBuilds + 1,
+  "merged-data identity changes must invalidate the spoiler index")
+priorBuilds = Browser.cacheStats().builds
+local regenerated = {}
+for key, value in pairs(run) do regenerated[key] = value end
+regenerated.checksum = {
+  version = run.checksum.version,
+  value = "33333333333333333333333333333333",
+}
+Browser.buildCached(regenerated, sources)
+assert(Browser.cacheStats().builds == priorBuilds + 1,
+  "regenerated mapping identity must invalidate the spoiler index")
+assert(run._spoilerIndexCache == nil
+    and run._backgroundCache == nil
+    and run.checksum.value == "11111111111111111111111111111111",
+  "runtime caches must not add data to the saved run")
+
+local previousLove = rawget(_G, "love")
+local imageBuilds, quadBuilds = 0, 0
+local quadFailure = false
+_G.love = {
+  graphics = {
+    newImage = function(path)
+      imageBuilds = imageBuilds + 1
+      local width = path == "misaligned.png" and 10 or 16
+      return {
+        getDimensions = function() return width, 8 end,
+      }
+    end,
+    newQuad = function(...)
+      quadBuilds = quadBuilds + 1
+      if quadFailure then error("bad mod-supplied tileset") end
+      return { ... }
+    end,
+  },
+}
+BrowserScreen.clearBackgroundCache()
+local backgroundIndex = {
+  townMap = {
+    background = {
+      tiles = { path = "town.png", identity = "town-asset-v1" },
+      map = { 0, 1 },
+    },
+  },
+}
+local backgroundFirst = BrowserScreen.new(
+  game, { index = backgroundIndex }, ui)
+local backgroundSecond = BrowserScreen.new(
+  game, { index = backgroundIndex }, ui)
+local backgroundStats = BrowserScreen.backgroundCacheStats()
+assert(backgroundFirst.background and backgroundSecond.background)
+assert(backgroundFirst.background.image == backgroundSecond.background.image)
+assert(imageBuilds == 1 and quadBuilds == 2
+    and backgroundStats.imageBuilds == 1
+    and backgroundStats.quadBuilds == 2
+    and backgroundStats.hits == 1,
+  "two opens must reuse one image and its already-built quads")
+
+local misaligned = BrowserScreen.new(game, { index = {
+  townMap = {
+    background = {
+      tiles = {
+        path = "misaligned.png",
+        identity = "misaligned-asset",
+      },
+      map = { 0 },
+    },
+  },
+}}, ui)
+assert(misaligned.background == nil,
+  "non-8x8-aligned images must use the plain fallback map")
+local quadsBeforeFailure = quadBuilds
+quadFailure = true
+local badQuad = BrowserScreen.new(game, { index = {
+  townMap = {
+    background = {
+      tiles = { path = "bad-quad.png", identity = "bad-quad-asset" },
+      map = { 0, 1 },
+    },
+  },
+}}, ui)
+quadFailure = false
+assert(badQuad.background == nil and quadBuilds == quadsBeforeFailure + 1,
+  "quad construction failure must be contained by the fallback map")
+_G.love = previousLove
+
+local measurementIterations = 500
+local uncachedStarted = os.clock()
+for _ = 1, measurementIterations do Browser.build(run, sources) end
+local uncachedElapsed = os.clock() - uncachedStarted
+Browser.clearCache()
+local cachedStarted = os.clock()
+for _ = 1, measurementIterations do Browser.buildCached(run, sources) end
+local cachedElapsed = os.clock() - cachedStarted
+print(("spoiler_browser_cache_measure: %d opens uncached %.4fs, cached %.4fs")
+  :format(measurementIterations, uncachedElapsed, cachedElapsed))
 
 print("spoiler_browser_test: ok")

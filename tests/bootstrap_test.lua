@@ -1,6 +1,7 @@
 -- Headless entry/bootstrap integration test with a minimal mod API-2 stub.
 local callbacks = {}
 local logs = {}
+local debugLogs = {}
 local warnings = {}
 local migrations = {}
 local hookCallbacks = {}
@@ -21,7 +22,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.27.21",
+  version = "0.34.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -211,6 +212,9 @@ local mod = {
     end,
   },
   log = {
+    debug = function(_, format, ...)
+      debugLogs[#debugLogs + 1] = format:format(...)
+    end,
     info = function(_, format, ...)
       logs[#logs + 1] = format:format(...)
     end,
@@ -234,7 +238,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.3.0-dev")
+assert(mod.exports.algorithmVersion == "1.4.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -247,6 +251,20 @@ facadeMutation = pcall(function()
   mod.exports.contracts.mappingKeys = function() return {} end
 end)
 assert(not facadeMutation, "contract export must be read-only")
+local facadeKeys = {
+  species = "buildManifest",
+  save = "status",
+  preferences = "snapshot",
+  spoilers = "format",
+}
+for facadeName, key in pairs(facadeKeys) do
+  facadeMutation = pcall(function()
+    mod.exports[facadeName][key] = function() return nil end
+  end)
+  assert(not facadeMutation,
+    facadeName .. " export must be read-only")
+  assert(getmetatable(mod.exports[facadeName]) == "read-only")
+end
 assert(type(mod.exports.registerSpeciesMeta) == "function")
 assert(mod.exports.species.manifestVersion == 1)
 assert(mod.exports.save.checksumVersion == "fnv1a32x4-save-v1")
@@ -255,6 +273,15 @@ assert(type(mod.exports.spoilers.canAccess) == "function")
 assert(type(mod.exports.spoilers.format) == "function")
 assert(type(mod.exports.spoilers.export) == "function")
 assert(#mod.exports.preferences.schema() == 33)
+local exportedSchema = mod.exports.preferences.schema()
+exportedSchema[1].label = "MUTATED"
+assert(mod.exports.preferences.schema()[1].label ~= "MUTATED")
+local exportedPages = mod.exports.preferences.pages()
+exportedPages[1].rows[1].key = "mutated"
+assert(mod.exports.preferences.pages()[1].rows[1].key ~= "mutated")
+local exportedSettings = mod.exports.preferences.snapshot()
+exportedSettings.randomizer = "MUTATED"
+assert(mod.exports.preferences.snapshot().randomizer ~= "MUTATED")
 assert(#optionSchema == 33)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
@@ -332,11 +359,20 @@ local bootPlaceholder = {
   player = { id = 999 },
   modData = {},
 }
+local warningsBeforeBoot = #warnings
+local pushedBeforeBoot = pushedScreen
+callbacks["save.created"]({ save = bootPlaceholder })
 callbacks["save.created"]({ save = bootPlaceholder })
 assert(bootPlaceholder.modData.pokemon_randomizer == nil,
   "the pre-game.ready boot skeleton must not generate a run")
 assert(optionRows[1].value() == "OPEN",
   "the title-screen randomizer must remain open after application boot")
+assert(#debugLogs == 1
+    and debugLogs[1]:find("suppressed", 1, true)
+    and debugLogs[1]:find("pre%-game.ready"),
+  "boot skeleton suppression must emit exactly one debug diagnostic")
+assert(#warnings == warningsBeforeBoot and pushedScreen == pushedBeforeBoot,
+  "normal boot suppression must not warn or show a user-facing error")
 
 callbacks["game.ready"]({})
 local automaticSpoiler
@@ -470,7 +506,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.27.21", api = 2 },
+  { id = "pokemon_randomizer", version = "0.34.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

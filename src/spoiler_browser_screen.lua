@@ -8,6 +8,19 @@ return function(Constants, Browser)
   local SPACED_ROWS = 4
   local DETAIL_ROWS = 12
   local SEARCH_FOOTER = "SEARCH:SELECT"
+  local backgroundCache = {}
+  local backgroundStats = {
+    imageBuilds = 0,
+    quadBuilds = 0,
+    hits = 0,
+    failures = 0,
+  }
+
+  local function copyArray(source)
+    local output = {}
+    for index, value in ipairs(source or {}) do output[index] = value end
+    return output
+  end
 
   -- Town-map coordinates occupy a 16x16 grid beginning two tiles from the
   -- left and one tile below the screen origin.
@@ -357,21 +370,118 @@ return function(Constants, Browser)
     return wrap(lines)
   end
 
+  local function validDimensions(width, height)
+    return type(width) == "number" and type(height) == "number"
+      and width > 0 and height > 0
+      and width == math.floor(width) and height == math.floor(height)
+      and width % 8 == 0 and height % 8 == 0
+  end
+
+  local function validTileMap(map, tileCount)
+    if type(map) ~= "table" or #map == 0 then return false end
+    for _, tile in ipairs(map) do
+      if type(tile) ~= "number" or tile ~= math.floor(tile)
+          or tile < 0 or tile >= tileCount then
+        return false
+      end
+    end
+    return true
+  end
+
+  local function backgroundKey(tiles)
+    return table.concat({
+      tostring(tiles.path),
+      tostring(tiles.identity or tiles.revision or tiles),
+      tostring(tiles.width or ""),
+      tostring(tiles.height or ""),
+    }, "\0")
+  end
+
   local function loadBackground(index)
     local bg = index.townMap and index.townMap.background
-    if not (bg and bg.map and bg.tiles and bg.tiles.path
-        and love and love.graphics) then return nil end
-    local ok, image = pcall(love.graphics.newImage, bg.tiles.path)
-    if not ok or not image then return nil end
-    local width, height = image:getDimensions()
+    local loveApi = rawget(_G, "love")
+    local graphics = type(loveApi) == "table" and loveApi.graphics or nil
+    if not (type(bg) == "table" and type(bg.map) == "table"
+        and type(bg.tiles) == "table"
+        and type(bg.tiles.path) == "string" and bg.tiles.path ~= ""
+        and type(graphics) == "table"
+        and type(graphics.newImage) == "function"
+        and type(graphics.newQuad) == "function") then
+      return nil
+    end
+    local key = backgroundKey(bg.tiles)
+    local cached = backgroundCache[key]
+    if cached then
+      backgroundStats.hits = backgroundStats.hits + 1
+      if cached.failed
+          or not validTileMap(bg.map, cached.tileCount) then return nil end
+      return {
+        image = cached.image,
+        quads = cached.quads,
+        map = copyArray(bg.map),
+      }
+    end
+
+    backgroundStats.imageBuilds = backgroundStats.imageBuilds + 1
+    local ok, image = pcall(graphics.newImage, bg.tiles.path)
+    if not ok or not image or type(image.getDimensions) ~= "function" then
+      backgroundCache[key] = { failed = true }
+      backgroundStats.failures = backgroundStats.failures + 1
+      return nil
+    end
+    local dimensionsOk, width, height =
+      pcall(image.getDimensions, image)
+    if not dimensionsOk or not validDimensions(width, height) then
+      backgroundCache[key] = { failed = true }
+      backgroundStats.failures = backgroundStats.failures + 1
+      return nil
+    end
     local perRow = width / 8
+    local tileCount = perRow * (height / 8)
+    if not validTileMap(bg.map, tileCount) then
+      backgroundStats.failures = backgroundStats.failures + 1
+      return nil
+    end
     local quads = {}
-    for i = 0, perRow * (height / 8) - 1 do
-      quads[i] = love.graphics.newQuad(
+    for i = 0, tileCount - 1 do
+      local quadOk, quad = pcall(graphics.newQuad,
         (i % perRow) * 8, math.floor(i / perRow) * 8,
         8, 8, width, height)
+      if not quadOk or not quad then
+        backgroundCache[key] = { failed = true }
+        backgroundStats.failures = backgroundStats.failures + 1
+        return nil
+      end
+      backgroundStats.quadBuilds = backgroundStats.quadBuilds + 1
+      quads[i] = quad
     end
-    return { image = image, quads = quads, map = bg.map }
+    backgroundCache[key] = {
+      image = image,
+      quads = quads,
+      width = width,
+      height = height,
+      tileCount = tileCount,
+    }
+    return { image = image, quads = quads, map = copyArray(bg.map) }
+  end
+
+  function Screen.backgroundCacheStats()
+    return {
+      imageBuilds = backgroundStats.imageBuilds,
+      quadBuilds = backgroundStats.quadBuilds,
+      hits = backgroundStats.hits,
+      failures = backgroundStats.failures,
+    }
+  end
+
+  function Screen.clearBackgroundCache()
+    backgroundCache = {}
+    backgroundStats = {
+      imageBuilds = 0,
+      quadBuilds = 0,
+      hits = 0,
+      failures = 0,
+    }
   end
 
   function Screen.new(game, model, ui)

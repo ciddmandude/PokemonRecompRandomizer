@@ -331,6 +331,8 @@ The completed remediation shall include:
 
 ### Milestone 1 — Progression correctness
 
+Implementation status: Complete in mod `0.28.0`, algorithm `1.4.0-dev`.
+
 Implements:
 
 - `CR2-PROG-01` through `CR2-PROG-03`;
@@ -353,6 +355,8 @@ Exit criteria:
 
 ### Milestone 2 — Auto-seed and specification alignment
 
+Implementation status: Complete in mod `0.29.0`, algorithm `1.4.0-dev`.
+
 Implements:
 
 - `CR2-SEED-01` through `CR2-SEED-04`.
@@ -372,6 +376,8 @@ Exit criteria:
 - documentation makes no unsupported entropy claim.
 
 ### Milestone 3 — Matching and trainer isolation
+
+Implementation status: Complete in mod `0.30.0`, algorithm `1.4.0-dev`.
 
 Implements:
 
@@ -396,6 +402,8 @@ Exit criteria:
 
 ### Milestone 4 — Spoiler-browser reliability and caching
 
+Implementation status: Complete in mod `0.31.0`, algorithm `1.4.0-dev`.
+
 Implements:
 
 - `CR2-BROWSE-01` through `CR2-BROWSE-04`;
@@ -417,6 +425,8 @@ Exit criteria:
 
 ### Milestone 5 — Complete public API facades
 
+Implementation status: Complete in mod `0.32.0`, algorithm `1.4.0-dev`.
+
 Implements:
 
 - `CR2-API-01` through `CR2-API-04`.
@@ -436,6 +446,10 @@ Exit criteria:
 - existing API consumers retain the same callable names and return shapes.
 
 ### Milestone 6 — Automatic tests and two-OS release qualification
+
+Implementation status: Complete locally in mod `0.33.0`, algorithm
+`1.4.0-dev`; remote Windows/Ubuntu results are confirmed by the next pushed
+GitHub Actions run.
 
 Implements:
 
@@ -459,6 +473,8 @@ Exit criteria:
 - both GitHub matrix jobs package, validate, and extract successfully.
 
 ### Milestone 7 — Boot diagnostics and style cleanup
+
+Implementation status: Complete in mod `0.34.0`, algorithm `1.4.0-dev`.
 
 Implements:
 

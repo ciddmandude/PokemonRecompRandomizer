@@ -168,6 +168,25 @@ for _, record in ipairs(Catalog.trades) do
     "requested species must be obtainable when its NPC trade is available")
 end
 
+local dojoSettings = {}
+for key, value in pairs(guardedSettings) do dojoSettings[key] = value end
+dojoSettings.duplicate_policy = "allow"
+dojoSettings.trade_fairness = "any"
+dojoSettings.game_corner_pokemon = "off"
+local dojoSpecies = "M12_CANDIDATE_20"
+local dojoTimeline = {
+  earliestBySpecies = {
+    [dojoSpecies] = Progression.STAGES.LAVENDER_CELADON,
+  },
+}
+local dojoGuarded = Category.generate(
+  manifest, { gameVersion = "red" }, dojoSettings,
+  streams("ROUND 2 DOJO REACHABILITY"), dojoTimeline)
+assert(dojoGuarded.trades.TRADE_06_MARC.requested.species == dojoSpecies,
+  "a Dojo-obtainable species is legal for a post-Saffron guarded trade")
+assert(dojoGuarded.trades.TRADE_04_SAILOR.requested.species == dojoSpecies,
+  "Dojo availability remains valid for later Cinnabar trades")
+
 local sawAllowedLegendary = false
 for _, fairness in ipairs({ "similar", "any", "no_downgrade" }) do
   for _, legendaryPolicy in ipairs({ "exclude", "match", "allow" }) do

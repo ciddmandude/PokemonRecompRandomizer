@@ -107,6 +107,17 @@ equal(namespace.diagnostics.validation.budgetBytes,
 local valid, errors = SaveState.validate(namespace, set, true)
 assert(valid, errors[1] and errors[1].message)
 
+local priorAlgorithm = SaveState.clone(namespace)
+priorAlgorithm.algorithmVersion = "1.3.0-dev"
+local priorMappings = Canonical.encode(priorAlgorithm.mappings)
+priorAlgorithm = assert(SaveState.stamp(priorAlgorithm, set))
+valid, errors = SaveState.validate(priorAlgorithm, set, true)
+assert(valid, errors[1] and errors[1].message)
+equal(priorAlgorithm.algorithmVersion, "1.3.0-dev",
+  "saved run retains its producing algorithm version")
+equal(Canonical.encode(priorAlgorithm.mappings), priorMappings,
+  "loading an older algorithm build never regenerates mappings")
+
 local reordered = SaveState.clone(namespace)
 reordered.settings = {
   wild = "global_map",

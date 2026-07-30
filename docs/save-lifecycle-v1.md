@@ -18,6 +18,21 @@ The bootstrap registers these API-2 listeners:
 An absent namespace is a vanilla save. Loading it never creates randomizer
 state.
 
+## Auto-seed source
+
+`SaveLifecycle.new` accepts an optional `autoSeedEntropy(save)` provider. Tests
+inject fixed material through this boundary; production uses the default
+runtime provider only when Seed Mode is Auto. Manual mode never calls it.
+
+The default provider mixes `love.timer.getTime()` and four
+`love.math.random()` outputs when available, plus wall/process clocks, a
+per-process counter, and stable save/player fields. These values are
+best-effort, non-cryptographic uniqueness material: Recomp 0.1.38 documents no
+operating-system CSPRNG for mods. Missing or failing optional LÖVE functions
+cannot block New Game. A failed injected provider uses the same runtime
+fallback. `SaveState.makeAutoSeed` hashes the resulting material and stores
+one canonical 26-character Crockford Base32 seed with the save.
+
 ## Atomic generation
 
 `SaveState.create(input, generate)` does not expose or assign intermediate
@@ -117,3 +132,8 @@ mod.exports.save = {
 
 `activeRun()` and `status()` return copies. Callers cannot mutate the lifecycle
 manager's session state through exported values.
+
+`status().revision` is runtime-only and increments across New Game, load
+transitions, and active-run replacement. The spoiler browser uses it to
+invalidate cached indexes when a different save becomes active. It is never
+written into `save.modData` and does not change saved-run compatibility.

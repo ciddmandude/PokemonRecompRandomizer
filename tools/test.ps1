@@ -26,65 +26,37 @@ if (-not $luaPath -or -not $luacPath) {
   throw 'Lua 5.1 and luac are required'
 }
 
-$luaFiles = Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File `
-  -Filter '*.lua' | Sort-Object FullName
+$ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
+. (Join-Path $PSScriptRoot 'test-discovery.ps1')
+
+$luaFiles = [string[]]@(
+  Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File `
+    -Filter '*.lua' | ForEach-Object { $_.FullName }
+)
+[Array]::Sort($luaFiles, [StringComparer]::Ordinal)
 foreach ($file in $luaFiles) {
-  & $luacPath -p $file.FullName
+  & $luacPath -p $file
   if ($LASTEXITCODE -ne 0) {
-    throw "Lua syntax failed: $($file.FullName)"
+    throw "Lua syntax failed: $file"
   }
 }
 
+$testFiles = @(Get-DiscoveredLuaTests `
+  -TestsRoot (Join-Path $ProjectRoot 'tests'))
+& (Join-Path $PSScriptRoot 'test-discovery-self-test.ps1') `
+  -LuaPath $luaPath
+& (Join-Path $PSScriptRoot 'portability-test.ps1') `
+  -ProjectRoot $ProjectRoot
+
 Push-Location $ProjectRoot
 try {
-  & $luaPath 'tests/foundation_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'foundation_test failed' }
-  & $luaPath 'tests/scaffold_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'scaffold_test failed' }
-  & $luaPath 'tests/bootstrap_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'bootstrap_test failed' }
-  & $luaPath 'tests/species_manifest_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'species_manifest_test failed' }
-  & $luaPath 'tests/public_api_m11_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'public_api_m11_test failed' }
-  & $luaPath 'tests/save_state_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'save_state_test failed' }
-  & $luaPath 'tests/options_ui_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'options_ui_test failed' }
-  & $luaPath 'tests/general_settings_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'general_settings_test failed' }
-  & $luaPath 'tests/matching_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'matching_test failed' }
-  & $luaPath 'tests/generator_golden_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'generator_golden_test failed' }
-  & $luaPath 'tests/generator_property_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'generator_property_test failed' }
-  & $luaPath 'tests/wild_global_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'wild_global_test failed' }
-  & $luaPath 'tests/wild_m8_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'wild_m8_test failed' }
-  & $luaPath 'tests/progression_m9_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'progression_m9_test failed' }
-  & $luaPath 'tests/starter_seam_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'starter_seam_test failed' }
-  & $luaPath 'tests/starter_m10_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'starter_m10_test failed' }
-  & $luaPath 'tests/static_gift_m11_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'static_gift_m11_test failed' }
-  & $luaPath 'tests/static_gift_safety_m10_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'static_gift_safety_m10_test failed' }
-  & $luaPath 'tests/trade_prize_m12_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'trade_prize_m12_test failed' }
-  & $luaPath 'tests/trainer_m13_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'trainer_m13_test failed' }
-  & $luaPath 'tests/spoiler_validation_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'spoiler_validation_test failed' }
-  & $luaPath 'tests/spoiler_browser_test.lua'
-  if ($LASTEXITCODE -ne 0) { throw 'spoiler_browser_test failed' }
+  Invoke-DiscoveredLuaTests -LuaPath $luaPath -TestPaths $testFiles
   & (Join-Path $ProjectRoot 'tools/validate-scaffold.ps1')
   & (Join-Path $ProjectRoot 'tools/package-test.ps1')
 } finally {
   Pop-Location
 }
 
-Write-Output "test: ok ($($luaFiles.Count) Lua files)"
+Write-Output (
+  "test: ok ($($testFiles.Count) tests discovered, " +
+  "$($luaFiles.Count) Lua files syntax-checked)")

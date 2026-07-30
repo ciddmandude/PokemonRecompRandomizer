@@ -1,6 +1,7 @@
 -- Pure read-only index for the in-game spoiler browser.
 return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
   local Browser = {}
+  local indexCache = { key = nil, value = nil, builds = 0, hits = 0 }
 
   local DEFAULT_BUCKETS = { 51, 102, 141, 166, 191, 216, 229, 242, 253, 256 }
   local TERRAINS = { "grass", "water" }
@@ -625,6 +626,64 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
     finalizeSpecies(index)
     buildAreas(index)
     return index
+  end
+
+  local function identityPart(value)
+    if value == nil then return "" end
+    return tostring(value)
+  end
+
+  local function indexCacheKey(run, sources)
+    local checksum = type(run.checksum) == "table"
+      and run.checksum.value or run.checksum
+    local seed = type(run.seed) == "table"
+      and (run.seed.hash128 or run.seed.canonical) or run.seed
+    local sourceIdentity = sources.cacheIdentity
+      or table.concat({
+        identityPart(sources.species),
+        identityPart(sources.encounters),
+        identityPart(sources.trainers),
+        identityPart(sources.maps),
+        identityPart(sources.field),
+      }, "|")
+    return table.concat({
+      "spoiler-index-v1",
+      identityPart(checksum or run),
+      identityPart(seed),
+      identityPart(sources.gameVersion),
+      identityPart(sources.saveIdentity),
+      identityPart(sourceIdentity),
+    }, "\0")
+  end
+
+  function Browser.buildCached(run, sources)
+    assert(type(run) == "table", "active run is required")
+    sources = type(sources) == "table" and sources or {}
+    local key = indexCacheKey(run, sources)
+    if indexCache.key == key and indexCache.value then
+      indexCache.hits = indexCache.hits + 1
+      return indexCache.value
+    end
+    local value = Browser.build(run, sources)
+    indexCache.key = key
+    indexCache.value = value
+    indexCache.builds = indexCache.builds + 1
+    return value
+  end
+
+  function Browser.cacheStats()
+    return {
+      builds = indexCache.builds,
+      hits = indexCache.hits,
+      populated = indexCache.value ~= nil,
+    }
+  end
+
+  function Browser.clearCache()
+    indexCache.key = nil
+    indexCache.value = nil
+    indexCache.builds = 0
+    indexCache.hits = 0
   end
 
   Browser.words = words

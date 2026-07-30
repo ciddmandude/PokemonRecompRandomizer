@@ -2,6 +2,18 @@
 -- assignment cannot replace an internal function on Lua 5.1.
 local Facade = {}
 
+local function clone(value, seen)
+  if type(value) ~= "table" then return value end
+  seen = seen or {}
+  if seen[value] then return seen[value] end
+  local output = {}
+  seen[value] = output
+  for key, child in pairs(value) do
+    output[clone(key, seen)] = clone(child, seen)
+  end
+  return output
+end
+
 local function readonly(fields, name)
   local backing = {}
   for key, value in pairs(fields or {}) do backing[key] = value end
@@ -13,6 +25,34 @@ local function readonly(fields, name)
     end,
     __metatable = "read-only",
   })
+end
+
+local function pack(...)
+  return { n = select("#", ...), ... }
+end
+
+local function isolatedCall(callback, ...)
+  local results = pack(callback(...))
+  for index = 1, results.n do
+    results[index] = clone(results[index])
+  end
+  return unpack(results, 1, results.n)
+end
+
+local function capture(callback)
+  return function(...)
+    return isolatedCall(callback, ...)
+  end
+end
+
+local function dataFacade(fields, name)
+  assert(type(fields) == "table", "public facade fields are required")
+  local captured = {}
+  for key, value in pairs(fields) do
+    captured[key] = type(value) == "function"
+      and capture(value) or clone(value)
+  end
+  return readonly(captured, name)
 end
 
 function Facade.generator(generator)
@@ -62,6 +102,22 @@ function Facade.contracts(contracts)
     validateGenerationResult =
       function(...) return validateResult(...) end,
   }, "randomizer contracts facade")
+end
+
+function Facade.species(fields)
+  return dataFacade(fields, "randomizer species facade")
+end
+
+function Facade.save(fields)
+  return dataFacade(fields, "randomizer save facade")
+end
+
+function Facade.preferences(fields)
+  return dataFacade(fields, "randomizer preferences facade")
+end
+
+function Facade.spoilers(fields)
+  return dataFacade(fields, "randomizer spoilers facade")
 end
 
 Facade.readonly = readonly

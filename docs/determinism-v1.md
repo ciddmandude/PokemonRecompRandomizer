@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.3.0-dev`
+Algorithm build: `1.4.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -37,6 +37,13 @@ next source cannot join the current uniqueness pool. Saved mappings remain
 authoritative, so loading a run created by an earlier algorithm build never
 regenerates it.
 
+Round 2 Milestone 3 validates every matching unit ID before assignment and
+rejects duplicate IDs within a batch or streaming session. A failed match
+against an empty uniqueness pool is an explicit invariant failure rather than
+a repeated pool restart. Each augmenting-path recursion step visits a new
+destination, so recursion depth is bounded by the current uniqueness-pool
+size. The regression suite exercises a 176-unit merged-data path.
+
 Remediation M9 advances the algorithm build because explicit map, terrain,
 rod, story, badge, and trade-stage access rules can change both candidate
 selection and deterministic repair swaps. The 24 full-generator expectations
@@ -47,6 +54,13 @@ Remediation M12 advances the algorithm build because an unsupported or
 missing game-version source now retains vanilla Game Corner Pokémon prizes
 instead of silently generating the Red catalog. Red and Blue mapping vectors
 remain unchanged; older saves continue using their stored mappings.
+
+Round 2 Milestone 1 advances the algorithm build to `1.4.0-dev`. Fighting
+Dojo gifts are now reachable at the Lavender/Celadon stage after
+`SAFFRON_ACCESS`, rather than after `SILPH_CO_CLEARED`. This correction can
+change guarded NPC trade requests. Requirement identifiers returned by the
+progression model are also sorted deterministically. Existing saved mappings
+remain authoritative and are never regenerated.
 
 ## 1. Numeric model
 

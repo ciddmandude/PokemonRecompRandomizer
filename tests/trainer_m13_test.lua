@@ -258,6 +258,81 @@ assert(partyWarning and partyWarning.partyIndex == 1,
 assert(isolated.fallbackCount >= 2,
   "each isolated trainer fallback must increment diagnostics")
 
+-- Force a missing final streaming assignment to exercise the defensive path
+-- independently of Matching's normal invariant that nonempty units match.
+local ForcedMissingMatching = {
+  assign = Matching.assign,
+  warning = Matching.warning,
+  newSession = function()
+    local units = {}
+    return {
+      add = function(_, unit)
+        units[#units + 1] = unit
+      end,
+      finish = function()
+        local assignments = {}
+        for _, unit in ipairs(units) do
+          if unit.id ~= "OPP_FORCED:1:2" then
+            assignments[unit.id] = unit.candidates[1].id
+          end
+        end
+        return { assignments = assignments, resets = {}, unmatched = {} }
+      end,
+    }
+  end,
+}
+local ForcedCategory = loadFactory(
+  "src/trainer_category.lua", StableSort, Filters, ForcedMissingMatching)
+local forcedSettings = {}
+for key, value in pairs(isolatedSettings) do
+  forcedSettings[key] = value
+end
+forcedSettings.duplicate_policy = "one_to_one"
+local forced = ForcedCategory.generate(manifest, {
+  trainers = {
+    OPP_FORCED = {
+      parties = {{
+        { species = "ALPHA", level = 20 },
+        { species = "BETA", level = 21 },
+        { species = "GAMMA", level = 22 },
+      }},
+    },
+  },
+}, forcedSettings, rngs("forced missing assignment"))
+local forcedParty = forced.trainerParties.OPP_FORCED[1]
+assert(type(forcedParty[1].species) == "string"
+    and type(forcedParty[3].species) == "string",
+  "neighboring final assignments must remain generated")
+assert(forcedParty[2].fallback == true
+    and forcedParty[2].sourceSlot == 2
+    and forcedParty[2].species == nil
+    and forcedParty[2].level == nil
+    and forcedParty[2].matchId == nil,
+  "missing final assignment must become a clean one-slot fallback")
+assert(forced.fallbackCount == 1)
+assert(#forced.warnings == 1)
+assert(forced.warnings[1].code == "TRAINER_NO_CANDIDATE"
+    and forced.warnings[1].category == "trainers"
+    and forced.warnings[1].sourceIdentity == "OPP_FORCED:1:2"
+    and forced.warnings[1].sourceSpecies == "BETA"
+    and forced.warnings[1].reason == "UNMATCHED",
+  "unmatched fallback diagnostics must be exactly attributed")
+local forcedPrior = {
+  { species = "OLD_1", level = 20 },
+  { species = "OLD_2", level = 21 },
+  { species = "OLD_3", level = 22 },
+}
+local forcedProjected = Runtime.party(forcedPrior, "OPP_FORCED", 1, {
+  mappings = { trainerParties = {
+    OPP_FORCED = { [1] = forcedParty },
+  }},
+  _speciesSet = byId,
+})
+assert(forcedProjected[1].species == forcedParty[1].species
+    and forcedProjected[3].species == forcedParty[3].species
+    and forcedProjected[2].species == "OLD_2",
+  "runtime must isolate an unmatched fallback to its source slot")
+
 local mixedPrior = {
   { species = "ALPHA", level = 10 },
   { species = "MOD_ADDED", level = 11, moves = { "MOD_MOVE" } },

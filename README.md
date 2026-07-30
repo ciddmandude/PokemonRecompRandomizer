@@ -106,9 +106,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.27.21`
+- randomizer mod version: `0.34.0`
 - generator contract: `1`
-- algorithm build: `1.3.0-dev`
+- algorithm build: `1.4.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)
@@ -116,12 +116,16 @@ validation rules, see the linked design documents above or the
 The engine validates the API and game-version range before executing the mod.
 The bootstrap also verifies the mod object's required API-2 surfaces. A failed
 check is attributed to this mod and rolled back by gen1recomp's loader.
+The disposable `save.created` event emitted before `game.ready` is ignored and
+reported once at debug level; only the real New Game event creates mappings.
 
 Catchability Guard uses an explicit Red/Blue progression model. Walking,
 Surf-only water, all three rods, Safari access, story gates, Victory Road,
 postgame maps, and the availability stage of each supported NPC trade are
 evaluated separately. Unknown custom map IDs are excluded from guarantees and
 reported in the run diagnostics instead of being assumed reachable.
+Fighting Dojo gifts become obtainable with Saffron guard-drink access and do
+not require Silph Co. completion.
 
 ## Release packaging
 
@@ -190,8 +194,11 @@ belong in the project’s release-artifact storage.
 - Options use the engine's native namespaced persistence and screen registry.
 - The Options hook decorates the rows returned by earlier handlers.
 - Active-run data is mutation-isolated; edits target only the next New Game.
-- Generator and contract exports are read-only facades; another mod cannot
-  replace the implementation retained by save creation.
+- Generator, contract, species, save, preferences, and spoiler exports are
+  ordinary-assignment read-only facades. Their callbacks are captured and
+  mutable return tables are recursively copied, so another mod cannot
+  accidentally replace or mutate the implementation retained by the
+  randomizer.
 - Every public active-run view is a recursive copy, including nested mappings
   and diagnostics.
 - Duplicate species metadata merges deterministically: legendary `true` wins
@@ -203,7 +210,10 @@ belong in the project’s release-artifact storage.
 - Standard exactly equals the declared default snapshot.
 - Presets never overwrite the master switch, seed, or spoiler-log choice.
 - Manual seed errors disable generation atomically and remain reviewable.
-- Auto seeds are saved as deterministic 128-bit Crockford Base32 identities.
+- Auto seeds mix the available LÖVE timer/PRNG values, runtime clocks, a
+  process counter, and save context as best-effort non-cryptographic
+  uniqueness material. The hashed result is saved as a deterministic
+  26-character Crockford Base32 identity.
 - Run codes bind canonical seed, behavior settings, and eligible pool.
 - Settings-hash migration never rerolls an existing mapping.
 - Clipboard absence cannot hide the seed or run code from the player.

@@ -1,5 +1,6 @@
 param(
-  [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot)
+  [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot),
+  [string]$GitIgnoreContentOverride
 )
 
 $ErrorActionPreference = 'Stop'
@@ -60,6 +61,7 @@ $requiredFiles = @(
   'tests/species_fixture.lua',
   'tests/species_manifest_test.lua',
   'tests/save_state_test.lua',
+  'tests/save_lifecycle_entropy_test.lua',
   'tests/options_ui_test.lua',
   'tests/general_settings_test.lua',
   'tests/generator_harness.lua',
@@ -81,6 +83,9 @@ $requiredFiles = @(
   'tools/test.ps1',
   'tools/package.ps1',
   'tools/package-test.ps1',
+  'tools/test-discovery.ps1',
+  'tools/test-discovery-self-test.ps1',
+  'tools/portability-test.ps1',
   'tools/validate-package.ps1',
   'tools/validate-scaffold.ps1',
   'tools/release.ps1',
@@ -99,6 +104,10 @@ $requiredFiles = @(
   'docs/trades-prizes-v1.md',
   'docs/trainers-v1.md',
   'docs/spoiler-validation-v1.md',
+  'docs/spoiler-browser-cache-v1.md',
+  'docs/public-api-facades-v2.md',
+  'docs/test-release-v2.md',
+  'docs/boot-diagnostics-style-v1.md',
   'docs/randomizer-spec.md'
 )
 
@@ -132,20 +141,25 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.27.21') {
-  throw "manifest version must be 0.27.21"
+if ($manifest.version -ne '0.34.0') {
+  throw "manifest version must be 0.34.0"
 }
 
 if (Test-Path -LiteralPath (Join-Path $ProjectRoot '.modkitignore')) {
   throw '.modkitignore is unsupported; package.ps1 owns the payload allowlist'
 }
-$gitIgnore = Get-Content -LiteralPath (Join-Path $ProjectRoot '.gitignore') `
-  -Raw -Encoding UTF8
+$gitIgnore = if ($PSBoundParameters.ContainsKey(
+    'GitIgnoreContentOverride')) {
+  $GitIgnoreContentOverride
+} else {
+  Get-Content -LiteralPath (Join-Path $ProjectRoot '.gitignore') `
+    -Raw -Encoding UTF8
+}
 if ($gitIgnore -notmatch '(?m)^/dist/\*\.zip\r?$') {
   throw '.gitignore must exclude generated release ZIPs'
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.27\.21"') {
-  throw "constants MOD_VERSION must match manifest version 0.27.21"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.34\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.34.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

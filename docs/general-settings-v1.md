@@ -85,10 +85,18 @@ An invalid manual seed does not invoke generation. The save receives a disabled
 whole-run fallback with `INVALID_MANUAL_SEED`; the error is also visible in
 Review Next Run.
 
-Auto mode hashes fresh lifecycle entropy into 128 bits and encodes it as 26
-Crockford Base32 characters with two leading zero padding bits. The first
-character is therefore `0-7`; the alphabet omits `I`, `L`, `O`, and `U`.
-The resulting display and canonical values are saved together.
+Auto mode collects best-effort, non-cryptographic uniqueness material once at
+`save.created`. The default provider mixes the available high-resolution
+LÖVE timer and LÖVE PRNG output with wall/process clocks, a per-process
+counter, and stable save/player context. Recomp 0.1.38 does not expose a
+documented operating-system CSPRNG to mods, so this is not a claim of 128 bits
+of operating-system entropy.
+
+The mixed material is hashed into a 128-bit digest and encoded as 26 Crockford
+Base32 characters with two leading zero padding bits. The first character is
+therefore `0-7`; the alphabet omits `I`, `L`, `O`, and `U`. The resulting
+display and canonical values are saved together. Missing optional LÖVE APIs
+fall back safely to the remaining sources.
 
 ## Species pool and common filters
 

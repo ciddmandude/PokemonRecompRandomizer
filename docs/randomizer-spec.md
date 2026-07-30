@@ -204,7 +204,14 @@ Trainer randomization runs before the engine constructs battlers. Vanilla specia
 1. Normalize a manual seed as defined in Section 5.1.
 2. Encode it as UTF-8 bytes.
 3. Hash it with a documented, versioned 128-bit hash implementation.
-4. In Auto mode, obtain 128 bits from the operating system or LÖVE entropy source once at `save.created`, encode them as 26 Crockford Base32 characters, and save that text.
+4. In Auto mode, collect best-effort, non-cryptographic uniqueness material
+   once at `save.created`. Mix the highest-resolution available LÖVE timer,
+   LÖVE PRNG output, wall/process clocks, a per-process counter, and stable
+   save/player context. Hash the mixed material into a 128-bit digest, encode
+   it as 26 Crockford Base32 characters, and save that text. Recomp 0.1.38
+   exposes no documented operating-system CSPRNG to mods, so the 128-bit
+   digest width is not a guarantee of 128 bits of operating-system entropy.
+   Missing optional LÖVE APIs must not prevent New Game generation.
 5. Derive independent RNG streams using `hash(rootSeed || "\0" || streamName)`.
 
 Required stream names:
@@ -412,6 +419,8 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 - Enumerate the 14 named static and eight named gift records in
   `static_gift_catalog.lua` by stable ID.
+- Model Fighting Dojo gifts at the Lavender/Celadon stage behind
+  `SAFFRON_ACCESS`; Silph Co. completion is not required.
 - Preserve one-time event flags, capture/defeat state, payment behavior,
   choice groups, nickname prompts, party/box handling, and Pokédex updates.
 - Generate both Dojo alternatives at New Game; selecting one never rerolls

@@ -33,6 +33,20 @@ return function(StableSort)
     return count
   end
 
+  local function validateUnit(unit, seenIds, context)
+    assert(type(unit) == "table",
+      context .. " must be a table with a stable id")
+    local id = unit.id
+    assert(type(id) == "string" and id ~= "",
+      context .. " has invalid id (expected non-empty string)")
+    assert(not seenIds[id],
+      context .. " has duplicate id '" .. id .. "'")
+    seenIds[id] = true
+  end
+
+  -- Every recursive step follows an assignment owner through a destination
+  -- newly marked in `seen`. Recursion depth is therefore bounded by the
+  -- number of destinations in the current uniqueness pool.
   local function augment(index, preferences, assigned, owner, seen)
     for _, destination in ipairs(preferences[index]) do
       if not seen[destination] then
@@ -60,50 +74,46 @@ return function(StableSort)
 
     local preferences, assignments = {}, {}
     local resets, unmatched = {}, {}
+    local seenIds = {}
     for index, unit in ipairs(units) do
+      validateUnit(unit, seenIds, "matching unit " .. index)
       preferences[index] = stablePreferences(unit.candidates, rng)
     end
 
-    local poolStart = 1
-    while poolStart <= #units do
-      local assigned, owner = {}, {}
-      local index = poolStart
-      while index <= #units do
-        if #preferences[index] == 0 then
-          unmatched[#unmatched + 1] = {
-            id = units[index].id,
-            source = units[index].source,
-            diagnostics = units[index].diagnostics,
-          }
-          index = index + 1
-        elseif augment(index, preferences, assigned, owner, {}) then
-          index = index + 1
-        else
-          local poolSize = countKeys(owner)
-          for matchedIndex, destination in pairs(assigned) do
-            assignments[units[matchedIndex].id] = destination
-          end
-          resets[#resets + 1] = {
-            code = options.code or "UNIQUENESS_POOL_RESET",
-            category = options.category or "unknown",
-            poolSize = poolSize,
-            exhaustedPoolSize = poolSize,
-            affectedSource = units[index].source,
-            affectedId = units[index].id,
-            hardConstraints = copyConstraints(
-              units[index].hardConstraints or options.hardConstraints),
-          }
-          poolStart = index
-          break
-        end
-      end
-      if index > #units then
-        for matchedIndex, destination in pairs(assigned) do
-          assignments[units[matchedIndex].id] = destination
-        end
-        poolStart = #units + 1
+    local assigned, owner = {}, {}
+    local function commit()
+      for matchedIndex, destination in pairs(assigned) do
+        assignments[units[matchedIndex].id] = destination
       end
     end
+    for index, unit in ipairs(units) do
+      if #preferences[index] == 0 then
+        unmatched[#unmatched + 1] = {
+          id = unit.id,
+          source = unit.source,
+          diagnostics = unit.diagnostics,
+        }
+      elseif not augment(index, preferences, assigned, owner, {}) then
+        local poolSize = countKeys(owner)
+        assert(poolSize > 0,
+          "non-empty candidate list must match an empty pool")
+        commit()
+        resets[#resets + 1] = {
+          code = options.code or "UNIQUENESS_POOL_RESET",
+          category = options.category or "unknown",
+          poolSize = poolSize,
+          exhaustedPoolSize = poolSize,
+          affectedSource = unit.source,
+          affectedId = unit.id,
+          hardConstraints = copyConstraints(
+            unit.hardConstraints or options.hardConstraints),
+        }
+        assigned, owner = {}, {}
+        assert(augment(index, preferences, assigned, owner, {}),
+          "non-empty candidate list must match an empty pool")
+      end
+    end
+    commit()
     return {
       assignments = assignments,
       resets = resets,
@@ -127,10 +137,13 @@ return function(StableSort)
   -- Streaming facade for generators that discover stable units while building
   -- other saved metadata. Call finish() before reading final assignments.
   function Matching.newSession(rng, options)
+    assert(type(rng) == "table" and type(rng.shuffle) == "function",
+      "matching RNG stream with shuffle is required")
     options = options or {}
     local units, preferences = {}, {}
     local assigned, owner = {}, {}
     local output = { assignments = {}, resets = {}, unmatched = {} }
+    local seenIds = {}
 
     local function commit()
       for index, destination in pairs(assigned) do
@@ -141,6 +154,7 @@ return function(StableSort)
     local session = {}
     function session:add(unit)
       local index = #units + 1
+      validateUnit(unit, seenIds, "matching session unit " .. index)
       units[index] = unit
       preferences[index] = stablePreferences(unit.candidates, rng)
       if #preferences[index] == 0 then

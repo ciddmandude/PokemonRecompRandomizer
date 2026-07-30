@@ -219,7 +219,29 @@ isolated({ gift_pokemon = "off" }, { "staticEncounters" })
 isolated({ game_corner_pokemon = "off" }, { "trades" })
 isolated({ fishing = "vanilla" }, { "wildGlobal", "wildAreaSlots" })
 
+-- Gift reachability can influence guarded trade requests, but its named
+-- streams must not perturb unrelated mapping categories.
+local guardedWithGifts = Harness.request(
+  "ROUND 2 DOJO ISOLATION", "standard", {
+    catchability_guard = "on",
+  })
+local guardedWithoutGifts = Harness.request(
+  "ROUND 2 DOJO ISOLATION", "standard", {
+    catchability_guard = "on",
+    gift_pokemon = "off",
+  })
+local withGifts = assert(Harness.Generator.generate(guardedWithGifts))
+local withoutGifts = assert(Harness.Generator.generate(guardedWithoutGifts))
+for _, key in ipairs({
+    "wildGlobal", "wildAreaSlots", "fishing", "starters", "starterFlags",
+    "staticEncounters", "prizes", "trainerParties",
+}) do
+  assert(Harness.hash(withGifts.mappings[key])
+      == Harness.hash(withoutGifts.mappings[key]),
+    key .. " changed when only gift reachability was removed")
+end
+
 local elapsed = os.clock() - start
 assert(elapsed < 45, "property suite exceeded 45-second CI budget")
 io.write(("generator_property_test: ok (%d real generations, %.2fs)\n")
-  :format(cases + 5, elapsed))
+  :format(cases + 7, elapsed))
