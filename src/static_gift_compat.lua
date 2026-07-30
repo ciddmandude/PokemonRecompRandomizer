@@ -34,11 +34,6 @@ return function(Catalog)
     return { species = source, level = level }, false
   end
 
-  local function hasMapping(activeRun, category, id)
-    local _, mapped = offer(activeRun, category, id, "", 1)
-    return mapped
-  end
-
   local function runnerHandler(rows)
     return function(game, overworld, npc, onDone)
       if type(overworld) ~= "table" or type(overworld.runner) ~= "table"
@@ -102,7 +97,7 @@ return function(Catalog)
       return {
         { "show_text", "_PowerPlantVoltorbBattleText" },
         { "check_flag", record.flag },
-        { "jump_if_true", 5 },
+        { "jump_if_true", "done" },
         { CMD.battle, record.id, record.species, record.level, record.flag },
         { "label", "done" },
       }
@@ -115,7 +110,7 @@ return function(Catalog)
           record.id, record.species, record.level,
           "{RAM}!", record.battleText },
         { "check_flag", record.flag },
-        { "jump_if_true", 6 },
+        { "jump_if_true", "done" },
         { CMD.battle, record.id, record.species, record.level, record.flag },
         { "label", "done" },
       }
@@ -142,7 +137,7 @@ return function(Catalog)
           { "hide_object", record.mapId, record.object },
           { CMD.battle, record.id, record.species, record.level, record.flag },
           { "check_battle_result", "win", "run" },
-          { "jump_if_false", 7 },
+          { "jump_if_false", "done" },
           { CMD.show, "staticEncounters", record.id,
             record.species, record.level,
             record.calmedText, record.vanillaCalmedText },
@@ -155,17 +150,19 @@ return function(Catalog)
   local function eeveeRows(record)
     return {
       { "check_flag", record.flag },
-      { "jump_if_false", 5 },
+      { "jump_if_false", "offer" },
       { "hide_object", record.mapId, record.object },
-      { "jump", 13 },
+      { "jump", "done" },
+      { "label", "offer" },
       { CMD.give, record.id, record.species, record.level },
-      { "jump_if_false", 12 },
+      { "jump_if_false", "full" },
       { "play_sound", "Get_Item1" },
       { CMD.show, "gifts", record.id, record.species, record.level,
         "_GotMonText" },
       { "set_flag", record.flag },
       { "hide_object", record.mapId, record.object },
-      { "jump", 13 },
+      { "jump", "done" },
+      { "label", "full" },
       { "show_text", "_BoxIsFullText" },
       { "label", "done" },
     }
@@ -185,43 +182,32 @@ return function(Catalog)
           { CMD.ask, "gifts", record.id, record.species, record.level,
             "{RAM}! A steal at\n¥500! Want one?",
             "_MtMoonPokecenterMagikarpSalesmanOfferText" },
-          { "jump_if_false", 5 },
+          { "jump_if_false", "declined" },
           { "show_text",
             "_MtMoonPokecenterMagikarpSalesmanNoMoneyText" },
-          { "jump", 6 },
-          { "show_text", "_MtMoonPokecenterMagikarpSalesmanNoText" },
-          { "label", "done" },
-        }
-      elseif not hasMapping(activeRun, "gifts", record.id) then
-        rows = {
-          { CMD.ask, "gifts", record.id, record.species, record.level,
-            "{RAM}! A steal at\n¥500! Want one?",
-            "_MtMoonPokecenterMagikarpSalesmanOfferText" },
-          { "jump_if_false", 9 },
-          { "give_money", -record.price },
-          { "set_flag", record.flag },
-          { CMD.give, record.id, record.species, record.level },
-          { CMD.show, "gifts", record.id, record.species, record.level,
-            "{PLAYER} got a\n{RAM}!" },
-          { "jump", 10 },
-          { "label", "unused" },
+          { "jump", "done" },
+          { "label", "declined" },
           { "show_text", "_MtMoonPokecenterMagikarpSalesmanNoText" },
           { "label", "done" },
         }
       else
         rows = {
           { CMD.ask, "gifts", record.id, record.species, record.level,
-            "{RAM}! A steal at\n¥500! Want one?" },
-          { "jump_if_false", 11 },
+            "{RAM}! A steal at\n¥500! Want one?",
+            "_MtMoonPokecenterMagikarpSalesmanOfferText" },
+          { "jump_if_false", "declined" },
           { CMD.give, record.id, record.species, record.level },
-          { "jump_if_false", 10 },
+          { "jump_if_false", "full" },
           { "give_money", -record.price },
           { "set_flag", record.flag },
           { "play_sound", "Get_Item1" },
           { CMD.show, "gifts", record.id, record.species, record.level,
             "{PLAYER} got\n{RAM}!" },
-          { "jump", 12 },
+          { "jump", "done" },
+          { "label", "full" },
           { "show_text", "_BoxIsFullText" },
+          { "jump", "done" },
+          { "label", "declined" },
           { "show_text", "_MtMoonPokecenterMagikarpSalesmanNoText" },
           { "label", "done" },
         }
@@ -238,34 +224,23 @@ return function(Catalog)
         rows = {{ "show_text", "_FightingDojoBetterNotGetGreedyText" }}
       elseif not flags.EVENT_BEAT_KARATE_MASTER then
         rows = {{ "show_text", "You'll have to\nbeat the master\nfirst!" }}
-      elseif not hasMapping(activeRun, "gifts", record.id) then
-        rows = {
-          { CMD.ask, "gifts", record.id, record.species, record.level,
-            "You want\n{RAM}?", record.askText },
-          { "jump_if_false", 9 },
-          { "set_flag", record.flag },
-          { "set_flag", "EVENT_DEFEATED_FIGHTING_DOJO" },
-          { CMD.give, record.id, record.species, record.level },
-          { "hide_object", record.mapId, record.object },
-          { CMD.show, "gifts", record.id, record.species, record.level,
-            "{PLAYER} got\n{RAM}!" },
-          { "jump", 9 },
-          { "label", "done" },
-        }
       else
         rows = {
           { CMD.ask, "gifts", record.id, record.species, record.level,
-            "You want\n{RAM}?" },
-          { "jump_if_false", 11 },
+            "You want\n{RAM}?", record.askText },
+          { "jump_if_false", "declined" },
           { CMD.give, record.id, record.species, record.level },
-          { "jump_if_false", 10 },
+          { "jump_if_false", "full" },
           { "set_flag", record.flag },
           { "set_flag", "EVENT_DEFEATED_FIGHTING_DOJO" },
           { "hide_object", record.mapId, record.object },
           { CMD.show, "gifts", record.id, record.species, record.level,
             "{PLAYER} got\n{RAM}!" },
-          { "jump", 11 },
+          { "jump", "done" },
+          { "label", "full" },
           { "show_text", "_BoxIsFullText" },
+          { "jump", "done" },
+          { "label", "declined" },
           { "label", "done" },
         }
       end
@@ -283,28 +258,22 @@ return function(Catalog)
             "How is {RAM}\ndoing?",
             "_SilphCo7FSilphWorkerM1LaprasDescriptionText" },
         }
-      elseif not hasMapping(activeRun, "gifts", record.id) then
-        rows = {
-          { "show_text", "_SilphCo7FSilphWorkerM1ThankYouText" },
-          { "set_flag", record.flag },
-          { CMD.give, record.id, record.species, record.level },
-          { CMD.show, "gifts", record.id, record.species, record.level,
-            "{PLAYER} got\n{RAM}!" },
-          { "show_text",
-            "_SilphCo7FSilphWorkerM1LaprasDescriptionText" },
-        }
       else
         rows = {
           { CMD.show, "gifts", record.id, record.species, record.level,
-            "Thank you for\nsaving us!\fI want you to\nhave this {RAM}!" },
+            "Thank you for\nsaving us!\fI want you to\nhave this {RAM}!",
+            "_SilphCo7FSilphWorkerM1ThankYouText" },
           { CMD.give, record.id, record.species, record.level },
-          { "jump_if_false", 9 },
+          { "jump_if_false", "full" },
           { "set_flag", record.flag },
           { "play_sound", "Get_Item1" },
           { CMD.show, "gifts", record.id, record.species, record.level,
             "{PLAYER} got\n{RAM}!" },
-          { "show_text", "It's a good\nswimmer!" },
-          { "jump", 10 },
+          { CMD.show, "gifts", record.id, record.species, record.level,
+            "It's a good\nswimmer!",
+            "_SilphCo7FSilphWorkerM1LaprasDescriptionText" },
+          { "jump", "done" },
+          { "label", "full" },
           { "show_text", "_BoxIsFullText" },
           { "label", "done" },
         }
@@ -346,9 +315,10 @@ return function(Catalog)
           -- Leave that award under the engine's normal gift command.
           local rows = {
             { "give_pokemon", source, 30 },
-            { "jump_if_false", 5 },
+            { "jump_if_false", "full" },
             { CMD.finishFossil },
-            { "jump", 6 },
+            { "jump", "done" },
+            { "label", "full" },
             { "show_text", "_BoxIsFullText" },
             { "label", "done" },
           }
@@ -367,9 +337,10 @@ return function(Catalog)
           }), function()
             runnerHandler({
               { CMD.give, record.id, record.species, record.level },
-              { "jump_if_false", 5 },
+              { "jump_if_false", "full" },
               { CMD.finishFossil },
-              { "jump", 6 },
+              { "jump", "done" },
+              { "label", "full" },
               { "show_text", "_BoxIsFullText" },
               { "label", "done" },
             })(game, overworld, npc, onDone)

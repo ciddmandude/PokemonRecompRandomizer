@@ -214,8 +214,13 @@ assert(calls.cry == "CANDIDATE_01")
 
 assert(contributions.POWER_PLANT.talk.TEXT_POWERPLANT_ZAPDOS)
 assert(contributions.ROUTE_12.snorlaxWake.script[3][1] == names.battle)
-assert(contributions.CELADON_MANSION_ROOF_HOUSE.talk
-  .TEXT_CELADONMANSION_ROOF_HOUSE_EEVEE_POKEBALL[5][1] == names.give)
+local function firstCommand(rows, command)
+  for index, row in ipairs(rows) do
+    if row[1] == command then return index end
+  end
+end
+assert(firstCommand(contributions.CELADON_MANSION_ROOF_HOUSE.talk
+  .TEXT_CELADONMANSION_ROOF_HOUSE_EEVEE_POKEBALL, names.give))
 assert(contributions.CINNABAR_LAB_FOSSIL_ROOM.talk
   .TEXT_CINNABARLABFOSSILROOM_SCIENTIST1)
 
@@ -251,10 +256,11 @@ contributions.MT_MOON_POKECENTER.talk
       run = function(_, rows) captured = rows end,
     },
   }, nil, function() end)
-assert(captured[3][1] == names.give)
-assert(captured[5][1] == "give_money",
+assert(firstCommand(captured, names.give)
+  < firstCommand(captured, "give_money"),
   "sale must award successfully before charging money")
-assert(captured[6][1] == "set_flag",
+assert(firstCommand(captured, names.give)
+  < firstCommand(captured, "set_flag"),
   "sale completion flag must be set only after a successful award")
 
 active.mappings.gifts.MAGIKARP_SALE = nil
@@ -267,10 +273,11 @@ contributions.MT_MOON_POKECENTER.talk
       run = function(_, rows) captured = rows end,
     },
   }, nil, function() end)
-assert(captured[3][1] == "give_money"
-  and captured[4][1] == "set_flag"
-  and captured[5][1] == names.give,
-  "missing mapping must retain the vanilla sale operation order")
+assert(firstCommand(captured, names.give)
+  < firstCommand(captured, "give_money")
+  and firstCommand(captured, names.give)
+    < firstCommand(captured, "set_flag"),
+  "missing mapping must use the same award-first sale order")
 
 active.mappings.staticEncounters.MEWTWO = nil
 commands[names.show]({}, "staticEncounters", "MEWTWO", "MEWTWO", 70,
@@ -288,8 +295,8 @@ contributions.FIGHTING_DOJO.talk
       run = function(_, rows) captured = rows end,
     },
   }, nil, function() end)
-assert(captured[3][1] == names.give)
-assert(captured[5][1] == "set_flag")
+assert(firstCommand(captured, names.give)
+  < firstCommand(captured, "set_flag"))
 
 local stack = { values = {} }
 function stack:push(value) self.values[#self.values + 1] = value end

@@ -105,7 +105,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.22.0`
+- randomizer mod version: `0.23.0`
 - generator contract: `1`
 - algorithm build: `1.2.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -226,8 +226,10 @@ archive.
   confirmation and resurrection dialogue.
 - Static battle flags, object hiding, gift choice flags, payment, party/box
   handling, and retries remain vanilla-compatible.
-- Magikarp payment and gift completion flags occur only after a successful
-  award, so full storage does not consume the offer.
+- All supported static/gift script branches use named jump labels. Magikarp
+  payment, gift completion flags, hidden prize objects, and fossil cleanup
+  occur only after a successful award, so full party plus full boxes does not
+  consume any one-time offer and the player can retry.
 - Unsupported static paths remain completely vanilla rather than receiving a
   late or inconsistent species substitution.
 - Unsupported engine or mod API versions fail before gameplay.

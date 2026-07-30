@@ -20,7 +20,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.22.0",
+  version = "0.23.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -435,7 +435,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.22.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.23.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

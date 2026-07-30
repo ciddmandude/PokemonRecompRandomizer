@@ -551,12 +551,29 @@ Exit criteria:
 
 ### Milestone 10 — P4 static/gift script safety
 
+Status: Completed in `0.23.0`.
+
 Deliver:
 
 - label-based control flow;
 - interpreter-level branch tests;
 - award-before-payment/flag behavior for mapped and fallback paths;
 - retry-safe Magikarp and Dojo rewards.
+
+Implementation notes:
+
+- Every jump in the supported static/gift scripts now targets a named label;
+  no absolute row-number target remains.
+- Mapped and vanilla-fallback Magikarp, Dojo, and Lapras rewards share the
+  same award-first flow. Money, one-time flags, and hidden objects change only
+  after `give_pokemon` reports success.
+- Eevee and fossil handover use the same rule. Full party plus full boxes
+  displays the storage-full message while preserving the offer or fossil
+  quest state for a retry.
+- `tests/static_gift_safety_m10_test.lua` validates every label and jump,
+  interprets success, decline, insufficient-money, already-claimed,
+  battle-result, storage-full, and retry branches, bounds execution, and
+  verifies one completion per run.
 
 Exit criteria:
 
