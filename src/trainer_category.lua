@@ -137,6 +137,7 @@ return function(StableSort, SpeciesFilters, Matching)
   local function rules(settings, theme, excluded, early)
     return {
       strengthPercent = tonumber(settings.similar_strength),
+      sameStage = settings.similar_strength == "same_stage",
       legendary = early and settings.progression_guard == "on"
         and "exclude" or (settings.legendaries or "allow"),
       requiredType = theme,
@@ -216,6 +217,7 @@ return function(StableSort, SpeciesFilters, Matching)
         diagnostics = diagnostics,
         hardConstraints = {
           similarStrength = tonumber(settings.similar_strength),
+          sameStage = settings.similar_strength == "same_stage",
           legendary = settings.progression_guard == "on"
               and "exclude" or (settings.legendaries or "allow"),
           progression = settings.progression_guard,
@@ -591,6 +593,8 @@ return function(StableSort, SpeciesFilters, Matching)
                   diagnostics = diagnostics,
                   hardConstraints = {
                     similarStrength = tonumber(settings.similar_strength),
+                    sameStage =
+                      settings.similar_strength == "same_stage",
                     legendary = early and settings.progression_guard == "on"
                         and "exclude" or (settings.legendaries or "allow"),
                     theme = partyTheme,

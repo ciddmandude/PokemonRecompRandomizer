@@ -182,6 +182,41 @@ assert(hasId(candidates, "BULBASAUR"), "basic stage includes Bulbasaur")
 assert(hasId(candidates, "CHARMANDER"), "basic stage includes Charmander")
 assert(not hasId(candidates, "VENUSAUR"), "basic stage excludes final")
 
+local stageManifest = {
+  entries = {
+    {
+      id = "BASIC_LOW", bst = 100, stage = "basic",
+      legendary = false, types = { "NORMAL" },
+    },
+    {
+      id = "BASIC_HIGH", bst = 600, stage = "basic",
+      legendary = false, types = { "NORMAL" },
+    },
+    {
+      id = "FINAL_NEAR", bst = 101, stage = "final",
+      legendary = false, types = { "NORMAL" },
+    },
+  },
+  byId = {},
+}
+for _, row in ipairs(stageManifest.entries) do
+  stageManifest.byId[row.id] = row
+end
+candidates, diagnostics = Filters.candidates(
+  stageManifest, "BASIC_LOW", {
+    sameStage = true,
+    excludeIds = { BASIC_LOW = true },
+    legendary = "allow",
+  })
+equal(#candidates, 1, "same-stage candidate count")
+equal(candidates[1].id, "BASIC_HIGH",
+  "same-stage ignores closer final-stage BST")
+equal(diagnostics.sameStage, true, "same-stage diagnostic")
+equal(diagnostics.requestedStrengthPercent, nil,
+  "same-stage has no BST percentage")
+equal(#diagnostics.relaxations, 0,
+  "same-stage does not widen or drop the stage rule")
+
 candidates, diagnostics = Filters.candidates(
   merged, "BULBASAUR", {
     requiredType = "FAIRY",

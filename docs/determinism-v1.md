@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.5.0-dev`
+Algorithm build: `1.6.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -65,6 +65,11 @@ remain authoritative and are never regenerated.
 Rival policy separation and saved evolution-family continuity advance the
 algorithm build to `1.5.0-dev`. Rival party mappings intentionally differ
 from `1.4.0-dev`; existing saves continue to use their stored mappings.
+
+The hard `SAME STAGE` candidate rule advances the algorithm build to
+`1.6.0-dev`. It derives `BASIC`, `MIDDLE`, or `FINAL` from the saved manifest,
+ignores BST, and never relaxes the stage requirement. Existing saved mappings
+remain authoritative.
 
 ## 1. Numeric model
 

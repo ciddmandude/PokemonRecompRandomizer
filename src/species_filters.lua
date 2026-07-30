@@ -28,6 +28,7 @@ end
 local function hardEligible(entry, source, rules, excluded)
   if excluded[entry.id] then return false end
   if rules.stage == "basic" and entry.stage ~= "basic" then return false end
+  if rules.sameStage and entry.stage ~= source.stage then return false end
   local legendary = rules.legendary or "allow"
   if legendary == "exclude" and entry.legendary then return false end
   if legendary == "match" and entry.legendary ~= source.legendary then
@@ -75,6 +76,8 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
     "legendary rule must be exclude, match, or allow")
   assert(rules.stage == nil or rules.stage == "any" or rules.stage == "basic",
     "stage rule must be any or basic")
+  assert(rules.sameStage == nil or type(rules.sameStage) == "boolean",
+    "sameStage must be a boolean")
   local percent = rules.strengthPercent
   assert(percent == nil or (type(percent) == "number" and percent >= 0
       and percent <= 100 and percent == math.floor(percent)),
@@ -88,6 +91,7 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
     sourceId = sourceId,
     requestedStrengthPercent = percent,
     appliedStrengthPercent = percent,
+    sameStage = rules.sameStage == true,
     requiredType = rules.requiredType,
     typeRelaxed = false,
     relaxations = {},

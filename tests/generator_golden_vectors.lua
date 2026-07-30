@@ -87,7 +87,7 @@ return {
       legendaries = "exclude",
       trainer_pokemon = "type_themed",
       boss_trainers = "include",
-      similar_strength = "off",
+      similar_strength = "same_stage",
     },
   },
   {

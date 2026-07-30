@@ -109,7 +109,7 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` generates a new 128-bit seed when New Game is confirmed. `MANUAL` uses Seed Text after normalization. Changing this setting never rerolls an existing save. |
 | Seed Text | text, 1–32 characters | blank | Used only in `MANUAL`. Accept uppercase letters, digits, space, hyphen, and underscore. Trim outer spaces, collapse repeated spaces, and uppercase before hashing. Reject an empty canonical seed. The original display text and canonical value are both saved. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | `VANILLA 151` excludes mod-added species. `MERGED DATA` includes every valid merged-registry species that has battle sprites, stats, growth data, and a learnset. Missing or invalid species are excluded with a logged reason. |
-| Similar Strength | `OFF`, `±10%`, `±20%` | `±20%` | Restricts candidate base-stat totals to the selected percentage around the source. If no candidate exists, widen in 5-point increments until at least one exists. Legendary filtering and other hard rules still apply. |
+| Similar Strength | `OFF`, `±10%`, `±20%`, `SAME STAGE` | `±20%` | Percentage modes restrict candidate base-stat totals around the source and widen in 5-point increments if empty. `SAME STAGE` ignores base stats and requires the destination to have the same derived evolutionary stage as the source: `BASIC`, `MIDDLE`, or `FINAL`. Stage is a hard rule and never relaxes. Legendary filtering and other hard rules still apply. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | `EXCLUDE` removes legendary/mythical species from destinations. `MATCH` lets legendary sources map only to legendary destinations and non-legendaries only to non-legendaries. `ALLOW` treats them like any species. The built-in classification is Articuno, Zapdos, Moltres, Mewtwo, and Mew; merged species may declare randomizer metadata through the mod's exported API. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | `ALLOW` samples with replacement. `ONE-TO-ONE` uses a deterministic shuffled destination pool, maximizing variety and preventing duplicate destinations until the eligible pool is exhausted. Category-specific uniqueness rules take precedence for starters. |
 | Enable Spoiler Log | `OFF`, `ON` | `ON` | Saved per run. `ON` permits the in-game spoiler viewer and explicit plaintext export. `OFF` blocks both. New Game never writes a file automatically. This setting does not affect the seed, behavior-settings hash, or mappings. |
@@ -122,6 +122,11 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Fishing | `VANILLA`, `RANDOMIZED` | `RANDOMIZED` | Controls Old/Good/Super Rod candidates independently. When randomized, it follows the selected Wild mode and uses saved fishing mappings. Gifted Magikarp is not a fishing encounter. |
 | Wild Levels | `UNCHANGED`, `±2`, `SCALED` | `UNCHANGED` | `UNCHANGED` preserves each original slot level. `±2` deterministically adjusts each slot from -2 to +2, clamped to 2–100. `SCALED` preserves the source area's relative difficulty but compensates for destination strength using `round(level × sqrt(sourceBST/destinationBST))`, clamped to 2–100. |
 | Catchability Guard | `OFF`, `ON` | `ON` | Ensures every non-legendary destination species is available in at least one reachable pre–Elite Four encounter when mathematically possible. It does not alter encounter rates, map access, or require sequence-breaking. A post-generation validator swaps destinations between slots to meet coverage. |
+
+When `SAME STAGE` is active, Catchability Guard and trade-reachability repairs
+may swap only destinations from the same evolutionary stage. If no compatible
+donor exists, the repair is reported as unsatisfied rather than weakening the
+stage rule.
 
 Wild encounter rate and the ten-slot probability buckets remain vanilla. Repel checks continue to use the final randomized level. Static encounters and gifts are controlled separately below. The catching tutorial remains vanilla because it teaches a fixed mechanic and awards no Pokémon.
 
@@ -157,7 +162,7 @@ because v0.1.30 has no per-save object-sprite seam.
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
 | In-game Trades | `OFF`, `RECEIVED`, `BOTH SIDES` | `BOTH SIDES` | `OFF` keeps every NPC trade vanilla. `RECEIVED` randomizes only the Pokémon the NPC gives. `BOTH SIDES` randomizes both the requested and received species. Dialog substitutions, party validation, Pokédex updates, nickname, OT behavior, and trade animation must use the resolved offer. |
-| Trade Fairness | `ANY`, `SIMILAR STRENGTH`, `NO DOWNGRADE` | `SIMILAR STRENGTH` | `ANY` uses the common pool rules. `SIMILAR STRENGTH` applies the global strength band between requested and received species. `NO DOWNGRADE` requires received BST to be at least requested BST minus 5%; relax deterministically only if no candidate exists. |
+| Trade Fairness | `ANY`, `SIMILAR STRENGTH`, `NO DOWNGRADE` | `SIMILAR STRENGTH` | `ANY` ignores the global strength/stage rule for the received species. `SIMILAR STRENGTH` applies the selected global percentage band or same-stage rule between requested and received species. `NO DOWNGRADE` applies the global rule and requires received BST to be at least requested BST minus 5%; relax the no-downgrade threshold deterministically only if no candidate exists. |
 | Trade Evolution Safety | `OFF`, `ON` | `ON` | Prevents offers that require giving the same species received, and prevents impossible request species under Catchability Guard. Trade-evolution species remain legal; the normal in-game trade itself does not trigger a link evolution unless the base engine does so. |
 
 Each of the nine NPC-wired trades is generated once by stable trade index and
@@ -468,7 +473,10 @@ All new hook results must be type-checked. Invalid results log an attributed err
   evolution timing, and preserve the vanilla add/remove schedule.
 - With Rival Keep Pokémon off, independently resolve every later rival slot,
   including the former starter position.
-- Type-themed selection prefers dual-type candidates containing the theme. If none exist after filters, relax Similar Strength before relaxing the type requirement; record every relaxation.
+- Type-themed selection prefers dual-type candidates containing the theme.
+  Percentage strength bands relax before the type requirement. `SAME STAGE`
+  never relaxes; if no same-stage themed candidate exists, only the type
+  requirement may relax. Record every relaxation.
 - Required battles may never have zero valid Pokémon.
 - Runtime lookup must be O(1) by trainer ID and party index and must allocate only the returned party copy.
 

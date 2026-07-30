@@ -7,6 +7,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
   local function rules(settings, excluded)
     return {
       strengthPercent = tonumber(settings.similar_strength),
+      sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries or "allow",
       excludeIds = excluded,
     }
@@ -24,6 +25,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
         diagnostics = diagnostics,
         hardConstraints = {
           similarStrength = tonumber(settings.similar_strength),
+          sameStage = settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
         },
       }
@@ -180,7 +182,8 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
     return rows, true
   end
 
-  local function repairCoverage(occurrences, manifest, result)
+  local function repairCoverage(
+      occurrences, manifest, result, sameStage)
     local reachableCounts, totalCounts = {}, {}
     for _, row in ipairs(occurrences) do
       local id = row.record.species
@@ -195,6 +198,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
 
     for _, missing in ipairs(StableSort.keys(totalCounts)) do
       if not reachableCounts[missing] then
+        local missingEntry = manifest.byId[missing]
         local target
         for _, row in ipairs(occurrences) do
           if row.record.species == missing and not row.reachable then
@@ -207,6 +211,8 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
           local id = row.record.species
           local entry = manifest.byId[id]
           if row.reachable and entry and not entry.legendary
+              and (not sameStage or (missingEntry
+                and entry.stage == missingEntry.stage))
               and (reachableCounts[id] or 0) > 1 then
             donor = row
             break
@@ -229,7 +235,8 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
     end
   end
 
-  local function repairGlobalCoverage(units, manifest, result)
+  local function repairGlobalCoverage(
+      units, manifest, result, sameStage)
     local reachableCounts, totalCounts = {}, {}
     for _, unit in ipairs(units) do
       local id = unit.mapping[unit.key]
@@ -243,6 +250,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
     end
     for _, missing in ipairs(StableSort.keys(totalCounts)) do
       if not reachableCounts[missing] then
+        local missingEntry = manifest.byId[missing]
         local target
         for _, unit in ipairs(units) do
           if unit.mapping[unit.key] == missing and not unit.reachable then
@@ -255,6 +263,8 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
           local id = unit.mapping[unit.key]
           local entry = manifest.byId[id]
           if unit.reachable and entry and not entry.legendary
+              and (not sameStage or (missingEntry
+                and entry.stage == missingEntry.stage))
               and (reachableCounts[id] or 0) > 1 then
             donor = unit
             break
@@ -505,10 +515,11 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
     end
 
     if settings.catchability_guard == "on" then
+      local sameStage = settings.similar_strength == "same_stage"
       if settings.wild_pokemon == "area_slots" then
-        repairCoverage(occurrences, manifest, result)
+        repairCoverage(occurrences, manifest, result, sameStage)
       else
-        repairGlobalCoverage(globalUnits, manifest, result)
+        repairGlobalCoverage(globalUnits, manifest, result, sameStage)
       end
       if settings.wild_levels == "scaled" then
         for _, slot in ipairs(encounterRows) do

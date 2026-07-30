@@ -22,7 +22,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.35.0",
+  version = "0.36.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -238,7 +238,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.5.0-dev")
+assert(mod.exports.algorithmVersion == "1.6.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -506,7 +506,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.35.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.36.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

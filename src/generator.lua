@@ -244,6 +244,7 @@ return function(
       result.mappings, request.settings, Foundation.Rng.fromSeed(
         request.seed.canonical, "validation.swaps"), {
           sources = request.sources or {},
+          manifest = manifest,
           wildReachability = wildReachability,
         })
     if ok then

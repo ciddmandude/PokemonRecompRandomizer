@@ -1,8 +1,8 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.35.0
-Algorithm build ...... 1.5.0-dev
+Mod version .......... 0.36.0
+Algorithm build ...... 1.6.0-dev
 Engine range ......... >=0.1.30 <0.2.0  (0.1.38 recommended)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.35.0.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.36.0.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -359,6 +359,11 @@ CFG-H  "Auto seed"                                           seed: (AUTO)
   PRESET = STANDARD, SEED MODE = AUTO.
   Covers: auto-seed generation, entropy diagnostics, seed uniqueness.
 
+CFG-I  "Same evolutionary stage"                            seed: TEST STAGE
+  Start from STANDARD, then:
+    SIMILAR STRENGTH = SAME STAGE
+  Covers: hard BASIC/MIDDLE/FINAL matching without a BST restriction.
+
 
 ================================================================================
 TEST SUITES
@@ -496,6 +501,19 @@ OPT-10 [P3] Accessibility
   EXPECT: every row is reachable and editable with each input method. No
           information is conveyed by colour alone.
 
+OPT-11 [P1] SAME STAGE ignores BST and preserves evolution stage
+  1. CFG-I. NEW GAME and export the spoiler log.
+  2. Compare at least ten wild mappings, five statics/gifts/prizes, five trade
+     sides, and twenty trainer slots with their vanilla source species.
+  3. Include at least one very large BST difference if the seed supplies one.
+  EXPECT: every randomized source/destination pair has the same derived stage:
+          BASIC maps to BASIC, MIDDLE to MIDDLE, and FINAL to FINAL.
+  EXPECT: large BST differences are allowed; no percentage band is enforced.
+  EXPECT: no WIDEN_STRENGTH or DROP_STRENGTH diagnostic is produced.
+  EXPECT: type, legendary, progression, and duplicate rules still apply.
+          If they leave no same-stage destination, only that affected slot
+          remains vanilla; the stage requirement is never relaxed.
+
 
 --------------------------------------------------------------------------------
 6. NEW GAME, SEEDS, AND RUN IDENTITY
@@ -508,7 +526,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.5.0-dev.
+  EXPECT: ALGORITHM reads 1.6.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -1497,7 +1515,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.35.0.
+          compatibility block, and the archive file name all read 0.36.0.
 
 REL-05 [P1] Unsupported engine version
   1. Install on an engine outside >=0.1.30 <0.2.0 if one is available.

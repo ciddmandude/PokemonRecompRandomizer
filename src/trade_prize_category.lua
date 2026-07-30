@@ -14,6 +14,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
   local function commonRules(settings, excluded)
     return {
       strengthPercent = tonumber(settings.similar_strength),
+      sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries or "allow",
       excludeIds = excluded,
     }
@@ -92,6 +93,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
     local rules = commonRules(settings, excluded)
     if settings.trade_fairness == "any" then
       rules.strengthPercent = nil
+      rules.sameStage = false
     end
     return SpeciesFilters.candidates(manifest, requested, rules), false
   end
@@ -142,6 +144,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
           id = record.id, source = source.give, candidates = candidates,
           hardConstraints = {
             similarStrength = tonumber(settings.similar_strength),
+            sameStage = settings.similar_strength == "same_stage",
             legendary = settings.legendaries or "allow",
             reachable = settings.catchability_guard == "on",
           },
@@ -175,6 +178,8 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
         hardConstraints = {
           similarStrength = settings.trade_fairness == "any"
               and nil or tonumber(settings.similar_strength),
+          sameStage = settings.trade_fairness ~= "any"
+            and settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
           fairness = settings.trade_fairness,
           tradeEvolutionSafety = safety,
@@ -287,6 +292,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
         id = record.id, source = record.species, candidates = candidates,
         hardConstraints = {
           similarStrength = tonumber(settings.similar_strength),
+          sameStage = settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
         },
       }

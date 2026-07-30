@@ -214,6 +214,36 @@ local reach = Validation.reachableSpecies(mappings, repairSources)
 assert(reach[mappings.trades.TRADE_07_LOLA.requested.species] <= 2)
 assert(repaired.mappingBytes == #Canonical.encode(mappings))
 
+local stageMappings = {
+  wildGlobal = { A = "CAT", B = "CAT" },
+  wildAreaSlots = {}, fishing = {}, starters = {},
+  staticEncounters = {}, gifts = {}, prizes = {},
+  trades = {
+    TRADE_07_LOLA = {
+      requested = { species = "DOG" },
+      received = { species = "BIRD" },
+    },
+  },
+}
+local stageRepair = Validation.apply(stageMappings, {
+  catchability_guard = "on",
+  similar_strength = "same_stage",
+}, Rng.fromSeed("M14 STAGE REPAIR", "validation.swaps"), {
+  sources = repairSources,
+  manifest = {
+    byId = {
+      CAT = { stage = "basic" },
+      DOG = { stage = "final" },
+    },
+  },
+})
+assert(stageRepair.repairSwaps == 0
+    and stageMappings.trades.TRADE_07_LOLA.requested.species == "DOG",
+  "trade repair must not swap across evolutionary stages")
+assert(stageRepair.warnings[1].code
+    == "TRADE_REACHABILITY_UNSATISFIED",
+  "same-stage trade repair must report an unsatisfied repair")
+
 local missingRun = {
   enabled = true,
   settings = { wild_pokemon = "global_map", wild_levels = "unchanged" },

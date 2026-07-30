@@ -219,6 +219,7 @@ return function(SaveState)
     local strength = tonumber(settings.similar_strength)
     return {
       strengthPercent = strength,
+      sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries,
       duplicatePolicy = settings.duplicate_policy,
     }

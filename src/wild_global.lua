@@ -37,6 +37,7 @@ return function(StableSort, SpeciesFilters, Matching)
   local function filterRules(settings, excluded)
     return {
       strengthPercent = tonumber(settings.similar_strength),
+      sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries or "allow",
       excludeIds = excluded,
     }
@@ -82,6 +83,7 @@ return function(StableSort, SpeciesFilters, Matching)
         diagnostics = diagnostics,
         hardConstraints = {
           similarStrength = tonumber(settings.similar_strength),
+          sameStage = settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
         },
       }

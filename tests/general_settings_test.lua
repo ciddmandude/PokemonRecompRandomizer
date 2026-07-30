@@ -92,8 +92,15 @@ equal(General.poolMode(General.applyPreset(defaults, "chaos")),
   "merged", "chaos pool mode")
 local rules = General.filterRules(defaults)
 equal(rules.strengthPercent, 20, "normalized strength")
+equal(rules.sameStage, false, "standard does not match stages")
 equal(rules.legendary, "match", "normalized legendary")
 equal(rules.duplicatePolicy, "one_to_one", "normalized duplicates")
+local stageSettings = {}
+for key, value in pairs(defaults) do stageSettings[key] = value end
+stageSettings.similar_strength = "same_stage"
+rules = General.filterRules(stageSettings)
+equal(rules.strengthPercent, nil, "same-stage ignores strength")
+equal(rules.sameStage, true, "normalized same-stage rule")
 
 local run = {
   seed = { hash128 = "0123456789ABCDEF0123456789ABCDEF" },
@@ -178,7 +185,7 @@ equal(created.compatibility.settingsHash,
 local savedModsBytes =
   Canonical.encode(created.compatibility.relevantMods)
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.35.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.36.0", api = 2 },
   { id = "added_mid_run", version = "1.0.0", api = 2 },
 }
 local loaded, compatibilityReport = lifecycle:onLoaded({

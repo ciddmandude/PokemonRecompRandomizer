@@ -67,6 +67,12 @@ equal(defaults.game_corner_pokemon, "randomized", "prize default")
 equal(defaults.generate_spoiler_log, "on", "spoiler access default")
 equal(defaults.rival_pokemon, "include", "rival mode default")
 equal(defaults.rival_keep_pokemon, "yes", "rival continuity default")
+local strengthRow
+for _, row in ipairs(defined) do
+  if row.key == "similar_strength" then strengthRow = row break end
+end
+assert(strengthRow and strengthRow.choices[4][2] == "same_stage",
+  "similar strength exposes SAME STAGE")
 
 assert(preferences:set("randomizer", "off", game))
 equal(writes, 1, "single preference persistence")

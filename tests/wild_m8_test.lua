@@ -257,4 +257,21 @@ assert(globalCoverage.coverageSwaps == 1)
 assert(mapA.A == "CHARMANDER" or mapA.B == "CHARMANDER")
 assert(mapA.C == "BULBASAUR")
 
+local stageCoverage = {
+  warnings = {}, fallbackCount = 0, coverageSwaps = 0,
+}
+local stageReachableA = { species = "BULBASAUR" }
+local stageReachableB = { species = "BULBASAUR" }
+local stageLate = { species = "VENUSAUR" }
+WildCategory.repairCoverage({
+  { record = stageReachableA, reachable = true },
+  { record = stageReachableB, reachable = true },
+  { record = stageLate, reachable = false },
+}, manifest, stageCoverage, true)
+assert(stageCoverage.coverageSwaps == 0,
+  "coverage repair must not swap across evolutionary stages")
+assert(stageLate.species == "VENUSAUR"
+    and stageCoverage.warnings[1].code == "WILD_COVERAGE_UNSATISFIED",
+  "same-stage coverage must report unsatisfied instead of dropping stage")
+
 io.write("wild_m8_test: ok\n")

@@ -175,6 +175,7 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
       "validation swap RNG is required")
     context = context or {}
     local sources = context.sources or {}
+    local manifest = context.manifest
     local result = {
       warnings = {}, fallbackCount = 0, repairSwaps = 0,
       reachableSpecies = 0,
@@ -204,8 +205,19 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
         if type(species) == "string" and not obtainable then
           local counts = access.available and countsAt(units, access.stage) or {}
           local donors = {}
+          local requestedEntry = type(manifest) == "table"
+            and type(manifest.byId) == "table"
+            and manifest.byId[species]
           for _, unit in ipairs(units) do
+            local donorEntry = type(manifest) == "table"
+              and type(manifest.byId) == "table"
+              and manifest.byId[unit.species]
+            local stageCompatible =
+              settings.similar_strength ~= "same_stage"
+              or (requestedEntry and donorEntry
+                and requestedEntry.stage == donorEntry.stage)
             if Progression.isAvailableAt(unit.access, access.stage)
+                and stageCompatible
                 and (counts[unit.species] or 0) > 1 then
               donors[#donors + 1] = unit
             end
