@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.1.0-dev`
+Algorithm build: `1.2.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -36,6 +36,12 @@ augmenting-path matching. Pool reuse is allowed only after matching proves the
 next source cannot join the current uniqueness pool. Saved mappings remain
 authoritative, so loading a run created by an earlier algorithm build never
 regenerates it.
+
+Remediation M9 advances the algorithm build because explicit map, terrain,
+rod, story, badge, and trade-stage access rules can change both candidate
+selection and deterministic repair swaps. The 24 full-generator expectations
+were regenerated for `1.2.0-dev`; older saved runs still use their stored
+mappings and are never regenerated.
 
 ## 1. Numeric model
 

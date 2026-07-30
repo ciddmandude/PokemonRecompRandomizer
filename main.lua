@@ -23,6 +23,7 @@ return function(mod)
   local Hash128 = loadModule("src/hash128.lua", Constants, UInt32)
   local StableSort = loadModule("src/stable_sort.lua")
   local Matching = loadModule("src/matching.lua", StableSort)
+  local Progression = loadModule("src/progression.lua", StableSort)
   local Rng = loadModule("src/rng.lua", Constants, UInt32, Hash128)
   local Canonical = loadModule("src/canonical.lua", StableSort)
   local VanillaSpecies = loadModule("src/vanilla_species.lua")
@@ -49,7 +50,8 @@ return function(mod)
   local WildGlobal = loadModule(
     "src/wild_global.lua", StableSort, SpeciesFilters, Matching)
   local WildCategory = loadModule(
-    "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal, Matching)
+    "src/wild_category.lua",
+    StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
   local WildRuntime = loadModule("src/wild_runtime.lua")
   local StarterCategory = loadModule(
     "src/starter_category.lua", StableSort)
@@ -66,20 +68,21 @@ return function(mod)
   local TradePrizeCatalog = loadModule("src/trade_prize_catalog.lua")
   local TradePrizeCategory = loadModule(
     "src/trade_prize_category.lua",
-    StableSort, SpeciesFilters, TradePrizeCatalog, Matching)
+    StableSort, SpeciesFilters, TradePrizeCatalog, Matching, Progression)
   local TradePrizeCompat = loadModule(
     "src/trade_prize_compat.lua", TradePrizeCatalog)
   local TrainerCategory = loadModule(
     "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
   local TrainerRuntime = loadModule("src/trainer_runtime.lua")
   local ValidationCategory = loadModule(
-    "src/validation_category.lua", StableSort, Canonical)
+    "src/validation_category.lua",
+    StableSort, Canonical, Progression, TradePrizeCatalog)
   local SpoilerLog = loadModule("src/spoiler_log.lua")
   local Generator = loadModule(
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
     StaticGiftCategory, TradePrizeCategory, TrainerCategory,
-    ValidationCategory)
+    Progression, ValidationCategory)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)

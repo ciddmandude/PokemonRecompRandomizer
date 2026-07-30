@@ -1,6 +1,6 @@
 -- Deterministic mod-only M12 generation for nine wired NPC trades and the
 -- active version's six Celadon Game Corner Pokemon prize slots.
-return function(StableSort, SpeciesFilters, Catalog, Matching)
+return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
   local Category = {}
 
   local function clamp(value, minimum, maximum)
@@ -53,13 +53,19 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
     }
   end
 
-  local function reachableCandidates(candidates, reachable)
-    if type(reachable) ~= "table" or next(reachable) == nil then
+  local function reachableCandidates(candidates, reachable, tradeAccess)
+    if type(reachable) ~= "table"
+        or type(reachable.earliestBySpecies) ~= "table"
+        or next(reachable.earliestBySpecies) == nil
+        or not tradeAccess or not tradeAccess.available then
       return candidates
     end
     local output = {}
     for _, row in ipairs(candidates) do
-      if reachable[row.id] then output[#output + 1] = row end
+      local stage = reachable.earliestBySpecies[row.id]
+      if stage ~= nil and stage <= tradeAccess.stage then
+        output[#output + 1] = row
+      end
     end
     return output
   end
@@ -112,17 +118,24 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
       end
 
       if both then
+        local tradeAccess = Progression.tradeAccess(record,
+          sources.gameVersion or sources.version)
         local candidates = SpeciesFilters.candidates(
           manifest, source.give, commonRules(settings, nil))
         if settings.catchability_guard == "on" then
-          local guarded = reachableCandidates(candidates, reachable)
+          local guarded = reachableCandidates(candidates, reachable, tradeAccess)
           if #guarded > 0 then
             candidates = guarded
           else
-            warnings[#warnings + 1] = warning(
+            local row = warning(
               "TRADE_REACHABILITY_RELAXED",
-              "no mapped reachable request candidate was available; "
-                .. "the common pool was used", record.id)
+              "no requested candidate is obtainable by this trade's "
+                .. "progression stage; the common pool was used", record.id)
+            row.mapId = record.mapId
+            row.location = tradeAccess and tradeAccess.locationName
+            row.stage = tradeAccess and tradeAccess.stage
+            row.stageName = tradeAccess and tradeAccess.stageName
+            warnings[#warnings + 1] = row
           end
         end
         requestUnits[#requestUnits + 1] = {

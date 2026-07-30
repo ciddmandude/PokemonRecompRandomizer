@@ -157,9 +157,17 @@ local function propertyCheck(request, result, label)
   end
 
   if request.settings.catchability_guard == "on" then
-    local reachable = Harness.Validation.reachableSpecies(mappings)
-    for _, row in pairs(mappings.trades) do
-      if not reachable[row.requested.species] then
+    local reachable = Harness.Validation.reachableSpecies(
+      mappings, request.sources)
+    local records = {}
+    for _, record in ipairs(Harness.TradeCatalog.trades) do
+      records[record.id] = record
+    end
+    for tradeId, row in pairs(mappings.trades) do
+      local access = Harness.Progression.tradeAccess(
+        records[tradeId], request.sources.gameVersion)
+      local stage = reachable[row.requested.species]
+      if stage == nil or stage > access.stage then
         assert(containsCode(result, "TRADE_REACHABILITY_UNSATISFIED"),
           label .. " unreachable guarded trade lacked attribution")
       end

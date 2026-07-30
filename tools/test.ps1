@@ -61,6 +61,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'wild_global_test failed' }
   & $luaPath 'tests/wild_m8_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'wild_m8_test failed' }
+  & $luaPath 'tests/progression_m9_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'progression_m9_test failed' }
   & $luaPath 'tests/starter_seam_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'starter_seam_test failed' }
   & $luaPath 'tests/starter_m10_test.lua'

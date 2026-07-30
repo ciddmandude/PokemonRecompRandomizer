@@ -105,9 +105,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.21.0`
+- randomizer mod version: `0.22.0`
 - generator contract: `1`
-- algorithm build: `1.1.0-dev`
+- algorithm build: `1.2.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)
@@ -115,6 +115,12 @@ validation rules, see the linked design documents above or the
 The engine validates the API and game-version range before executing the mod.
 The bootstrap also verifies the mod object's required API-2 surfaces. A failed
 check is attributed to this mod and rolled back by gen1recomp's loader.
+
+Catchability Guard uses an explicit Red/Blue progression model. Walking,
+Surf-only water, all three rods, Safari access, story gates, Victory Road,
+postgame maps, and the availability stage of each supported NPC trade are
+evaluated separately. Unknown custom map IDs are excluded from guarantees and
+reported in the run diagnostics instead of being assumed reachable.
 
 ## Release packaging
 

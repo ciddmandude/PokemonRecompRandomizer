@@ -11,12 +11,14 @@ local Constants = loadFactory("src/constants.lua")
 local UInt32 = loadFactory("src/uint32.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Progression = loadFactory("src/progression.lua", StableSort)
 local Matching = loadFactory("src/matching.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Filters = loadFactory("src/species_filters.lua")
 local Catalog = loadFactory("src/trade_prize_catalog.lua")
 local Category = loadFactory(
-  "src/trade_prize_category.lua", StableSort, Filters, Catalog, Matching)
+  "src/trade_prize_category.lua",
+  StableSort, Filters, Catalog, Matching, Progression)
 local Compat = loadFactory("src/trade_prize_compat.lua", Catalog)
 local General = loadFactory("src/general_settings.lua", {
   behaviorSettings = function(value) return value end,
@@ -126,6 +128,24 @@ local receivedOnly = Category.generate(
   streams("M12 RECEIVED"), {})
 for _, record in ipairs(Catalog.trades) do
   assert(receivedOnly.trades[record.id].requested.species == record.give)
+end
+
+local guardedSettings = {}
+for key, value in pairs(settings) do guardedSettings[key] = value end
+guardedSettings.catchability_guard = "on"
+local timeline = { earliestBySpecies = {} }
+for index = 1, 20 do
+  timeline.earliestBySpecies[("M12_CANDIDATE_%02d"):format(index)] =
+    index <= 12 and Progression.STAGES.START or Progression.STAGES.SURF
+end
+local guarded = Category.generate(
+  manifest, { gameVersion = "red" }, guardedSettings,
+  streams("M9 TRADE TIMELINE"), timeline)
+for _, record in ipairs(Catalog.trades) do
+  local access = Progression.tradeAccess(record, "red")
+  local requested = guarded.trades[record.id].requested.species
+  assert(timeline.earliestBySpecies[requested] <= access.stage,
+    "requested species must be obtainable when its NPC trade is available")
 end
 
 local sawAllowedLegendary = false

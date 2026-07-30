@@ -515,6 +515,8 @@ Exit criteria:
 
 ### Milestone 9 — P4 progression-aware Catchability Guard
 
+Status: Completed in `0.22.0`.
+
 Deliver:
 
 - explicit progression graph;
@@ -522,6 +524,24 @@ Deliver:
 - trade-time reachability;
 - progression fixtures and readable diagnostics;
 - interim label downgrade if full modeling is not yet complete.
+
+Implementation notes:
+
+- `src/progression.lua` defines ordered Red/Blue access stages from the
+  opening routes through postgame, including Cut, Surf, badge, story, Safari,
+  rod, Victory Road, and Elite Four requirements.
+- Grass/walking, water/Surf, Old Rod, Good Rod, and Super Rod slots are
+  evaluated independently. Unknown or unsupported-version maps are excluded
+  from guarantees and reported as `PROGRESSION_MAP_UNKNOWN`.
+- Each supported NPC trade has an explicit availability stage. Requested
+  species are filtered against their earliest generated acquisition stage;
+  final validation may only use a duplicate wild donor available by that
+  trade's stage.
+- Diagnostics identify the trade/map, readable stage name, and the exact
+  guarantee that was relaxed, repaired, or could not be satisfied.
+- The shipped implementation is the full Catchability Guard model for the
+  supported Red/Blue catalog, so the UI retains the `CATCHABILITY GUARD`
+  label rather than downgrading it to `BASIC COVERAGE`.
 
 Exit criteria:
 

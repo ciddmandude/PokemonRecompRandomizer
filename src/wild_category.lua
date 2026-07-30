@@ -1,5 +1,5 @@
 -- Milestone-8 generation for area slots, fishing, levels, and coverage.
-return function(StableSort, SpeciesFilters, WildGlobal, Matching)
+return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
   local WildCategory = {}
   local TERRAIN_ORDER = { "grass", "water" }
   local ROD_ORDER = { "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }
@@ -63,10 +63,10 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
     return level
   end
 
-  local function isReachable(mapId)
-    if mapId == "*" then return true end
-    return not (mapId:match("^CERULEAN_CAVE")
-      or mapId:match("^UNKNOWN_DUNGEON"))
+  local function accessFor(mapId, terrain, rod, version)
+    local method = rod and "fish"
+      or terrain == "water" and "surf" or "walk"
+    return Progression.access(mapId, method, rod, version)
   end
 
   local function addWarning(result, code, message, details)
@@ -82,7 +82,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
     return root[first][second]
   end
 
-  local function encounterSlots(encounters)
+  local function encounterSlots(encounters, version)
     local rows = {}
     if type(encounters) ~= "table" then return rows, false end
     for _, mapId in ipairs(StableSort.keys(encounters)) do
@@ -101,13 +101,15 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
           if type(slot) == "table" and type(slot.species) == "string"
               and type(slot.level) == "number" then
             local key = slot.species .. "\0" .. tostring(slot.level)
+            local access = accessFor(mapId, terrain, nil, version)
             rows[#rows + 1] = {
               mapId = mapId,
               terrain = terrain,
               index = index,
               source = slot.species,
               level = slot.level,
-              reachable = isReachable(mapId),
+              access = access,
+              reachable = Progression.isPreEliteFour(access),
               identifiable = identities[key] == 1,
             }
           end
@@ -117,7 +119,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
     return rows, true
   end
 
-  local function fishingSlots(field)
+  local function fishingSlots(field, version)
     local rows = {}
     if type(field) ~= "table" or type(field.fishing) ~= "table" then
       return rows, false
@@ -126,11 +128,13 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
       local definition = field.fishing[rod]
       if type(definition) == "table" then
         if type(definition.always) == "table" then
+          local access = accessFor("*", nil, rod, version)
           rows[#rows + 1] = {
             rod = rod, mapId = "*", index = 1,
             source = definition.always.species,
             level = definition.always.level,
-            reachable = true,
+            access = access,
+            reachable = Progression.isPreEliteFour(access),
           }
         elseif type(definition.pool) == "table" then
           local identities = {}
@@ -140,9 +144,12 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
           end
           for index, slot in ipairs(definition.pool) do
             local key = tostring(slot.species) .. "\0" .. tostring(slot.level)
+            local access = accessFor("*", nil, rod, version)
             rows[#rows + 1] = {
               rod = rod, mapId = "*", index = index,
-              source = slot.species, level = slot.level, reachable = true,
+              source = slot.species, level = slot.level,
+              access = access,
+              reachable = Progression.isPreEliteFour(access),
               identifiable = identities[key] == 1,
             }
           end
@@ -157,10 +164,12 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
             end
             for index, slot in ipairs(group) do
               local key = tostring(slot.species) .. "\0" .. tostring(slot.level)
+              local access = accessFor(mapId, nil, rod, version)
               rows[#rows + 1] = {
                 rod = rod, mapId = mapId, index = index,
                 source = slot.species, level = slot.level,
-                reachable = isReachable(mapId),
+                access = access,
+                reachable = Progression.isPreEliteFour(access),
                 identifiable = identities[key] == 1,
               }
             end
@@ -276,11 +285,13 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
       warnings = {},
       fallbackCount = 0,
       coverageSwaps = 0,
+      reachability = { earliestBySpecies = {}, unknownLocations = {} },
     }
     if settings.wild_pokemon == "off" then return result end
 
+    local version = sources and (sources.gameVersion or sources.version) or "red"
     local encounterRows, encountersAvailable =
-      encounterSlots(sources and sources.encounters)
+      encounterSlots(sources and sources.encounters, version)
     if not encountersAvailable then
       addWarning(result, "WILD_SOURCE_UNAVAILABLE",
         "merged encounter registry is unavailable; wild encounters are vanilla")
@@ -290,7 +301,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
 
     local fishRows, fishingAvailable = {}, false
     if settings.fishing == "randomized" then
-      fishRows, fishingAvailable = fishingSlots(sources and sources.field)
+      fishRows, fishingAvailable = fishingSlots(sources and sources.field, version)
     end
     local occurrences = {}
     local globalUnits = {}
@@ -329,6 +340,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
           occurrences[#occurrences + 1] = {
             record = { species = destination },
             reachable = slot.reachable,
+            access = slot.access,
           }
         end
       end
@@ -368,7 +380,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
           ensurePath(result.wildAreaSlots,
             slot.mapId, slot.terrain)[slot.index] = record
           occurrences[#occurrences + 1] = {
-            record = record, reachable = slot.reachable,
+            record = record, reachable = slot.reachable, access = slot.access,
           }
         else
           addWarning(result, "WILD_"
@@ -459,6 +471,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
               record = settings.wild_pokemon == "area_slots"
                   and record or { species = destination },
               reachable = slot.reachable,
+              access = slot.access,
             }
           else
             result.fallbackCount = result.fallbackCount + 1
@@ -525,12 +538,63 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching)
         end
       end
     end
+
+    local finalReachabilityRows = {}
+    for _, slot in ipairs(encounterRows) do
+      local species
+      if settings.wild_pokemon == "global_map" then
+        species = result.wildGlobal[slot.source]
+      else
+        local record = result.wildAreaSlots[slot.mapId]
+        record = type(record) == "table" and record[slot.terrain]
+        record = type(record) == "table" and record[slot.index]
+        species = type(record) == "table" and record.species
+      end
+      finalReachabilityRows[#finalReachabilityRows + 1] = {
+        species = species, access = slot.access,
+      }
+    end
+    for _, slot in ipairs(fishRows) do
+      local species
+      if settings.wild_pokemon == "global_map" then
+        species = type(result.fishing) == "table"
+          and type(result.fishing.global) == "table"
+          and result.fishing.global[slot.source]
+      else
+        local record = type(result.fishing) == "table" and result.fishing.slots
+        record = type(record) == "table" and record[slot.rod]
+        record = type(record) == "table" and record[slot.mapId]
+        record = type(record) == "table" and record[slot.index]
+        species = type(record) == "table" and record.species
+      end
+      finalReachabilityRows[#finalReachabilityRows + 1] = {
+        species = species, access = slot.access,
+      }
+    end
+    for _, row in ipairs(finalReachabilityRows) do
+      local species = row.species
+      local access = row.access
+      if type(species) == "string" and access and access.available then
+        local previous = result.reachability.earliestBySpecies[species]
+        if previous == nil or access.stage < previous then
+          result.reachability.earliestBySpecies[species] = access.stage
+        end
+      elseif access and not access.known then
+        result.reachability.unknownLocations[access.mapId] = true
+      end
+    end
+    for _, mapId in ipairs(StableSort.keys(result.reachability.unknownLocations)) do
+      addWarning(result, "PROGRESSION_MAP_UNKNOWN",
+        "encounters on this map are excluded from catchability guarantees "
+          .. "because its access requirements are unknown",
+        { mapId = mapId, location = Progression.locationName(mapId) })
+    end
     return result
   end
 
   WildCategory.encounterSlots = encounterSlots
   WildCategory.fishingSlots = fishingSlots
-  WildCategory.isReachable = isReachable
+  WildCategory.accessFor = accessFor
   WildCategory.repairCoverage = repairCoverage
   WildCategory.repairGlobalCoverage = repairGlobalCoverage
   return WildCategory

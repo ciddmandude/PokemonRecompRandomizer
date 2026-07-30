@@ -2,7 +2,7 @@
 return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
     StaticGiftCategory, TradePrizeCategory, TrainerCategory,
-    ValidationCategory)
+    Progression, ValidationCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -33,6 +33,7 @@ return function(
       manifest.byId[entry.id] = entry
     end
 
+    local wildReachability = { earliestBySpecies = {} }
     if request.settings.wild_pokemon ~= "off" then
       local ok, category = pcall(WildCategory.generate,
         manifest, request.sources or {}, request.settings, {
@@ -44,6 +45,7 @@ return function(
             request.seed.canonical, "wild.levels"),
         })
       if ok then
+        wildReachability = category.reachability or wildReachability
         result.mappings.wildGlobal = category.wildGlobal
         result.mappings.wildAreaSlots = category.wildAreaSlots
         result.mappings.fishing = category.fishing
@@ -138,26 +140,36 @@ return function(
           and request.settings.in_game_trades ~= "off")
         or (request.settings.game_corner_pokemon ~= nil
           and request.settings.game_corner_pokemon ~= "off") then
-      local reachable = {}
-      for _, species in pairs(result.mappings.wildGlobal) do
-        if type(species) == "string" then reachable[species] = true end
+      local reachable = {
+        earliestBySpecies = {},
+        unknownLocations = wildReachability.unknownLocations or {},
+      }
+      for species, stage in pairs(wildReachability.earliestBySpecies or {}) do
+        reachable.earliestBySpecies[species] = stage
       end
-      local function collectMapped(value)
-        if type(value) == "string" then
-          if manifest.byId[value] then reachable[value] = true end
-          return
+      local function addEarliest(species, stage)
+        if type(species) ~= "string" or stage == nil then return end
+        local previous = reachable.earliestBySpecies[species]
+        if previous == nil or stage < previous then
+          reachable.earliestBySpecies[species] = stage
         end
-        if type(value) ~= "table" then return end
-        if type(value.species) == "string" then
-          reachable[value.species] = true
-        end
-        for _, child in pairs(value) do collectMapped(child) end
       end
-      collectMapped(result.mappings.wildAreaSlots)
-      collectMapped(result.mappings.fishing)
-      collectMapped(result.mappings.starters)
-      collectMapped(result.mappings.staticEncounters)
-      collectMapped(result.mappings.gifts)
+      for _, starter in pairs(result.mappings.starters or {}) do
+        addEarliest(type(starter) == "table" and starter.species or starter,
+          Progression.STAGES.START)
+      end
+      local version = request.sources
+        and (request.sources.gameVersion or request.sources.version) or "red"
+      local function collectLocated(rows)
+        for _, row in pairs(rows or {}) do
+          if type(row) == "table" and type(row.species) == "string" then
+            local access = Progression.access(row.mapId, "walk", nil, version)
+            if access.available then addEarliest(row.species, access.stage) end
+          end
+        end
+      end
+      collectLocated(result.mappings.staticEncounters)
+      collectLocated(result.mappings.gifts)
 
       local ok, category = pcall(TradePrizeCategory.generate,
         manifest, request.sources or {}, request.settings, {
@@ -222,7 +234,10 @@ return function(
 
     local ok, validation = pcall(ValidationCategory.apply,
       result.mappings, request.settings, Foundation.Rng.fromSeed(
-        request.seed.canonical, "validation.swaps"))
+        request.seed.canonical, "validation.swaps"), {
+          sources = request.sources or {},
+          wildReachability = wildReachability,
+        })
     if ok then
       for _, row in ipairs(validation.warnings) do
         result.diagnostics.warnings[

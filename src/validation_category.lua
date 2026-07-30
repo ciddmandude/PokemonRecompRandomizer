@@ -1,60 +1,151 @@
--- Cross-category reachability checks and deterministic repair swaps.
-return function(StableSort, Canonical)
+-- Cross-category progression checks and deterministic repair swaps.
+return function(StableSort, Canonical, Progression, TradeCatalog)
   local Validation = {}
 
-  local function addSpecies(found, value)
-    if type(value) == "string" and value ~= "" then
-      found[value] = (found[value] or 0) + 1
-    elseif type(value) == "table" and type(value.species) == "string" then
-      found[value.species] = (found[value.species] or 0) + 1
+  local function addUnit(units, owner, key, species, access)
+    if type(species) == "string" then
+      units[#units + 1] = {
+        owner = owner, key = key, species = species, access = access,
+      }
     end
   end
 
-  local function wildUnits(mappings)
+  local function earliestEncounterAccess(source, encounters, version)
+    local best
+    for mapId, encounter in pairs(encounters or {}) do
+      for _, terrain in ipairs({ "grass", "water" }) do
+        local slots = type(encounter) == "table"
+          and type(encounter[terrain]) == "table"
+          and encounter[terrain].slots or {}
+        for _, slot in ipairs(slots or {}) do
+          if slot.species == source then
+            local access = Progression.access(mapId,
+              terrain == "water" and "surf" or "walk", nil, version)
+            if access.available and (not best or access.stage < best.stage) then
+              best = access
+            end
+          end
+        end
+      end
+    end
+    return best
+  end
+
+  local function earliestFishingAccess(source, field, version)
+    local best
+    local fishing = type(field) == "table" and field.fishing or {}
+    for _, rod in ipairs({ "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }) do
+      local definition = fishing and fishing[rod]
+      local function consider(mapId, slot)
+        if type(slot) == "table" and slot.species == source then
+          local access = Progression.access(mapId, "fish", rod, version)
+          if access.available and (not best or access.stage < best.stage) then
+            best = access
+          end
+        end
+      end
+      if type(definition) == "table" and type(definition.always) == "table" then
+        consider("*", definition.always)
+      elseif type(definition) == "table" and type(definition.pool) == "table" then
+        for _, slot in ipairs(definition.pool) do consider("*", slot) end
+      elseif type(definition) == "table" and type(definition.perMap) == "string" then
+        for mapId, slots in pairs(field[definition.perMap] or {}) do
+          for _, slot in ipairs(slots or {}) do consider(mapId, slot) end
+        end
+      end
+    end
+    return best
+  end
+
+  local function wildUnits(mappings, sources)
+    sources = sources or {}
+    local version = sources.gameVersion or sources.version or "red"
     local units = {}
     for _, source in ipairs(StableSort.keys(mappings.wildGlobal or {})) do
-      units[#units + 1] = {
-        owner = mappings.wildGlobal, key = source,
-        species = mappings.wildGlobal[source],
-      }
+      addUnit(units, mappings.wildGlobal, source, mappings.wildGlobal[source],
+        earliestEncounterAccess(source, sources.encounters, version))
     end
-    local function walk(value)
-      if type(value) ~= "table" then return end
-      if type(value.species) == "string" then
-        units[#units + 1] = {
-          owner = value, key = "species", species = value.species,
-        }
-        return
+    for _, mapId in ipairs(StableSort.keys(mappings.wildAreaSlots or {})) do
+      local map = mappings.wildAreaSlots[mapId]
+      for _, terrain in ipairs({ "grass", "water" }) do
+        local slots = type(map) == "table" and map[terrain] or {}
+        local access = Progression.access(mapId,
+          terrain == "water" and "surf" or "walk", nil, version)
+        for _, index in ipairs(StableSort.keys(slots or {})) do
+          local record = slots[index]
+          if type(record) == "table" then
+            addUnit(units, record, "species", record.species, access)
+          end
+        end
       end
-      for _, key in ipairs(StableSort.keys(value)) do walk(value[key]) end
     end
-    walk(mappings.wildAreaSlots or {})
     local fishing = mappings.fishing or {}
     for _, source in ipairs(StableSort.keys(fishing.global or {})) do
-      units[#units + 1] = {
-        owner = fishing.global, key = source,
-        species = fishing.global[source],
-      }
+      addUnit(units, fishing.global, source, fishing.global[source],
+        earliestFishingAccess(source, sources.field, version))
     end
-    walk(fishing.slots or {})
+    for _, rod in ipairs(StableSort.keys(fishing.slots or {})) do
+      for _, mapId in ipairs(StableSort.keys(fishing.slots[rod] or {})) do
+        local access = Progression.access(mapId, "fish", rod, version)
+        for _, index in ipairs(StableSort.keys(fishing.slots[rod][mapId] or {})) do
+          local record = fishing.slots[rod][mapId][index]
+          if type(record) == "table" then
+            addUnit(units, record, "species", record.species, access)
+          end
+        end
+      end
+    end
     return units
   end
 
-  local function reachableSpecies(mappings)
+  local function mergeEarliest(found, species, stage)
+    if type(species) == "string" and stage ~= nil
+        and (found[species] == nil or stage < found[species]) then
+      found[species] = stage
+    end
+  end
+
+  local function earliestSpecies(mappings, sources)
+    sources = sources or {}
     local found = {}
-    for _, unit in ipairs(wildUnits(mappings)) do addSpecies(found, unit.species) end
-    local function walk(value)
-      if type(value) ~= "table" then return end
-      addSpecies(found, value)
-      for _, child in pairs(value) do
-        if type(child) == "table" then walk(child) end
+    local version = sources.gameVersion or sources.version or "red"
+    for _, unit in ipairs(wildUnits(mappings, sources)) do
+      if unit.access and unit.access.available then
+        mergeEarliest(found, unit.species, unit.access.stage)
       end
     end
-    walk(mappings.starters or {})
-    walk(mappings.staticEncounters or {})
-    walk(mappings.gifts or {})
-    walk(mappings.prizes or {})
+    for _, row in pairs(mappings.starters or {}) do
+      mergeEarliest(found, type(row) == "table" and row.species or row,
+        Progression.STAGES.START)
+    end
+    for _, category in ipairs({
+      mappings.staticEncounters or {}, mappings.gifts or {},
+    }) do
+      for _, row in pairs(category) do
+        if type(row) == "table" then
+          local access = Progression.access(row.mapId, "walk", nil, version)
+          if access.available then
+            mergeEarliest(found, row.species, access.stage)
+          end
+        end
+      end
+    end
+    for _, row in pairs(mappings.prizes or {}) do
+      if type(row) == "table" then
+        mergeEarliest(found, row.species, Progression.STAGES.LAVENDER_CELADON)
+      end
+    end
     return found
+  end
+
+  local function countsAt(units, stage)
+    local counts = {}
+    for _, unit in ipairs(units) do
+      if Progression.isAvailableAt(unit.access, stage) then
+        counts[unit.species] = (counts[unit.species] or 0) + 1
+      end
+    end
+    return counts
   end
 
   local function countNodes(value, active)
@@ -70,35 +161,52 @@ return function(StableSort, Canonical)
     return count
   end
 
-  function Validation.apply(mappings, settings, rng)
+  local function tradeRecord(id)
+    for _, record in ipairs(TradeCatalog.trades or {}) do
+      if record.id == id then return record end
+    end
+    return nil
+  end
+
+  function Validation.apply(mappings, settings, rng, context)
     assert(type(mappings) == "table", "saved mappings are required")
     assert(type(settings) == "table", "settings are required")
     assert(type(rng) == "table" and type(rng.nextInt) == "function",
       "validation swap RNG is required")
+    context = context or {}
+    local sources = context.sources or {}
     local result = {
-      warnings = {},
-      fallbackCount = 0,
-      repairSwaps = 0,
+      warnings = {}, fallbackCount = 0, repairSwaps = 0,
       reachableSpecies = 0,
       mappingEntries = countNodes(mappings),
       mappingBytes = #Canonical.encode(mappings),
     }
-    local reachable = reachableSpecies(mappings)
-    for _ in pairs(reachable) do
-      result.reachableSpecies = result.reachableSpecies + 1
+    local earliest = earliestSpecies(mappings, sources)
+    for _, stage in pairs(earliest) do
+      if stage <= Progression.PRE_ELITE_FOUR_MAX then
+        result.reachableSpecies = result.reachableSpecies + 1
+      end
     end
 
     if settings.catchability_guard == "on" then
-      local units = wildUnits(mappings)
+      local units = wildUnits(mappings, sources)
       for _, tradeId in ipairs(StableSort.keys(mappings.trades or {})) do
         local trade = mappings.trades[tradeId]
         local requested = type(trade) == "table" and trade.requested
         local species = type(requested) == "table" and requested.species
-        if type(species) == "string" and not reachable[species] then
+        local record = tradeRecord(tradeId)
+        local access = Progression.tradeAccess(record,
+          sources.gameVersion or sources.version)
+        local obtainable = type(species) == "string"
+          and access.available
+          and earliest[species] ~= nil
+          and earliest[species] <= access.stage
+        if type(species) == "string" and not obtainable then
+          local counts = access.available and countsAt(units, access.stage) or {}
           local donors = {}
           for _, unit in ipairs(units) do
-            if type(unit.species) == "string"
-                and (reachable[unit.species] or 0) > 1 then
+            if Progression.isAvailableAt(unit.access, access.stage)
+                and (counts[unit.species] or 0) > 1 then
               donors[#donors + 1] = unit
             end
           end
@@ -107,32 +215,38 @@ return function(StableSort, Canonical)
             local displaced = donor.owner[donor.key]
             donor.owner[donor.key] = species
             requested.species = displaced
-            reachable[displaced] = reachable[displaced] - 1
-            reachable[species] = 1
             donor.species = species
+            earliest = earliestSpecies(mappings, sources)
             result.repairSwaps = result.repairSwaps + 1
             result.warnings[#result.warnings + 1] = {
               code = "TRADE_REACHABILITY_REPAIRED",
-              message = "a saved wild destination was swapped with an "
-                .. "unreachable requested trade species",
-              id = tradeId,
+              message = "requested species was placed in an encounter "
+                .. "available before this trade",
+              id = tradeId, mapId = record and record.mapId,
+              location = access.locationName,
+              stage = access.stage, stageName = access.stageName,
             }
           else
             result.fallbackCount = result.fallbackCount + 1
             result.warnings[#result.warnings + 1] = {
               code = "TRADE_REACHABILITY_UNSATISFIED",
-              message = "no duplicate reachable wild destination was "
-                .. "available for a safe repair swap",
-              id = tradeId,
+              message = "no duplicate wild destination obtainable before "
+                .. "this trade was available for a safe repair",
+              id = tradeId, mapId = record and record.mapId,
+              location = access and access.locationName,
+              stage = access and access.stage,
+              stageName = access and access.stageName,
             }
           end
         end
       end
     end
+    result.mappingBytes = #Canonical.encode(mappings)
     return result
   end
 
-  Validation.reachableSpecies = reachableSpecies
+  Validation.earliestSpecies = earliestSpecies
+  Validation.reachableSpecies = earliestSpecies
   Validation.wildUnits = wildUnits
   return Validation
 end

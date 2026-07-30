@@ -11,19 +11,22 @@ local Constants = loadFactory("src/constants.lua")
 local UInt32 = loadFactory("src/uint32.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Progression = loadFactory("src/progression.lua", StableSort)
+local TradeCatalog = loadFactory("src/trade_prize_catalog.lua")
 local Canonical = loadFactory("src/canonical.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Spoiler = loadFactory("src/spoiler_log.lua")
 local Controller = loadFactory(
   "src/spoiler_controller.lua", Constants, Spoiler)
 local Validation = loadFactory(
-  "src/validation_category.lua", StableSort, Canonical)
+  "src/validation_category.lua",
+  StableSort, Canonical, Progression, TradeCatalog)
 local WildRuntime = loadFactory("src/wild_runtime.lua")
 local TrainerRuntime = loadFactory("src/trainer_runtime.lua")
 
 local run = {
   schemaVersion = 1,
-  algorithmVersion = "1.1.0-dev",
+  algorithmVersion = "1.2.0-dev",
   enabled = true,
   seed = { canonical = "SPOILER TEST", hash128 = ("A"):rep(32) },
   settings = { generate_spoiler_log = "on" },
@@ -144,18 +147,31 @@ local mappings = {
   starterFlags = {}, staticEncounters = {}, gifts = {},
   prizes = {}, trainerParties = {},
   trades = {
-    TRADE = {
+    TRADE_07_LOLA = {
       requested = { species = "DOG" },
       received = { species = "BIRD" },
     },
   },
 }
+local repairSources = {
+  version = "red",
+  encounters = {
+    ROUTE_1 = {
+      grass = { slots = {
+        { species = "A", level = 3 },
+        { species = "B", level = 4 },
+      } },
+    },
+  },
+}
 local repaired = Validation.apply(mappings, {
   catchability_guard = "on",
-}, Rng.fromSeed("M14 REPAIR", "validation.swaps"))
+}, Rng.fromSeed("M14 REPAIR", "validation.swaps"), {
+  sources = repairSources,
+})
 assert(repaired.repairSwaps == 1)
-local reach = Validation.reachableSpecies(mappings)
-assert(reach[mappings.trades.TRADE.requested.species])
+local reach = Validation.reachableSpecies(mappings, repairSources)
+assert(reach[mappings.trades.TRADE_07_LOLA.requested.species] <= 2)
 assert(repaired.mappingBytes == #Canonical.encode(mappings))
 
 local missingRun = {

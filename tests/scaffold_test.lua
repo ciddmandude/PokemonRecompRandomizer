@@ -14,6 +14,7 @@ local UInt32 = loadFactory("src/uint32.lua")
 local Seed = loadFactory("src/seed.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local Progression = loadFactory("src/progression.lua", StableSort)
 local Matching = loadFactory("src/matching.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
 local Canonical = loadFactory("src/canonical.lua", StableSort)
@@ -26,11 +27,14 @@ local Contracts = loadFactory("src/contracts.lua", Constants)
 local WildGlobal = loadFactory(
   "src/wild_global.lua", StableSort, SpeciesFilters, Matching)
 local WildCategory = loadFactory(
-  "src/wild_category.lua", StableSort, SpeciesFilters, WildGlobal, Matching)
+  "src/wild_category.lua",
+  StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
 local StarterCategory = loadFactory(
   "src/starter_category.lua", StableSort)
+local TradePrizeCatalog = loadFactory("src/trade_prize_catalog.lua")
 local ValidationCategory = loadFactory(
-  "src/validation_category.lua", StableSort, Canonical)
+  "src/validation_category.lua",
+  StableSort, Canonical, Progression, TradePrizeCatalog)
 local SaveState = loadFactory("src/save_state.lua",
   Constants, Seed, Hash128, Canonical, StableSort, Contracts)
 local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
@@ -45,17 +49,18 @@ local Generator = loadFactory("src/generator.lua", Constants, Contracts, {
   Manifest = SpeciesManifest,
   Filters = SpeciesFilters,
   VanillaSpecies = VanillaSpecies,
-}, WildCategory, StarterCategory, nil, nil, nil, ValidationCategory)
+}, WildCategory, StarterCategory, nil, nil, nil,
+Progression, ValidationCategory)
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
-assert(Constants.MOD_VERSION == "0.21.0")
+assert(Constants.MOD_VERSION == "0.22.0")
 assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
 assert(Constants.OPTIONS_SCREEN_ID == "PokemonRandomizerOptions")
 assert(Constants.REVIEW_SCREEN_ID == "PokemonRandomizerReview")
 assert(Generator.available == true)
 assert(Generator.foundationAvailable == true)
-assert(Generator.algorithmVersion == "1.1.0-dev")
+assert(Generator.algorithmVersion == "1.2.0-dev")
 assert(type(SaveState.validate) == "function")
 
 local request = {
