@@ -55,7 +55,7 @@ return function()
     prize_prices = "Prize Prices",
     progression_guard = "Progression Guard",
     randomizer = "Randomizer",
-    generate_spoiler_log = "Generate Spoiler Log",
+    generate_spoiler_log = "Enable Spoiler Log",
     rival_counterpick = "Rival Counterpick",
     seed_mode = "Seed Mode",
     seed_text = "Seed Text",

@@ -17,7 +17,7 @@ review. Work is ordered by user impact and release urgency:
    results;
 3. protect saved-run identity and make failures visible;
 4. establish generator-level regression coverage before changing algorithms;
-5. remove Race Mode and replace it with optional readable spoiler generation;
+5. remove Race Mode and replace it with saved-run-gated spoiler access;
 6. strengthen progression guarantees and fragile scripted gifts;
 7. finish API, release, and maintenance cleanup.
 
@@ -36,7 +36,7 @@ part of these changes.
 - Deterministic one-to-one assignment that avoids preventable pool resets.
 - Complete removal of Race Mode, encrypted exports, passphrase workflows, and
   Hall of Fame/Credits command overrides.
-- Optional automatic readable spoiler-log generation.
+- Optional readable spoiler-log viewing and explicit export.
 - A real progression model for Catchability Guard.
 - Safer static/gift script control flow and box-full behavior.
 - Save-size budget reconciliation.
@@ -251,17 +251,17 @@ when its uniqueness and type-triad requirements are satisfied.
 `SPOILER-01` Race Mode, unlock policies, passphrase entry, encrypted `.race`
 files, and Hall of Fame/Credits command overrides shall be absent.
 
-`SPOILER-02` `GENERATE SPOILER LOG` shall offer `OFF` and `ON`, default to
-`OFF`, and apply to the next New Game.
+`SPOILER-02` `ENABLE SPOILER LOG` shall offer `OFF` and `ON`, default to
+`ON`, and be saved with the next New Game.
 
-`SPOILER-03` `ON` shall write one readable plaintext log only after successful
-randomized generation. `OFF` shall perform no automatic filesystem write.
+`SPOILER-03` New Game shall perform no automatic filesystem write. `ON` shall
+permit an in-game viewer and explicit plaintext export; `OFF` shall block both.
 
 `SPOILER-04` The option shall be excluded from the behavior-settings hash and
 shall never affect seed derivation, RNG streams, or mappings.
 
-`SPOILER-05` Manual plaintext export shall remain available for every valid
-active randomized run.
+`SPOILER-05` In-game viewing and manual plaintext export shall be available
+only for a valid active randomized run whose saved spoiler setting is `ON`.
 
 `SPOILER-06` Export failure shall be logged without disabling, rewriting, or
 removing the generated save.
@@ -503,13 +503,15 @@ Deliver:
 - remove Race Mode and Spoiler Unlock settings;
 - remove encrypted exports, passphrases, redaction, and automatic unlocks;
 - remove the Hall of Fame command override and `-R` run identity;
-- add `GENERATE SPOILER LOG: OFF/ON`;
-- retain manual readable export and legacy-save compatibility.
+- add `ENABLE SPOILER LOG: OFF/ON`;
+- retain saved-run-gated viewing, manual readable export, and legacy-save
+  compatibility.
 
 Exit criteria:
 
 - no race or encryption runtime module ships in the package;
-- automatic logs are opt-in and plaintext;
+- New Game performs no automatic spoiler write;
+- enabled runs support plaintext viewing and explicit export;
 - toggling the option cannot change mappings;
 - legacy race metadata has no runtime effect.
 
@@ -620,6 +622,8 @@ Exit criteria:
 
 ### Milestone 12 — P5 release hygiene and cleanup
 
+Status: Completed in `0.25.0`.
+
 Deliver:
 
 - move historical archives out of normal source history according to project
@@ -629,6 +633,29 @@ Deliver:
 - remove verified dead code;
 - reject unsupported game versions for Red/Blue prize catalogs;
 - reconcile README claims with tested behavior.
+
+Implementation notes:
+
+- All historical ZIPs were removed from the working source tree. The
+  repository ignores `dist/*.zip`; current and historical builds are
+  published as release artifacts and no release ZIP remains tracked.
+- The unused `.modkitignore` was removed. `tools/package.ps1` is the sole
+  payload owner, and `validate-package.ps1` rejects every entry outside the
+  documented runtime allowlist.
+- The unused save-lifecycle local and unreachable duplicate starter jump were
+  removed. The surrounding starter flow now uses named labels and remains
+  branch-tested.
+- Unsupported or missing game versions leave Game Corner Pokémon prizes
+  vanilla and emit `PRIZE_VERSION_UNSUPPORTED` instead of selecting Red.
+  This generation-contract change advances the algorithm build to
+  `1.3.0-dev`; existing saves remain authoritative and are not regenerated.
+- `tools/release.ps1 -EngineRoot <checkout>` is the single release command. It
+  runs the complete suite, builds and validates one final ZIP, extracts that
+  exact artifact, loads it through the Recomp 0.1.38 ROM-free fixture, and
+  prints its SHA-256.
+- README permission, storage-full, Catchability Guard, spoiler, platform,
+  unsupported-version, and artifact-retention claims now match tested
+  behavior.
 
 Exit criteria:
 

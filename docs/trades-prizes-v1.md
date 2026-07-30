@@ -70,6 +70,10 @@ the trade animation remain stock-engine behavior.
 
 The active save version receives six saved Pokémon prize records:
 
+Only explicit `red` and `blue` source versions select a prize catalog.
+Missing or unknown versions retain their vanilla Pokémon prizes and add a
+`PRIZE_VERSION_UNSUPPORTED` generation warning; they never default to Red.
+
 - Red: Abra, Clefairy, Nidorina, Dratini, Scyther, and Porygon slots.
 - Blue: Abra, Clefairy, Nidorino, Pinsir, Dratini, and Porygon slots.
 

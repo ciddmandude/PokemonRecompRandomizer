@@ -23,7 +23,7 @@ vanilla run without deleting saved preferences.
 | Similar Strength | `OFF`, `±10%`, `±20%` | `±20%` | Restricts candidates by base-stat total, widening deterministically if the band is empty. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | Excludes legendaries, maps legendary status like-for-like, or treats them like any species. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | Samples with replacement or maximizes unique destinations until the eligible pool is exhausted. |
-| Generate Spoiler Log | `OFF`, `ON` | `OFF` | When `ON`, automatically writes a readable spoiler log after a randomized New Game is generated successfully. It does not affect the seed or mappings. |
+| Enable Spoiler Log | `OFF`, `ON` | `ON` | Saved with the new run. `ON` allows the in-game viewer and manual file export; `OFF` blocks both. Starting a game never exports a file automatically. It does not affect the seed or mappings. |
 
 ### Wild Pokémon
 
@@ -95,7 +95,8 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 | Review Next Run | Shows every editable setting and any validation warnings before starting. |
 | Reset Defaults | Restores the `STANDARD` preset and clears manual Seed Text after confirmation. |
 | Copy Active Seed | Copies the active seed and run code, or displays them when clipboard access is unavailable. |
-| Export Spoiler Log | Manually writes the active run's seed, hashes, settings, and mappings without ROM bytes. Saved at `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. |
+| View Spoiler Log | Opens the active run's seed, settings, mappings, and diagnostics in a scrollable in-game viewer. Available only when that run saved Spoiler Log as `ON`. |
+| Export Spoiler Log | Manually writes the same active-run spoiler information without ROM bytes. Available only when that run saved Spoiler Log as `ON`; starting a game never creates the file. Saved at `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. |
 
 For exact formulas, fallback order, supported encounter IDs, presets, and
 validation rules, see the linked design documents above or the
@@ -105,9 +106,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.24.0`
+- randomizer mod version: `0.26.0`
 - generator contract: `1`
-- algorithm build: `1.2.0-dev`
+- algorithm build: `1.3.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)
@@ -124,24 +125,37 @@ reported in the run diagnostics instead of being assumed reachable.
 
 ## Release packaging
 
-Run `tools/package.ps1` from PowerShell to build the versioned archive under
-`dist/`. The packager includes only `README.md`, `manifest.json`, `main.lua`,
-the runtime `src/*.lua` modules, and `.modkit/pack.json`.
+Run the following command from PowerShell for a release-qualified archive:
+
+```powershell
+tools/release.ps1 -EngineRoot C:\path\to\gen1recomp
+```
+
+This single command runs the complete suite, builds the versioned archive
+under `dist/`, validates that exact ZIP, extracts it, loads the extracted
+payload through the Recomp 0.1.38 ROM-free fixture, and prints its SHA-256.
+`tools/package.ps1` remains available for a faster packaging-only development
+build.
+
+The packager includes only `README.md`, `manifest.json`, `main.lua`, the
+runtime `src/*.lua` modules, and `.modkit/pack.json`.
 
 The build fails if an entry uses a backslash, an absolute or traversing path,
 a duplicate or case-colliding name, or an unexpected development-only path.
 It then verifies every packaged byte count and SHA-256 value against the
-ledger and prints the final archive SHA-256. Release qualification loads that
-exact archive against the Recomp 0.1.38 ROM-free fixture. The packaging
-workflow also builds and natively extracts the archive on Windows and Linux.
-That same Windows/Linux matrix installs stock Lua 5.1.5, syntax-checks every
-Lua file, and runs the complete regression suite before validating the exact
-archive.
+ledger and prints the final archive SHA-256. CI performs the same syntax,
+test, package-validation, and native-extraction checks on Windows and Linux.
+
+Release ZIPs are generated files: `dist/*.zip` is ignored and no current or
+historical archive is kept in normal source history. Published versions
+belong in the project’s release-artifact storage.
 
 ## Design guarantees
 
 - Gameplay hooks are registered only after deterministic generation exists.
-- No network, filesystem, or engine-internals permission is requested.
+- The only requested permission is `filesystem`, used exclusively for
+  user-requested or opt-in plaintext spoiler-log export. No network or
+  engine-internals permission is requested.
 - Generator request validation does not mutate its input.
 - Seed, hash, PRNG, sorting, and shuffle behavior is independent of platform
   bit libraries and table iteration order.
@@ -215,6 +229,8 @@ archive.
 - Legendary exclusion remains a hard rule under every trade fairness mode,
   including the Casual preset's No Downgrade setting.
 - Game Corner TM rows and active-version prize ordering remain unchanged.
+- Unknown or missing game versions retain vanilla Game Corner Pokémon prizes
+  and record `PRIZE_VERSION_UNSUPPORTED`; they never silently use Red data.
 - A failed mapped Pokemon prize award never consumes coins.
 - Oak, rival battles, parcel and Pokédex delivery, and lab movement remain
   engine-owned.

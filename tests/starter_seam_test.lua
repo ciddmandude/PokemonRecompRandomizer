@@ -65,7 +65,7 @@ local expected = {
 for slotId, base in pairs(StarterCompat.offers) do
   local rows = StarterCompat.rows(base, game, nil)
   local want = expected[slotId]
-  assert(#rows == 20)
+  assert(#rows == 21)
   assert(rows[5][1] == "push_screen"
     and rows[5][3].species == want.species
     and rows[5][3].forceOwned == true)
@@ -76,6 +76,15 @@ for slotId, base in pairs(StarterCompat.offers) do
   assert(rows[12][3] == base.ballObject)
   assert(rows[16][3] == want.rivalBall)
   assert(rows[17][3].RAM == want.rivalSpecies)
+  assert(rows[19][1] == "label" and rows[19][2] == "blocked")
+  assert(rows[21][1] == "label" and rows[21][2] == "done")
+  for _, row in ipairs(rows) do
+    if row[1] == "jump" or row[1] == "jump_if_true"
+        or row[1] == "jump_if_false" then
+      assert(type(row[2]) == "string",
+        "starter script must use named jump targets")
+    end
+  end
 end
 
 local contribution = StarterCompat.contribution(function() return nil end)

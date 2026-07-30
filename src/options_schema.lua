@@ -70,8 +70,8 @@ local groups = {
       choice("duplicate_policy", "DUPLICATES", "one_to_one", {
         { "ALLOW", "allow" }, { "ONE-TO-ONE", "one_to_one" },
       }, "ALLOW OR AVOID REPEATED SPECIES."),
-      choice("generate_spoiler_log", "SPOILER LOG", "off", ON_OFF,
-        "AUTO-WRITE LOG FOR NEW RUN."),
+      choice("generate_spoiler_log", "ENABLE SPOILERS", "on", ON_OFF,
+        "ALLOW VIEW AND MANUAL EXPORT."),
     },
   },
   {

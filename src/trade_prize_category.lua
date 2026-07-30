@@ -263,9 +263,21 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
         or settings.game_corner_pokemon == "off" then
       return {}, {}, 0
     end
-    local version = type(sources) == "table"
-      and (sources.gameVersion or sources.version) or "red"
-    version = version == "blue" and "blue" or "red"
+    local sourceVersion = type(sources) == "table"
+      and (sources.gameVersion or sources.version)
+    local version = type(sourceVersion) == "string"
+      and string.lower(sourceVersion) or nil
+    if version ~= "red" and version ~= "blue" then
+      local displayed = sourceVersion == nil and "(missing)"
+        or tostring(sourceVersion)
+      local row = warning(
+        "PRIZE_VERSION_UNSUPPORTED",
+        "Game Corner Pokemon prizes remain vanilla because version "
+          .. displayed .. " is outside the supported Red/Blue catalog",
+        "GAME_CORNER")
+      row.version = sourceVersion
+      return {}, { row }, 1
+    end
     local mappings, warnings = {}, {}
     local units = {}
     for _, record in ipairs(Catalog.prizes[version]) do

@@ -198,6 +198,7 @@ return function(
       mod, function() return lifecycle:activeRun() end)
     TradePrizeCompat.install(
       mod, function() return lifecycle:activeRun() end)
+    local viewSpoilers = SpoilerController.viewAction(mod, lifecycle)
     local exportSpoilers = SpoilerController.exportAction(mod, lifecycle)
     publicApi.save = {
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
@@ -218,8 +219,9 @@ return function(
     }
     publicApi.runCode = Options.General.runCode
     publicApi.spoilers = {
+      canAccess = SpoilerController.canAccess,
       export = SpoilerController.export,
-      format = SpoilerLog.text,
+      format = SpoilerController.text,
     }
 
     for key, value in pairs(publicApi) do mod.exports[key] = value end
@@ -309,6 +311,7 @@ return function(
           game, preferences, mod.ui, screenStatus, {
             review_next_run = reviewNextRun,
             copy_active_seed = copyActiveSeed,
+            view_spoiler_log = viewSpoilers,
             export_spoiler_log = exportSpoilers,
           })
       end,
@@ -414,8 +417,7 @@ return function(
     end)
     mod.events:on("save.created", function(event)
       if not gameReady then return end
-      local namespace = lifecycle:onCreated(event)
-      if namespace then SpoilerController.autoExport(mod, namespace) end
+      lifecycle:onCreated(event)
     end)
     mod.events:on("save.loading", function(event)
       lifecycle:onLoading(event)

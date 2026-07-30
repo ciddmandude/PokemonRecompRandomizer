@@ -139,7 +139,6 @@ return function(Constants, Generator, SaveState, General)
     local missing = {}
     for _, row in ipairs(contentErrors) do
       if row.code == "MISSING_SPECIES" then
-        local id = row.message and row.message:match("^[^ ]+")
         missing[row.path] = true
       end
     end

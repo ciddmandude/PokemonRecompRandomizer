@@ -1,0 +1,5 @@
+# Release archives are generated locally and published outside source history.
+/dist/*.zip
+
+# Packaging uses a short-lived, versioned staging directory.
+/.package-*/

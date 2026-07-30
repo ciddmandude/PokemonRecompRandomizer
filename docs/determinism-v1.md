@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.2.0-dev`
+Algorithm build: `1.3.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -42,6 +42,11 @@ rod, story, badge, and trade-stage access rules can change both candidate
 selection and deterministic repair swaps. The 24 full-generator expectations
 were regenerated for `1.2.0-dev`; older saved runs still use their stored
 mappings and are never regenerated.
+
+Remediation M12 advances the algorithm build because an unsupported or
+missing game-version source now retains vanilla Game Corner Pokémon prizes
+instead of silently generating the Red catalog. Red and Blue mapping vectors
+remain unchanged; older saves continue using their stored mappings.
 
 ## 1. Numeric model
 

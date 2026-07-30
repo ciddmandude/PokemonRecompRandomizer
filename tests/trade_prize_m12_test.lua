@@ -119,6 +119,26 @@ local blue = Category.generate(
 assert(blue.prizes.GAME_CORNER_BLUE_1)
 assert(not blue.prizes.GAME_CORNER_RED_1)
 
+local unsupported = Category.generate(
+  manifest, { gameVersion = "yellow" }, settings,
+  streams("M12 UNSUPPORTED"), {})
+assert(next(unsupported.prizes) == nil,
+  "unsupported versions must retain vanilla prizes")
+assert(unsupported.fallbackCount == 1)
+local sawUnsupported = false
+for _, row in ipairs(unsupported.warnings) do
+  if row.code == "PRIZE_VERSION_UNSUPPORTED" then
+    sawUnsupported = row.version == "yellow"
+  end
+end
+assert(sawUnsupported,
+  "unsupported prize fallback must record its source version")
+
+local missingVersion = Category.generate(
+  manifest, {}, settings, streams("M12 MISSING VERSION"), {})
+assert(next(missingVersion.prizes) == nil)
+assert(missingVersion.fallbackCount == 1)
+
 local receivedSettings = {}
 for key, value in pairs(settings) do receivedSettings[key] = value end
 receivedSettings.in_game_trades = "received"

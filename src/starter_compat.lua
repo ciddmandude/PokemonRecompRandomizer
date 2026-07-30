@@ -81,13 +81,13 @@ return function(StarterOffer)
       or "So! You want\n{RAM}?"
     return {
       { "check_flag", "EVENT_GOT_STARTER" },
-      { "jump_if_true", 20 },
+      { "jump_if_true", "blocked" },
       { "check_flag", "EVENT_FOLLOWED_OAK_INTO_LAB" },
-      { "jump_if_false", 20 },
+      { "jump_if_false", "blocked" },
       { "push_screen", "DexEntryMenu",
         { species = offer.species, forceOwned = true } },
       { "ask", askText, { RAM = offer.species } },
-      { "jump_if_false", 21 },
+      { "jump_if_false", "done" },
       { "show_text", "_OaksLabReceivedMonText",
         { RAM = offer.species } },
       { "give_pokemon", offer.species, offer.level },
@@ -100,9 +100,10 @@ return function(StarterOffer)
       { "hide_object", "OAKS_LAB", offer.rivalBall },
       { "show_text", "_OaksLabRivalReceivedMonText",
         { RAM = rival.species } },
-      { "jump", 21 },
-      { "jump", 21 },
+      { "jump", "done" },
+      { "label", "blocked" },
       { "show_text", "_OaksLabThoseArePokeBallsText" },
+      { "label", "done" },
     }
   end
 

@@ -63,6 +63,7 @@ equal(defaults.randomizer, "on", "randomizer default")
 equal(defaults.preset, "standard", "preset default")
 equal(defaults.seed_text, "", "seed text default")
 equal(defaults.game_corner_pokemon, "randomized", "prize default")
+equal(defaults.generate_spoiler_log, "on", "spoiler access default")
 
 assert(preferences:set("randomizer", "off", game))
 equal(writes, 1, "single preference persistence")

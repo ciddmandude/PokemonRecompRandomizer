@@ -21,7 +21,7 @@ Presets control 28 category and safeguard fields. They do not change:
 - Randomizer;
 - Seed Mode;
 - Seed Text;
-- Generate Spoiler Log.
+- Enable Spoiler Log.
 
 Selecting a named preset applies its complete bundle in one options write.
 Editing a bundled field recalculates the preset marker. A configuration that
@@ -113,7 +113,7 @@ however, includes only behavior-affecting fields. It excludes:
 - Preset, because it is a label for the expanded bundle;
 - Seed Mode and Seed Text, because the resolved canonical seed has its own
   saved identity;
-- Generate Spoiler Log, because filesystem output does not affect gameplay.
+- Enable Spoiler Log, because viewing/export access does not affect gameplay.
 
 Randomizer remains included. This means two runs with the same
 canonical seed and behavior receive the same identity even if one player typed

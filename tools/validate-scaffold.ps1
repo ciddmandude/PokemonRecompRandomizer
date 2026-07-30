@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $requiredFiles = @(
+  '.gitignore',
   '.github/workflows/package-validation.yml',
   'manifest.json',
   'main.lua',
@@ -49,6 +50,8 @@ $requiredFiles = @(
   'src/validation_category.lua',
   'src/spoiler_log.lua',
   'src/spoiler_controller.lua',
+  'src/progression.lua',
+  'src/public_facade.lua',
   'tests/scaffold_test.lua',
   'tests/bootstrap_test.lua',
   'tests/foundation_test.lua',
@@ -72,11 +75,15 @@ $requiredFiles = @(
   'tests/trade_prize_m12_test.lua',
   'tests/trainer_m13_test.lua',
   'tests/spoiler_validation_test.lua',
+  'tests/progression_m9_test.lua',
+  'tests/static_gift_safety_m10_test.lua',
+  'tests/public_api_m11_test.lua',
   'tools/test.ps1',
   'tools/package.ps1',
   'tools/package-test.ps1',
   'tools/validate-package.ps1',
   'tools/validate-scaffold.ps1',
+  'tools/release.ps1',
   'tools/diagnose-live-trainers.lua',
   'tools/print-generator-vectors.lua',
   'docs/determinism-v1.md',
@@ -125,11 +132,20 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.24.0') {
-  throw "manifest version must be 0.24.0"
+if ($manifest.version -ne '0.26.0') {
+  throw "manifest version must be 0.26.0"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.24\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.24.0"
+
+if (Test-Path -LiteralPath (Join-Path $ProjectRoot '.modkitignore')) {
+  throw '.modkitignore is unsupported; package.ps1 owns the payload allowlist'
+}
+$gitIgnore = Get-Content -LiteralPath (Join-Path $ProjectRoot '.gitignore') `
+  -Raw -Encoding UTF8
+if ($gitIgnore -notmatch '(?m)^/dist/\*\.zip$') {
+  throw '.gitignore must exclude generated release ZIPs'
+}
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.26\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.26.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

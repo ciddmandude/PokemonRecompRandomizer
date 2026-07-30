@@ -26,7 +26,7 @@ local TrainerRuntime = loadFactory("src/trainer_runtime.lua")
 
 local run = {
   schemaVersion = 1,
-  algorithmVersion = "1.2.0-dev",
+  algorithmVersion = "1.3.0-dev",
   enabled = true,
   seed = { canonical = "SPOILER TEST", hash128 = ("A"):rep(32) },
   settings = { generate_spoiler_log = "on" },
@@ -88,7 +88,7 @@ local run = {
 local plaintext = Spoiler.text(run)
 assert(plaintext:find("SPOILER LOG %- READABLE FORMAT V2"))
 assert(plaintext:find("\n\n=== SETTINGS ===\n", 1, true))
-assert(plaintext:find("Generate Spoiler Log", 1, true)
+assert(plaintext:find("Enable Spoiler Log", 1, true)
   and plaintext:find("On", 1, true))
 assert(plaintext:find("Cerulean Cave B1F", 1, true))
 assert(plaintext:find("Mr. Mime Lv.42", 1, true))
@@ -109,6 +109,12 @@ local exported = assert(Controller.export(run, fs))
 assert(exported.encrypted == false)
 assert(written.path == "pokemon_randomizer/spoilers/AAAAAAAA.txt")
 assert(written.data == plaintext)
+assert(Controller.canAccess(run) == true)
+assert(Controller.text(run) == plaintext)
+local viewerLines = assert(Controller.lines(run))
+assert(viewerLines[1] == "POKEMON GEN 1 RECOMP RANDOMIZER")
+assert(table.concat(viewerLines, "\n"):find(
+  "Cerulean Cave B1F", 1, true))
 
 local public = Spoiler.publicRun(run)
 assert(public.seed.canonical == "SPOILER TEST")
@@ -124,22 +130,43 @@ assert(public.seed.canonical == "SPOILER TEST"
     and public.mappings.wildGlobal.RAT == "CAT",
   "retired race metadata cannot redact the seed or mappings")
 
-local logs = {}
-local oldLove = love
-love = { filesystem = fs }
-local auto = Controller.autoExport({
-  log = {
-    info = function(_, message, path)
-      logs[#logs + 1] = message:format(path)
+local pushed = {}
+local actionMod = {
+  ui = {
+    push = function(_, _, model)
+      pushed[#pushed + 1] = model
     end,
-    error = function() error("automatic export unexpectedly failed") end,
   },
-}, run)
-love = oldLove
-assert(auto == true)
-assert(logs[1]:find("AAAAAAAA.txt", 1, true))
+  log = {
+    error = function() error("spoiler action unexpectedly failed") end,
+  },
+}
+local lifecycle = {
+  activeRun = function() return run end,
+}
+assert(Controller.viewAction(actionMod, lifecycle)({}) == "SPOILER LOG")
+assert(pushed[#pushed].title == "SPOILER LOG")
+assert(table.concat(pushed[#pushed].lines, "\n") == plaintext)
+
 run.settings.generate_spoiler_log = "off"
-assert(Controller.autoExport({ log = {} }, run) == false)
+written.path, written.data = nil, nil
+local allowed, accessError = Controller.canAccess(run)
+assert(allowed == false)
+assert(accessError == "spoiler log is disabled for this run")
+local hidden, hiddenError = Controller.text(run)
+assert(hidden == nil and hiddenError == accessError)
+local blocked, blockedError = Controller.export(run, fs)
+assert(blocked == nil and blockedError == accessError)
+assert(written.path == nil and written.data == nil,
+  "disabled spoiler access must not write a file")
+assert(Controller.viewAction(actionMod, lifecycle)({})
+  == "SPOILERS DISABLED")
+assert(pushed[#pushed].title == "SPOILER ACCESS")
+assert(pushed[#pushed].lines[1] == "SPOILERS DISABLED")
+assert(Controller.exportAction(actionMod, lifecycle)({})
+  == "SPOILERS DISABLED")
+assert(written.path == nil and written.data == nil)
+run.settings.generate_spoiler_log = "on"
 
 local mappings = {
   wildGlobal = { A = "CAT", B = "CAT" },

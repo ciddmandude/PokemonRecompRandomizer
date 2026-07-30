@@ -112,7 +112,7 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Similar Strength | `OFF`, `±10%`, `±20%` | `±20%` | Restricts candidate base-stat totals to the selected percentage around the source. If no candidate exists, widen in 5-point increments until at least one exists. Legendary filtering and other hard rules still apply. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | `EXCLUDE` removes legendary/mythical species from destinations. `MATCH` lets legendary sources map only to legendary destinations and non-legendaries only to non-legendaries. `ALLOW` treats them like any species. The built-in classification is Articuno, Zapdos, Moltres, Mewtwo, and Mew; merged species may declare randomizer metadata through the mod's exported API. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | `ALLOW` samples with replacement. `ONE-TO-ONE` uses a deterministic shuffled destination pool, maximizing variety and preventing duplicate destinations until the eligible pool is exhausted. Category-specific uniqueness rules take precedence for starters. |
-| Generate Spoiler Log | `OFF`, `ON` | `OFF` | `ON` automatically writes a readable plaintext spoiler log after a randomized New Game is generated successfully. It does not affect the seed, behavior-settings hash, or mappings. `OFF` skips automatic generation; manual export remains available. |
+| Enable Spoiler Log | `OFF`, `ON` | `ON` | Saved per run. `ON` permits the in-game spoiler viewer and explicit plaintext export. `OFF` blocks both. New Game never writes a file automatically. This setting does not affect the seed, behavior-settings hash, or mappings. |
 
 ### 5.2 Wild Pokémon settings
 
@@ -194,7 +194,8 @@ Trainer randomization runs before the engine constructs battlers. Vanilla specia
 | Review Next Run | Opens a scrollable summary of all editable settings and validation warnings. |
 | Reset Defaults | Confirms, then restores the `STANDARD` preset and clears manual Seed Text. |
 | Copy Active Seed | Copies the active seed and run code to the system clipboard when clipboard support exists; otherwise displays both for transcription. |
-| Export Spoiler Log | Writes a human-readable plaintext log containing the active seed, hashes, settings, mappings, and diagnostics but no ROM bytes. This action is available for every valid active randomized run. |
+| View Spoiler Log | Opens a scrollable in-game log containing the active seed, hashes, settings, mappings, and diagnostics. Available only when the active run saved Enable Spoiler Log as `ON`. |
+| Export Spoiler Log | Explicitly writes the same information as readable plaintext without ROM bytes. Available only when the active run saved Enable Spoiler Log as `ON`. |
 
 ## 6. Determinism and generation algorithm
 
@@ -255,13 +256,15 @@ Hash the manifest and store `poolHash`. On Continue, compare the active manifest
 
 ### 6.4 Spoiler-log generation
 
-Spoiler logs are local readable text files:
+Spoiler logs are saved-run-gated readable reports:
 
-- `GENERATE SPOILER LOG: ON` writes one after successful New Game generation;
-- `OFF` performs no automatic filesystem write;
-- manual export remains available for a valid active randomized run;
+- the option defaults to `ON` and is saved with the run;
+- New Game performs no automatic filesystem write in either mode;
+- `ON` permits the in-game viewer and explicit manual file export;
+- `OFF` denies both viewing and export for that run;
+- changing the next-run preference cannot reveal an existing `OFF` run;
 - files are written under `pokemon_randomizer/spoilers/SEEDHASH.txt`;
-- generation failure is logged and never invalidates the save or mappings;
+- explicit export failure is logged and never invalidates the save or mappings;
 - old saves containing retired Race Mode metadata remain loadable, but that
   metadata no longer locks, redacts, encrypts, or changes run identity.
 
@@ -344,7 +347,7 @@ Requirements:
 | Scoped statics/gifts | Register namespaced commands that resolve saved stable IDs, then replace only the supported v0.1.30 `map_scripts` talk/wake handlers. Excluded paths remain entirely vanilla. |
 | NPC trades | Replace only the nine stock talk handlers with a namespaced command. Temporarily install a copied saved offer at its original trade index, delegate to the stock `trade` command, then restore the exact merged record. |
 | Game Corner prizes | Replace the three shared prize-counter talk handlers with a public `screens`/`mod.ui.ListMenu` implementation that resolves the active version's six saved Pokémon rows and preserves all three TM rows. |
-| Spoiler export | After successful New Game generation, write a readable log when `generate_spoiler_log` is `on`. Keep a manual export action for the active run. Export failure must not affect saved mappings. |
+| Spoiler access | Gate the in-game viewer, public formatter, and explicit file export on the active run's saved `generate_spoiler_log` value. Never write a file during New Game. Export failure must not affect saved mappings. |
 | Options entry | Wrap `ui.options.rows` and register a custom `screens` entry. |
 
 ### 8.2 Optional future upstream seams
@@ -422,6 +425,8 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Preserve the active version's Pokémon slot count and all TM prize rows.
 - Save resolved species, level, and cost per original prize index.
 - Select the Red or Blue six-slot source list from the new save's version.
+- If the source version is missing or is neither Red nor Blue, retain vanilla
+  Pokémon prizes and record `PRIZE_VERSION_UNSUPPORTED`.
 - For mapped Pokémon, award successfully before deducting the displayed
   price; a full party and full boxes consume no coins.
 - When no valid mapping exists, preserve the stock v0.1.30 prize record and
@@ -480,9 +485,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 `FR-20` Each gift in the catalog shall use its saved offer consistently across mapped names, payment, choice state, fossil preview and resurrection dialogue, and awards. Full storage shall preserve the offer and pending fossil quest for retry.
 
-`FR-21` Generate Spoiler Log shall be `OFF` by default and shall not affect deterministic mappings or their behavior-settings hash.
+`FR-21` Enable Spoiler Log shall be `ON` by default and shall not affect deterministic mappings or their behavior-settings hash.
 
-`FR-22` When enabled, automatic plaintext export shall run only after successful randomized New Game generation; export failure shall leave the valid save intact and produce an attributed log message.
+`FR-22` New Game shall never export a spoiler file automatically. The in-game viewer and explicit file export shall be available only when the active run saved Enable Spoiler Log as `ON`; export failure shall leave the valid save intact and produce an attributed log message.
 
 ## 11. Non-functional requirements
 
@@ -524,8 +529,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Tamper with checksum and verify session-safe disable plus report.
 - Remove a mapped species through a test mod and verify vanilla fallback without rewriting the stored mapping.
 - Disable and re-enable the randomizer mod and verify the original namespace is reclaimed.
-- Verify automatic spoiler generation is skipped when `OFF` and writes a
-  readable `.txt` file when `ON`.
+- Verify New Game never writes a spoiler file in either mode.
+- Verify `ON` permits the in-game viewer and explicit readable `.txt` export.
+- Verify `OFF` blocks the viewer, formatter, and export without writing a file.
 - Verify the generation option does not alter behavior-settings hashes or
   mappings.
 - Verify old saves containing retired Race Mode metadata load with normal
@@ -619,6 +625,6 @@ and cover:
    Gift coverage includes all eight vanilla non-starter, non-trade,
    non-Game-Corner sources in Section 9.4. Excluded static paths remain
    vanilla until a public pre-battle seam exists.
-3. Race Mode and encrypted/passphrase spoiler locking are removed. Players may
-   enable automatic readable spoiler generation or export the active run
-   manually.
+3. Race Mode and encrypted/passphrase spoiler locking are removed. Spoiler
+   access defaults to `ON`, is locked into each run, and provides an in-game
+   viewer plus explicit manual export without writing a file at New Game.

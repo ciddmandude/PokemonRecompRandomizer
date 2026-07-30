@@ -67,6 +67,12 @@ return function(Constants, Schema, General)
         },
         {
           kind = "action",
+          key = "view_spoiler_log",
+          label = "VIEW SPOILERS",
+          help = "READ ACTIVE RUN LOG IN GAME.",
+        },
+        {
+          kind = "action",
           key = "export_spoiler_log",
           label = "EXPORT SPOILERS",
           help = "WRITE ACTIVE RUN LOG.",
