@@ -48,6 +48,23 @@ equal(compatibility.relevantMods[1].id, "a_mod", "sorted relevant mod")
 equal(compatibility.relevantMods[2].id, "z_mod", "self mod omitted")
 assert(type(compatibility.relevantMods[1].fingerprint) == "string",
   "relevant mods receive deterministic fingerprints")
+local unchangedMods = SaveState.compareRelevantMods(
+  compatibility.relevantMods, {
+    { id = "pokemon_randomizer", version = "9.9.9", api = 2 },
+    { id = "a_mod", version = "1.0.0", api = 0 },
+    { id = "z_mod", version = "2.0.0", api = 0 },
+  })
+equal(unchangedMods.code, "OK", "matching relevant mod snapshot")
+local changedMods = SaveState.compareRelevantMods(
+  compatibility.relevantMods, {
+    { id = "a_mod", version = "1.1.0", api = 0 },
+    { id = "new_mod", version = "3.0.0", api = 2 },
+  })
+equal(changedMods.code, "RELEVANT_MODS_CHANGED",
+  "changed relevant mod report")
+equal(changedMods.changed[1].id, "a_mod", "version change attributed")
+equal(changedMods.removed[1].id, "z_mod", "removed mod attributed")
+equal(changedMods.added[1].id, "new_mod", "added mod attributed")
 
 local species = {
   { id = "BULBASAUR" },
@@ -80,6 +97,12 @@ equal(namespace.checksum.version,
   Constants.SAVE_CHECKSUM_VERSION, "checksum version")
 equal(namespace.checksum.value, SaveState.checksum(namespace),
   "checksum value")
+equal(namespace.diagnostics.validation.mappingBytes,
+  #Canonical.encode(namespace.mappings), "mapping byte measurement")
+equal(namespace.diagnostics.validation.namespaceBytes,
+  #Canonical.encode(namespace), "complete namespace byte measurement")
+equal(namespace.diagnostics.validation.budgetBytes,
+  262144, "authoritative 256 KiB budget")
 
 local valid, errors = SaveState.validate(namespace, set, true)
 assert(valid, errors[1] and errors[1].message)
@@ -163,5 +186,35 @@ assert(type(upgraded.compatibility.relevantMods[1].fingerprint) == "string",
   "M14 migration adds relevant-mod fingerprints")
 upgraded = assert(SaveState.stamp(upgraded, set))
 assert(SaveState.validate(upgraded, set, true))
+
+local largeInput = SaveState.clone(input)
+largeInput.settings.padding =
+  string.rep("X", Constants.SAVE_SIZE_BUDGET_BYTES)
+largeInput.compatibility = SaveState.compatibility({
+  version = "red",
+  meta = { engine = "1.0.0" },
+}, "POOL-HASH", largeInput.settings, {})
+local oversized = assert(SaveState.create(largeInput, function()
+  return Contracts.newGenerationResult()
+end))
+local sizeWarning
+for _, warning in ipairs(oversized.diagnostics.warnings) do
+  if warning.code == "SAVE_SIZE_BUDGET_EXCEEDED" then
+    sizeWarning = warning
+  end
+end
+assert(sizeWarning, "oversized namespace records a warning")
+equal(sizeWarning.budgetBytes, 262144, "size warning budget attribution")
+equal(sizeWarning.measuredBytes,
+  oversized.diagnostics.validation.namespaceBytes,
+  "size warning measured-byte attribution")
+assert(sizeWarning.message:find("256 KiB", 1, true),
+  "size warning identifies the authoritative budget")
+equal(oversized.diagnostics.validation.mappingBytes,
+  #Canonical.encode(oversized.mappings),
+  "oversized run retains separate mapping measurement")
+equal(oversized.diagnostics.validation.namespaceBytes,
+  #Canonical.encode(oversized),
+  "oversized complete namespace measurement")
 
 io.write("save_state_test: ok\n")

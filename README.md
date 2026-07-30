@@ -107,7 +107,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.17.0`
+- randomizer mod version: `0.18.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -149,6 +149,9 @@ workflow also builds and natively extracts the archive on Windows and Linux.
   checksum stamping.
 - Generator failures create an all-vanilla run, never partial mappings.
 - Continue reads behavior state only from the validated saved snapshot.
+- The relevant-mod list is frozen at New Game. Continue reports added,
+  removed, or version-changed mods without rewriting that original snapshot
+  or regenerating mappings.
 - Missing or damaged state is quarantined for the session without overwriting
   recovery data.
 - Pre-write validation refuses to replace a namespace whose existing checksum
@@ -166,6 +169,11 @@ workflow also builds and natively extracts the archive on Windows and Linux.
 - Run codes bind canonical seed, behavior settings, and eligible pool.
 - Settings-hash migration never rerolls an existing mapping.
 - Clipboard absence cannot hide the seed or run code from the player.
+- Sparse or future saved settings display as `UNKNOWN` or `UNAVAILABLE` in
+  the Active Run view instead of interrupting the Options screen.
+- The canonical randomizer namespace has a 256 KiB budget. Diagnostics record
+  both complete namespace bytes and mappings-only bytes; exceeding the budget
+  warns without deleting or truncating mappings.
 - A source wild species resolves consistently across every grass and surf map.
 - Wild runtime replacement calls the prior hook first and copies its result.
 - M7 never changes wild levels, encounter rates, slot odds, or fishing.

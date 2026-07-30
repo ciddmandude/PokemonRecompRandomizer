@@ -21,7 +21,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.17.0",
+  version = "0.18.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -330,6 +330,10 @@ assert(type(run) == "table")
 assert(run.schemaVersion == 1)
 assert(run.enabled == true)
 assert(run.checksum.version == "fnv1a32x4-save-v1")
+assert(run.diagnostics.validation.mappingBytes > 0)
+assert(run.diagnostics.validation.namespaceBytes
+  < run.diagnostics.validation.budgetBytes)
+assert(run.diagnostics.validation.budgetBytes == 262144)
 assert(type(run.mappings.wildGlobal.BULBASAUR) == "string")
 assert(type(run.mappings.fishing.global.BULBASAUR) == "string")
 assert(#run.diagnostics.warnings >= 2,
@@ -419,13 +423,18 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.17.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.18.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
+callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
+local drift = mod.exports.save.status().report
+assert(drift.code == "COMPATIBILITY_CHANGED")
+assert(drift.compatibility.added[1].id == "test_dependency")
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })
 assert(wrote == nil) -- event adapters intentionally do not consume payloads
 run = save.modData.pokemon_randomizer
-assert(run.compatibility.relevantMods[1].id == "test_dependency")
+assert(#run.compatibility.relevantMods == 0,
+  "save writes must preserve the New Game relevant-mod snapshot")
 local checksum = run.checksum.value
 callbacks["save.writing"]({ save = save, meta = save.meta })
 assert(save.modData.pokemon_randomizer.checksum.value == checksum)

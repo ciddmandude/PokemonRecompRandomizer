@@ -171,8 +171,8 @@ assert(repaired.repairSwaps == 1,
 local reach = Validation.reachableSpecies(mappings)
 assert(reach[mappings.trades.TRADE.requested.species],
   "repaired requested species must be reachable")
-assert(repaired.estimatedBytes < 1048576,
-  "synthetic mapping remains within save-size budget")
+assert(repaired.mappingBytes == #Canonical.encode(mappings),
+  "validation reports canonical mapping bytes")
 
 local missingRun = {
   enabled = true,

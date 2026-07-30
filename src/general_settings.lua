@@ -238,6 +238,37 @@ return function(SaveState)
     return code
   end
 
+  function General.activeRunSummary(run, raceLocked)
+    run = type(run) == "table" and run or {}
+    local seed = type(run.seed) == "table" and run.seed or {}
+    local settings = type(run.settings) == "table" and run.settings or {}
+    local function value(input, fallback)
+      if input == nil or input == "" then return fallback end
+      return tostring(input)
+    end
+    local shownSeed = value(
+      raceLocked and seed.hash128 or seed.canonical, "UNAVAILABLE")
+    local summary = {
+      seedLabel = raceLocked and "SEED HASH" or "SEED",
+      seed = shownSeed,
+      runCode = value(General.runCode(run), "UNAVAILABLE"),
+      algorithm = value(run.algorithmVersion, "UNAVAILABLE"),
+      settings = {},
+    }
+    for _, key in ipairs({
+      "wild_pokemon",
+      "starters",
+      "static_pokemon",
+      "gift_pokemon",
+      "in_game_trades",
+      "game_corner_pokemon",
+      "trainer_pokemon",
+    }) do
+      summary.settings[key] = value(settings[key], "UNKNOWN")
+    end
+    return summary
+  end
+
   function General.reviewWarnings(settings)
     local warnings = {}
     if settings.seed_mode == "manual" then

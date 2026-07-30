@@ -72,9 +72,12 @@ Saved diagnostics include:
 - deterministic repair-swap count;
 - reachable species count;
 - mapping node count;
-- canonical serialized mapping byte estimate.
+- canonical serialized mappings byte count;
+- canonical serialized complete randomizer namespace byte count.
 
-The mapping budget is 1 MiB. Exceeding it records a validation warning.
+The authoritative complete-namespace budget is 256 KiB (262,144 bytes).
+Exceeding it records an attributed validation warning containing both the
+measured and budget byte counts. Mappings are retained intact.
 
 ## Missing merged content
 

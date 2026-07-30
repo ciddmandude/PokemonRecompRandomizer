@@ -1,6 +1,7 @@
 -- Pure saved-run schema, checksumming, validation, and migration helpers.
 return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
   local SaveState = {}
+  local measureNamespace
 
   local MAPPING_KEYS = {
     "wildGlobal",
@@ -435,6 +436,11 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
   function SaveState.stamp(namespace, speciesSet)
     local valid, errors = SaveState.validate(namespace, speciesSet, false)
     if not valid then return nil, errors end
+    if measureNamespace then
+      measureNamespace(namespace)
+      valid, errors = SaveState.validate(namespace, speciesSet, false)
+      if not valid then return nil, errors end
+    end
     namespace.checksum = {
       version = Constants.SAVE_CHECKSUM_VERSION,
       value = SaveState.checksum(namespace),
@@ -463,6 +469,56 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
       result[#result + 1] = byId[id]
     end
     return result
+  end
+
+  local function modsById(rows)
+    local result = {}
+    for _, row in ipairs(rows or {}) do
+      if type(row) == "table" and type(row.id) == "string" then
+        result[row.id] = row
+      end
+    end
+    return result
+  end
+
+  function SaveState.compareRelevantMods(savedRows, currentModRows)
+    -- Saved rows are already snapshots and must retain their original
+    -- fingerprints. relevantMods() is only appropriate for live loader rows.
+    local saved = clone(savedRows or {})
+    local current = relevantMods(currentModRows)
+    local savedById, currentById = modsById(saved), modsById(current)
+    local report = {
+      code = "OK",
+      added = {},
+      removed = {},
+      changed = {},
+      savedCount = #saved,
+      currentCount = #current,
+    }
+    for _, id in ipairs(StableSort.keys(savedById)) do
+      local before, after = savedById[id], currentById[id]
+      if not after then
+        report.removed[#report.removed + 1] = clone(before)
+      elseif before.fingerprint ~= after.fingerprint then
+        report.changed[#report.changed + 1] = {
+          id = id,
+          savedVersion = before.version,
+          currentVersion = after.version,
+          savedFingerprint = before.fingerprint,
+          currentFingerprint = after.fingerprint,
+        }
+      end
+    end
+    for _, id in ipairs(StableSort.keys(currentById)) do
+      if not savedById[id] then
+        report.added[#report.added + 1] = clone(currentById[id])
+      end
+    end
+    if #report.added > 0 or #report.removed > 0
+        or #report.changed > 0 then
+      report.code = "RELEVANT_MODS_CHANGED"
+    end
+    return report
   end
 
   function SaveState.compatibility(
@@ -500,6 +556,64 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
         passphraseVerifier = nil,
       },
     }
+  end
+
+  local function removeSizeWarnings(warnings)
+    local kept = {}
+    for _, warning in ipairs(warnings or {}) do
+      if type(warning) ~= "table"
+          or warning.code ~= "SAVE_SIZE_BUDGET_EXCEEDED" then
+        kept[#kept + 1] = warning
+      end
+    end
+    return kept
+  end
+
+  measureNamespace = function(namespace)
+    namespace.diagnostics = namespace.diagnostics or {
+      warnings = {}, fallbackCount = 0,
+    }
+    namespace.diagnostics.warnings =
+      removeSizeWarnings(namespace.diagnostics.warnings)
+    namespace.diagnostics.validation =
+      namespace.diagnostics.validation or {}
+    local validation = namespace.diagnostics.validation
+    validation.mappingBytes = #Canonical.encode(namespace.mappings or {})
+    validation.namespaceBytes = 0
+    validation.budgetBytes = Constants.SAVE_SIZE_BUDGET_BYTES
+    namespace.checksum = {
+      version = Constants.SAVE_CHECKSUM_VERSION,
+      value = string.rep("0", 32),
+    }
+
+    local function settle()
+      for _ = 1, 8 do
+        local measured = #Canonical.encode(namespace)
+        if validation.namespaceBytes == measured then return measured end
+        validation.namespaceBytes = measured
+      end
+      return #Canonical.encode(namespace)
+    end
+
+    local measured = settle()
+    if measured > Constants.SAVE_SIZE_BUDGET_BYTES then
+      local warning = {
+        code = "SAVE_SIZE_BUDGET_EXCEEDED",
+        measuredBytes = measured,
+        budgetBytes = Constants.SAVE_SIZE_BUDGET_BYTES,
+      }
+      namespace.diagnostics.warnings[
+        #namespace.diagnostics.warnings + 1] = warning
+      for _ = 1, 8 do
+        warning.measuredBytes = measured
+        warning.message = ("canonical randomizer state is %d bytes; "
+          .. "the budget is %d bytes (256 KiB)"):format(
+            measured, Constants.SAVE_SIZE_BUDGET_BYTES)
+        local nextMeasured = settle()
+        if nextMeasured == measured then break end
+        measured = nextMeasured
+      end
+    end
   end
 
   local function disabledNamespace(input, failure)

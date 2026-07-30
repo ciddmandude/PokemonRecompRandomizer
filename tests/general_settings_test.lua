@@ -100,6 +100,15 @@ local run = {
 }
 equal(General.runCode(run),
   "R1-01234567-AABBCCDD-99887766", "compact run code")
+local sparseSummary = General.activeRunSummary({
+  settings = { wild_pokemon = "global_map" },
+}, false)
+equal(sparseSummary.seed, "UNAVAILABLE", "sparse active seed")
+equal(sparseSummary.runCode, "UNAVAILABLE", "sparse active run code")
+equal(sparseSummary.settings.wild_pokemon,
+  "global_map", "available sparse setting")
+equal(sparseSummary.settings.trainer_pokemon,
+  "UNKNOWN", "missing sparse setting")
 
 local warnings = General.reviewWarnings({
   seed_mode = "manual",
@@ -146,7 +155,12 @@ local lifecycle = Lifecycle.new({
 })
 local save = {
   version = "red",
-  meta = { engine = "1.0.0", mods = {} },
+  meta = {
+    engine = "1.0.0",
+    mods = {
+      { id = "original_dependency", version = "2.0.0", api = 2 },
+    },
+  },
   player = { id = 7 },
   modData = {},
 }
@@ -157,6 +171,33 @@ equal(seenPool, "merged", "lifecycle merged pool")
 equal(generatedCalls, 1, "enabled run invokes generator")
 equal(created.compatibility.settingsHash,
   General.settingsHash(created.settings), "behavior settings hash stored")
+local savedModsBytes =
+  Canonical.encode(created.compatibility.relevantMods)
+save.meta.mods = {
+  { id = "pokemon_randomizer", version = "0.18.0", api = 2 },
+  { id = "added_mid_run", version = "1.0.0", api = 2 },
+}
+local loaded, compatibilityReport = lifecycle:onLoaded({
+  save = save,
+  meta = save.meta,
+})
+assert(loaded, "mod-set drift must not quarantine the run")
+equal(compatibilityReport.code, "COMPATIBILITY_CHANGED",
+  "mod-set drift load report")
+equal(compatibilityReport.compatibility.added[1].id,
+  "added_mid_run", "added mod load attribution")
+equal(compatibilityReport.compatibility.removed[1].id,
+  "original_dependency", "removed mod load attribution")
+equal(Canonical.encode(save.modData.pokemon_randomizer
+  .compatibility.relevantMods), savedModsBytes,
+  "load comparison preserves New Game mod snapshot")
+save.meta.engine = "1.1.0"
+assert(lifecycle:onWriting({ save = save, meta = save.meta }))
+equal(save.modData.pokemon_randomizer.compatibility.engineVersion,
+  "1.1.0", "write refreshes operational engine version")
+equal(Canonical.encode(save.modData.pokemon_randomizer
+  .compatibility.relevantMods), savedModsBytes,
+  "write preserves New Game mod snapshot byte-for-byte")
 liveSettings.seed_text = "CHANGED GLOBALLY"
 equal(lifecycle:activeRun().seed.canonical,
   "LIFECYCLE SEED", "active run ignores global preferences")

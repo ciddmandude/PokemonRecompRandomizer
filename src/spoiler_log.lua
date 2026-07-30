@@ -481,9 +481,14 @@ return function(Canonical, Crypto)
         add(lines, ("  Reachability repairs:   %s"):format(
           tostring(validation.repairSwaps)))
       end
-      if validation.estimatedBytes ~= nil then
-        add(lines, ("  Estimated save bytes:   %s"):format(
-          tostring(validation.estimatedBytes)))
+      if validation.mappingBytes ~= nil then
+        add(lines, ("  Mapping bytes:           %s"):format(
+          tostring(validation.mappingBytes)))
+      end
+      if validation.namespaceBytes ~= nil then
+        add(lines, ("  Randomizer state bytes: %s / %s"):format(
+          tostring(validation.namespaceBytes),
+          tostring(validation.budgetBytes or 262144)))
       end
     end
     for index, warning in ipairs(warnings) do

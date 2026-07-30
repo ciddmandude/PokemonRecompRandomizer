@@ -81,7 +81,7 @@ return function(StableSort, Canonical)
       repairSwaps = 0,
       reachableSpecies = 0,
       mappingEntries = countNodes(mappings),
-      estimatedBytes = #Canonical.encode(mappings),
+      mappingBytes = #Canonical.encode(mappings),
     }
     local reachable = reachableSpecies(mappings)
     for _ in pairs(reachable) do
@@ -128,13 +128,6 @@ return function(StableSort, Canonical)
           end
         end
       end
-    end
-    if result.estimatedBytes > 1048576 then
-      result.warnings[#result.warnings + 1] = {
-        code = "SAVE_SIZE_BUDGET_EXCEEDED",
-        message = "serialized mappings exceed the 1 MiB M14 budget",
-      }
-      result.fallbackCount = result.fallbackCount + 1
     end
     return result
   end

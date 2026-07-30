@@ -12,8 +12,8 @@ The bootstrap registers these API-2 listeners:
 |---|---|
 | `save.created` | Builds the species manifest, resolves an auto seed, snapshots current settings, invokes the pure generator, validates the complete result, stamps its checksum, and only then assigns `save.modData.pokemon_randomizer`. |
 | `save.loading` | Clears the prior session view. It does not mutate, evaluate, migrate, or activate raw randomizer data. |
-| `save.loaded` | Validates schema, seed hash, settings shape, compatibility shape, mapping buckets, mapped species, and checksum. A valid enabled run is copied into session state. |
-| `save.writing` | Validates the existing checksum first, updates write-time engine/mod compatibility on a copy, validates and stamps that copy, then replaces the namespace atomically. |
+| `save.loaded` | Validates schema, seed hash, settings shape, compatibility shape, mapping buckets, mapped species, and checksum. It compares the current relevant mods with the New Game snapshot and reports differences without changing saved state. A valid enabled run is copied into session state. |
+| `save.writing` | Validates the existing checksum first, updates only operational engine-version metadata on a copy, validates and stamps that copy, then replaces the namespace atomically. The New Game relevant-mod snapshot is never refreshed. |
 
 An absent namespace is a vanilla save. Loading it never creates randomizer
 state.
@@ -60,6 +60,30 @@ A later `save.writing` event will not bless damaged data with a fresh checksum.
 The invalid namespace is left unchanged and an attributed error is logged.
 The exported `save.status()` reports the quarantine and ordered validation
 errors; Milestone 5 can render that report in the Options UI.
+
+## Relevant-mod compatibility
+
+`compatibility.relevantMods` is an immutable, sorted New Game snapshot. On
+Continue, the lifecycle compares that snapshot with the current loader mod
+rows and reports added, removed, and fingerprint-changed mods through
+`save.status().report.compatibility`. A difference does not quarantine the
+run, alter its checksum-protected mappings, or rewrite the saved snapshot.
+Runtime missing-content fallback remains separate and may be reported
+alongside a mod-set difference.
+
+The engine version is operational metadata and may be refreshed atomically on
+`save.writing`. The pool hash, settings hash, algorithm version, seed,
+mappings, and relevant-mod snapshot remain unchanged.
+
+## Save-size accounting
+
+Every newly created namespace records canonical `mappingBytes`,
+`namespaceBytes`, and `budgetBytes` values in
+`diagnostics.validation`. `namespaceBytes` measures the complete stored
+randomizer namespace, including its fixed-width checksum record. The
+authoritative vanilla-content budget is 262,144 bytes (256 KiB). Exceeding it
+adds an attributed `SAVE_SIZE_BUDGET_EXCEEDED` warning with the measured and
+budget byte counts; it never removes mappings or increments fallback counts.
 
 ## Species validation
 

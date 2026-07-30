@@ -498,6 +498,8 @@ Exit criteria:
 
 ### Milestone 3 — P2 saved-run integrity and defensive UI
 
+Status: Implemented in `0.18.0`.
+
 Deliver:
 
 - freeze `relevantMods` as the New Game snapshot;

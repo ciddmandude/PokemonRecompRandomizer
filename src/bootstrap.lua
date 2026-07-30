@@ -281,13 +281,11 @@ return function(
         local function copyActiveSeed(activeGame)
           local run = lifecycle:activeRun()
           if not run then return "NO ACTIVE RUN" end
-          local code = Options.General.runCode(run)
           local raceLocked = SpoilerLog.isLocked(run)
-          local shownSeed = raceLocked and run.seed.hash128
-            or run.seed.canonical
-          local text = (raceLocked and "SEED HASH: " or "SEED: ")
-            .. shownSeed
-            .. "\nRUN CODE: " .. code
+          local summary =
+            Options.General.activeRunSummary(run, raceLocked)
+          local text = summary.seedLabel .. ": " .. summary.seed
+            .. "\nRUN CODE: " .. summary.runCode
           local copied = false
           local system = love and love.system
           if system and type(system.setClipboardText) == "function" then
@@ -297,19 +295,19 @@ return function(
           mod.ui.push(activeGame, Constants.REVIEW_SCREEN_ID, {
             title = "ACTIVE RUN",
             lines = {
-              raceLocked and "SEED HASH" or "SEED",
-              shownSeed,
+              summary.seedLabel,
+              summary.seed,
               "RUN CODE",
-              code,
-              "ALGORITHM " .. run.algorithmVersion,
+              summary.runCode,
+              "ALGORITHM " .. summary.algorithm,
               "RUN SETTINGS: LOCKED",
-              "WILD: " .. run.settings.wild_pokemon,
-              "STARTERS: " .. run.settings.starters,
-              "STATIC: " .. run.settings.static_pokemon,
-              "GIFTS: " .. run.settings.gift_pokemon,
-              "TRADES: " .. run.settings.in_game_trades,
-              "PRIZES: " .. run.settings.game_corner_pokemon,
-              "TRAINERS: " .. run.settings.trainer_pokemon,
+              "WILD: " .. summary.settings.wild_pokemon,
+              "STARTERS: " .. summary.settings.starters,
+              "STATIC: " .. summary.settings.static_pokemon,
+              "GIFTS: " .. summary.settings.gift_pokemon,
+              "TRADES: " .. summary.settings.in_game_trades,
+              "PRIZES: " .. summary.settings.game_corner_pokemon,
+              "TRAINERS: " .. summary.settings.trainer_pokemon,
             },
           })
           return copied and "SEED COPIED" or "COPY UNAVAILABLE"

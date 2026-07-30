@@ -234,7 +234,7 @@ return function(
         repairSwaps = validation.repairSwaps,
         reachableSpecies = validation.reachableSpecies,
         mappingEntries = validation.mappingEntries,
-        estimatedBytes = validation.estimatedBytes,
+        mappingBytes = validation.mappingBytes,
       }
     else
       result.diagnostics.warnings[

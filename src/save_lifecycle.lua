@@ -143,21 +143,43 @@ return function(Constants, Generator, SaveState, General)
         missing[row.path] = true
       end
     end
+    local currentMods = event.meta and event.meta.mods
+      or event.save.meta and event.save.meta.mods or {}
+    local compatibilityReport = SaveState.compareRelevantMods(
+      namespace.compatibility.relevantMods, currentMods)
     self.session.active = namespace.enabled and SaveState.clone(namespace) or nil
     if self.session.active and next(missing) then
       self.session.active._missingSpeciesPaths = missing
       self.session.active._speciesSet = speciesSet(manifest)
       self.session.report = {
-        code = "MISSING_CONTENT_FALLBACK",
+        code = compatibilityReport.code == "RELEVANT_MODS_CHANGED"
+          and "COMPATIBILITY_AND_CONTENT_CHANGED"
+          or "MISSING_CONTENT_FALLBACK",
         missingCount = #contentErrors,
+        compatibility = compatibilityReport,
         errors = {},
       }
       self.log:warn(
         "saved mappings reference %d unavailable content path%s; "
           .. "runtime uses vanilla lookup fallbacks",
         #contentErrors, #contentErrors == 1 and "" or "s")
+    elseif compatibilityReport.code == "RELEVANT_MODS_CHANGED" then
+      self.session.report = {
+        code = "COMPATIBILITY_CHANGED",
+        compatibility = compatibilityReport,
+        errors = {},
+      }
+      self.log:warn(
+        "current relevant mods differ from the New Game snapshot "
+          .. "(%d added, %d removed, %d changed); saved mappings retained",
+        #compatibilityReport.added, #compatibilityReport.removed,
+        #compatibilityReport.changed)
     else
-      self.session.report = { code = "OK", errors = {} }
+      self.session.report = {
+        code = "OK",
+        compatibility = compatibilityReport,
+        errors = {},
+      }
     end
     self.session.phase = namespace.enabled and "loaded" or "loaded-vanilla"
     return true, self.session.report
@@ -192,12 +214,6 @@ return function(Constants, Generator, SaveState, General)
       event.meta and event.meta.engine
         or event.save.meta and event.save.meta.engine
         or candidate.compatibility.engineVersion)
-    candidate.compatibility.relevantMods =
-      SaveState.compatibility(event.save,
-        candidate.compatibility.poolHash,
-        candidate.settings,
-        event.meta and event.meta.mods).relevantMods
-
     local stamped, errors = SaveState.stamp(candidate)
     if not stamped then
       self.log:error(

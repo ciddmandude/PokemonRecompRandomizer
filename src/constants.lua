@@ -2,13 +2,14 @@
 -- dependencies and is safe to load in headless tests.
 return {
   MOD_ID = "pokemon_randomizer",
-  MOD_VERSION = "0.17.0",
+  MOD_VERSION = "0.18.0",
   MOD_API = 2,
   GAME_VERSION_RANGE = ">=0.1.30 <0.2.0",
 
   CONTRACT_VERSION = 1,
   SAVE_SCHEMA_VERSION = 1,
   SAVE_CHECKSUM_VERSION = "fnv1a32x4-save-v1",
+  SAVE_SIZE_BUDGET_BYTES = 262144,
   FIRST_MIGRATION_VERSION = "0.4.0",
   SETTINGS_HASH_MIGRATION_VERSION = "0.6.0",
   RACE_MIGRATION_VERSION = "0.14.0",
