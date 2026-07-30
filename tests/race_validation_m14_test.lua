@@ -80,7 +80,12 @@ local run = {
       },
     },
     trainerParties = {
-      OPP_FIX = { [1] = {{ species = "CAT", level = 5 }} },
+      OPP_FIX = {
+        [1] = {
+          { species = "CAT", level = 5 },
+          { fallback = true, sourceSlot = 2 },
+        },
+      },
     },
   },
   diagnostics = { warnings = {}, fallbackCount = 0 },
@@ -102,6 +107,8 @@ assert(plaintext:find("Location: Route 11 Gate 2F", 1, true),
   "NPC trades include their readable locations")
 assert(plaintext:find("Party 1   Cat Lv.5", 1, true),
   "trainer parties are printed one party per line")
+assert(plaintext:find("Vanilla source slot 2", 1, true),
+  "trainer fallback markers are readable in spoiler logs")
 assert(not plaintext:find("MAPPINGS=", 1, true),
   "readable spoilers do not contain the old canonical table dump")
 local envelope, digest = Crypto.encrypt(

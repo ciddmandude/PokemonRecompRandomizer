@@ -1,7 +1,7 @@
 {
   "id": "pokemon_randomizer",
   "name": "Pokémon Gen 1 Randomizer",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "entry": "main.lua",
   "api": 2,
   "priority": 100,

@@ -91,6 +91,25 @@ return function(StableSort, SpeciesFilters)
     return maximum
   end
 
+  local function validSourceParty(party)
+    if type(party) ~= "table" or #party < 1 or #party > 6 then
+      return false, nil, "party must contain 1-6 slots"
+    end
+    for index, slot in ipairs(party) do
+      if type(slot) ~= "table"
+          or type(slot.species) ~= "string" or slot.species == ""
+          or type(slot.level) ~= "number"
+          or slot.level ~= math.floor(slot.level)
+          or slot.level < 2 or slot.level > 100 then
+        return false, index, "source slot requires valid species and level"
+      end
+      if slot.moves ~= nil and type(slot.moves) ~= "table" then
+        return false, index, "source slot moves must be an array"
+      end
+    end
+    return true
+  end
+
   local function adjustedLevel(level, maximum, mode, rng)
     if mode == "plus_minus_10" then
       return clamp(level * rng:nextInt(90, 110) / 100)
@@ -186,21 +205,52 @@ return function(StableSort, SpeciesFilters)
   local function globalMap(manifest, trainers, settings, rng)
     local sources = {}
     for _, classId in ipairs(StableSort.keys(trainers)) do
-      for _, party in ipairs(trainers[classId].parties or {}) do
-        for _, slot in ipairs(party) do
-          if manifest.byId[slot.species] then sources[slot.species] = true end
+      local trainer = trainers[classId]
+      local parties = type(trainer) == "table" and trainer.parties or {}
+      for _, party in ipairs(parties or {}) do
+        if type(party) == "table" then
+          for _, slot in ipairs(party) do
+            if type(slot) == "table"
+                and manifest.byId[slot.species] then
+              sources[slot.species] = true
+            end
+          end
         end
       end
     end
-    local mapping, used = {}, {}
+    local mapping, failures, used = {}, {}, {}
     for _, source in ipairs(StableSort.keys(sources)) do
-      local species = choose(
+      local species, diagnostics = choose(
         manifest, source, settings, nil, rng, used,
         settings.progression_guard == "on")
-      assert(species, "global trainer species has no candidate")
-      mapping[source] = species
+      if species then
+        mapping[source] = species
+      else
+        failures[source] = diagnostics
+      end
     end
-    return mapping
+    return mapping, failures
+  end
+
+  local function fallbackWarning(
+      code, message, classId, partyIndex, slotIndex, sourceSpecies, reason)
+    return {
+      code = code,
+      message = message,
+      id = classId,
+      trainerClass = classId,
+      partyIndex = partyIndex,
+      slotIndex = slotIndex,
+      sourceSpecies = sourceSpecies,
+      reason = reason,
+    }
+  end
+
+  local function fallbackSlot(sourceIndex)
+    return {
+      fallback = true,
+      sourceSlot = sourceIndex,
+    }
   end
 
   function Category.generate(manifest, sources, settings, rngs)
@@ -214,8 +264,11 @@ return function(StableSort, SpeciesFilters)
     assert(type(trainers) == "table", "merged trainer registry is required")
     local themes = allTypes(manifest)
     assert(#themes > 0, "trainer type theme pool is empty")
-    local global = settings.trainer_pokemon == "global_map"
-      and globalMap(manifest, trainers, settings, rngs.species) or nil
+    local global, globalFailures
+    if settings.trainer_pokemon == "global_map" then
+      global, globalFailures =
+        globalMap(manifest, trainers, settings, rngs.species)
+    end
     local used = {}
 
     for _, classId in ipairs(StableSort.keys(trainers)) do
@@ -230,8 +283,15 @@ return function(StableSort, SpeciesFilters)
         local classMappings = {}
         if theme then classMappings.theme = theme end
         for partyIndex, sourceParty in ipairs(parties) do
-          assert(type(sourceParty) == "table" and #sourceParty > 0,
-            "trainer parties must be non-empty arrays")
+          local partyValid, invalidSlot, invalidReason =
+            validSourceParty(sourceParty)
+          if not partyValid then
+            result.warnings[#result.warnings + 1] = fallbackWarning(
+              "TRAINER_PARTY_INVALID",
+              "malformed trainer party remains vanilla",
+              classId, partyIndex, invalidSlot, nil, invalidReason)
+            result.fallbackCount = result.fallbackCount + 1
+          else
           local maximum = partyMaximum(sourceParty)
           local early = settings.progression_guard == "on" and maximum <= 14
           local size = #sourceParty
@@ -244,42 +304,71 @@ return function(StableSort, SpeciesFilters)
           if classId == "OPP_RIVAL1" and maximum <= 5 then size = 1 end
           local mappedParty = {}
           for slotIndex = 1, size do
-            local sourceSlot = sourceParty[
-              ((slotIndex - 1) % #sourceParty) + 1]
-            assert(type(sourceSlot) == "table"
-                and manifest.byId[sourceSlot.species],
-              ("trainer source species is not eligible: %s party %d "
-                .. "slot %d species %s"):format(
-                classId, partyIndex, slotIndex,
-                tostring(type(sourceSlot) == "table"
-                  and sourceSlot.species or nil)))
-            local level = adjustedLevel(
-              sourceSlot.level, maximum, settings.trainer_levels, rngs.levels)
-            if classId == "OPP_RIVAL1" and maximum <= 5
-                and settings.progression_guard == "on" then
-              local starterLevel = tonumber(settings.starter_level) or 5
-              level = math.min(level, clamp(starterLevel + 3))
-            end
-            local species = global and global[sourceSlot.species]
-              or choose(manifest, sourceSlot.species, settings, theme,
-                rngs.species, used, early)
-            assert(species, "trainer slot has no candidate")
-            local row = { species = species, level = level }
-            if type(sourceSlot.moves) == "table" then
-              row.moves = copyArray(sourceSlot.moves)
-            else
-              local special = specialMove(
-                classId, partyIndex, slotIndex, species)
-              local entry = manifest.byId[species]
-              if special and not moveLegal(entry, special) then
-                row.moves = movesAtLevel(entry, level)
+            local sourceIndex = ((slotIndex - 1) % #sourceParty) + 1
+            local sourceSlot = sourceParty[sourceIndex]
+            local species, diagnostics
+            if manifest.byId[sourceSlot.species] then
+              if global then
+                species = global[sourceSlot.species]
+                diagnostics = globalFailures
+                  and globalFailures[sourceSlot.species]
+              else
+                species, diagnostics = choose(
+                  manifest, sourceSlot.species, settings, theme,
+                  rngs.species, used, early)
               end
             end
-            mappedParty[slotIndex] = row
+
+            if not species then
+              local unavailable = not manifest.byId[sourceSlot.species]
+              local reason = unavailable and "UNKNOWN_SOURCE"
+                or diagnostics and diagnostics.error
+                  and diagnostics.error.code or "NO_CANDIDATES"
+              result.warnings[#result.warnings + 1] = fallbackWarning(
+                unavailable and "TRAINER_SOURCE_UNAVAILABLE"
+                  or "TRAINER_NO_CANDIDATE",
+                unavailable
+                    and "trainer source is outside the eligible pool; "
+                      .. "slot remains vanilla"
+                  or "trainer slot has no eligible destination; "
+                      .. "slot remains vanilla",
+                classId, partyIndex, slotIndex,
+                sourceSlot.species, reason)
+              result.fallbackCount = result.fallbackCount + 1
+              mappedParty[slotIndex] = fallbackSlot(sourceIndex)
+            else
+              local level = adjustedLevel(
+                sourceSlot.level, maximum,
+                settings.trainer_levels, rngs.levels)
+              if classId == "OPP_RIVAL1" and maximum <= 5
+                  and settings.progression_guard == "on" then
+                local starterLevel = tonumber(settings.starter_level) or 5
+                level = math.min(level, clamp(starterLevel + 3))
+              end
+              local row = {
+                species = species,
+                level = level,
+                sourceSlot = sourceIndex,
+              }
+              if type(sourceSlot.moves) == "table" then
+                row.moves = copyArray(sourceSlot.moves)
+              else
+                local special = specialMove(
+                  classId, partyIndex, slotIndex, species)
+                local entry = manifest.byId[species]
+                if special and not moveLegal(entry, special) then
+                  row.moves = movesAtLevel(entry, level)
+                end
+              end
+              mappedParty[slotIndex] = row
+            end
           end
           classMappings[partyIndex] = mappedParty
+          end
         end
-        result.trainerParties[classId] = classMappings
+        if next(classMappings) ~= nil then
+          result.trainerParties[classId] = classMappings
+        end
       end
     end
     return result

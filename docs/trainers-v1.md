@@ -22,6 +22,17 @@ mappings.trainerParties[trainerClass][partyIndex] = {
 }
 ```
 
+If a merged trainer uses a source species outside the selected eligible pool,
+that slot instead saves a species-free marker:
+
+```lua
+{ fallback = true, sourceSlot = 2 }
+```
+
+The marker copies that source slot from the prior runtime hook. It therefore
+preserves the merged species, level, and explicit moves without putting an
+ineligible species ID into the randomizer's validated mapping pool.
+
 The optional `moves` field is present only when the source party already
 specified moves or when an incompatible v0.1.30 legacy boss move must be
 suppressed. Type-themed classes also save a `theme` field beside their numeric
@@ -96,7 +107,9 @@ these restrictions.
 
 The wrapper calls the previous `trainer.party` implementation first. Saved
 species and levels are then projected onto that result; explicit moves from the
-previous result are retained. The starter-rival projection runs last. Missing
-or malformed class/variant mappings return the previous hook's complete party
-unchanged. If creation-time trainer generation fails, the category is empty and
-all trainer parties remain vanilla.
+previous result are retained. A saved fallback marker copies only its
+identified prior slot, so eligible neighboring slots remain randomized.
+Missing or malformed class/variant mappings return the previous hook's
+complete party unchanged. Malformed source parties and slots with no eligible
+destination record attributed warnings without clearing unrelated trainer
+classes. The starter-rival projection runs last.

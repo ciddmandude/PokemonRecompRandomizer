@@ -51,6 +51,10 @@ the trade animation remain stock-engine behavior.
 - `NO DOWNGRADE` requires received BST to be at least 95% of requested BST.
   If the eligible pool cannot satisfy that rule, it relaxes once to the
   common pool and records `TRADE_NO_DOWNGRADE_RELAXED`.
+- Legendary policy remains a hard filter under every fairness mode. In
+  particular, relaxing the No Downgrade BST floor never changes `EXCLUDE`
+  or `MATCH`; the shipped Casual preset therefore cannot receive a legendary
+  trade or Game Corner prize.
 - `TRADE SAFETY: ON` excludes offers whose requested and received species
   are identical.
 - With Catchability Guard enabled, randomized requested species are

@@ -17,6 +17,10 @@ local Catalog = loadFactory("src/trade_prize_catalog.lua")
 local Category = loadFactory(
   "src/trade_prize_category.lua", StableSort, Filters, Catalog)
 local Compat = loadFactory("src/trade_prize_compat.lua", Catalog)
+local General = loadFactory("src/general_settings.lua", {
+  behaviorSettings = function(value) return value end,
+  hashBehaviorSettings = function() return "" end,
+})
 
 local function entry(id, bst)
   return {
@@ -44,6 +48,8 @@ for index = 1, 40 do
   local id = ("M12_CANDIDATE_%02d"):format(index)
   byId[id] = entry(id, 250 + index * 4)
 end
+byId.M12_LEGEND = entry("M12_LEGEND", 310)
+byId.M12_LEGEND.legendary = true
 local entries = {}
 for _, id in ipairs(StableSort.keys(byId)) do
   entries[#entries + 1] = byId[id]
@@ -119,6 +125,54 @@ local receivedOnly = Category.generate(
   streams("M12 RECEIVED"), {})
 for _, record in ipairs(Catalog.trades) do
   assert(receivedOnly.trades[record.id].requested.species == record.give)
+end
+
+local sawAllowedLegendary = false
+for _, fairness in ipairs({ "similar", "any", "no_downgrade" }) do
+  for _, legendaryPolicy in ipairs({ "exclude", "match", "allow" }) do
+    for seedIndex = 1, 50 do
+      local matrixSettings = {}
+      for key, value in pairs(settings) do matrixSettings[key] = value end
+      matrixSettings.in_game_trades = "received"
+      matrixSettings.game_corner_pokemon = "off"
+      matrixSettings.trade_fairness = fairness
+      matrixSettings.legendaries = legendaryPolicy
+      matrixSettings.duplicate_policy = "allow"
+      local matrix = Category.generate(
+        manifest, { gameVersion = "red" }, matrixSettings,
+        streams(("POLICY %s %s %d"):format(
+          fairness, legendaryPolicy, seedIndex)), {})
+      for _, record in ipairs(Catalog.trades) do
+        local received = assert(matrix.trades[record.id]).received.species
+        local isLegendary = byId[received].legendary == true
+        if legendaryPolicy == "exclude" or legendaryPolicy == "match" then
+          assert(not isLegendary,
+            ("legendary policy %s must remain hard under %s")
+              :format(legendaryPolicy, fairness))
+        elseif isLegendary then
+          sawAllowedLegendary = true
+        end
+      end
+    end
+  end
+end
+assert(sawAllowedLegendary,
+  "policy matrix must exercise an allowed legendary destination")
+
+local casual = General.preset("casual")
+for seedIndex = 1, 100 do
+  local generatedCasual = Category.generate(
+    manifest, { gameVersion = "red" }, casual,
+    streams("CASUAL " .. tostring(seedIndex)), {})
+  for _, record in ipairs(Catalog.trades) do
+    local trade = assert(generatedCasual.trades[record.id])
+    assert(not byId[trade.received.species].legendary,
+      "the shipped Casual preset must never receive a legendary trade")
+  end
+  for _, prize in pairs(generatedCasual.prizes) do
+    assert(not byId[prize.species].legendary,
+      "the shipped Casual preset must never generate a legendary prize")
+  end
 end
 
 local calls = {}

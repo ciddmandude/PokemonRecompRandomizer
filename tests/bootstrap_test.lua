@@ -21,7 +21,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.16.0",
+  version = "0.17.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -139,6 +139,7 @@ local mod = {
               {
                 { species = "BULBASAUR", level = 5 },
                 { species = "CHARMANDER", level = 6 },
+                { species = "MOD_ADDED", level = 7 },
               },
             },
           }
@@ -336,6 +337,9 @@ assert(#run.diagnostics.warnings >= 2,
 assert(type(run.mappings.starters.LEFT) == "table")
 assert(type(run.mappings.starters.MIDDLE) == "table")
 assert(type(run.mappings.starters.RIGHT) == "table")
+assert(run.mappings.trainerParties.OPP_FIX_YOUNGSTER[1][3].fallback
+    == true,
+  "an out-of-pool trainer source must save a vanilla fallback marker")
 assert(run.settings.randomizer == "on")
 assert(run.settings.preset == "standard")
 assert(run.settings.seed_text == "")
@@ -415,7 +419,7 @@ assert(mod.exports.save.status().phase == "loaded")
 assert(type(mod.exports.save.activeRun()) == "table")
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.16.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.17.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 local wrote = callbacks["save.writing"]({ save = save, meta = save.meta })

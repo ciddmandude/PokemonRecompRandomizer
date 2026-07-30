@@ -74,6 +74,21 @@ local trainers = {
       },
     },
   },
+  OPP_MIXED = {
+    parties = {
+      {
+        { species = "ALPHA", level = 10 },
+        { species = "MOD_ADDED", level = 11,
+          moves = { "MOD_MOVE" } },
+        { species = "BETA", level = 12 },
+      },
+    },
+  },
+  OPP_INVALID = {
+    parties = {
+      {},
+    },
+  },
   OPP_RIVAL1 = {
     parties = {
       {{ species = "ALPHA", level = 5 }},
@@ -137,10 +152,16 @@ for classId, classParties in pairs(first.trainerParties) do
     if type(partyIndex) == "number" then
       for slotIndex, slot in ipairs(party) do
         local twin = second.trainerParties[classId][partyIndex][slotIndex]
-        assert(slot.species == twin.species and slot.level == twin.level,
-          "trainer generation must be deterministic")
-        assert(slot.level >= 2 and slot.level <= 100,
-          "saved levels must be valid")
+        if slot.fallback == true then
+          assert(twin.fallback == true
+              and slot.sourceSlot == twin.sourceSlot,
+            "trainer fallback generation must be deterministic")
+        else
+          assert(slot.species == twin.species and slot.level == twin.level,
+            "trainer generation must be deterministic")
+          assert(slot.level >= 2 and slot.level <= 100,
+            "saved levels must be valid")
+        end
       end
     end
   end
@@ -164,6 +185,11 @@ local global = Category.generate(
 assert(global.trainerParties.OPP_FIX[1][1].species
   == global.trainerParties.OPP_FIX[2][1].species,
   "global map must map the same source consistently")
+assert(global.trainerParties.OPP_MIXED[1][2].fallback == true,
+  "global map must keep an unknown source slot vanilla")
+assert(global.trainerParties.OPP_MIXED[1][1].species
+  == global.trainerParties.OPP_FIX[1][1].species,
+  "known global sources must stay consistent beside an unknown source")
 
 local themedSettings = {}
 for key, value in pairs(settings) do themedSettings[key] = value end
@@ -190,6 +216,69 @@ assert(omitted.trainerParties.OPP_FIX ~= nil,
 local guardedGlobal = global.trainerParties.OPP_FIX[1][1].species
 assert(not byId[guardedGlobal].legendary and byId[guardedGlobal].bst <= 450,
   "progression guard must constrain global-map destinations")
+
+local isolatedSettings = {}
+for key, value in pairs(settings) do isolatedSettings[key] = value end
+isolatedSettings.trainer_levels = "unchanged"
+isolatedSettings.party_size = "unchanged"
+isolatedSettings.progression_guard = "off"
+local isolated = Category.generate(
+  manifest, { trainers = trainers }, isolatedSettings,
+  rngs("isolated trainer fallback"))
+local mixed = isolated.trainerParties.OPP_MIXED[1]
+assert(type(mixed[1].species) == "string"
+    and mixed[1].species ~= "ALPHA"
+    and type(mixed[3].species) == "string"
+    and mixed[3].species ~= "BETA",
+  "eligible slots surrounding a missing source must still randomize")
+assert(mixed[2].fallback == true and mixed[2].sourceSlot == 2
+    and mixed[2].species == nil,
+  "an ineligible source must save a species-free vanilla fallback marker")
+assert(isolated.trainerParties.OPP_INVALID == nil,
+  "a malformed party must not create an invalid runtime override")
+
+local sourceWarning, partyWarning
+for _, row in ipairs(isolated.warnings) do
+  if row.code == "TRAINER_SOURCE_UNAVAILABLE"
+      and row.trainerClass == "OPP_MIXED" then
+    sourceWarning = row
+  elseif row.code == "TRAINER_PARTY_INVALID"
+      and row.trainerClass == "OPP_INVALID" then
+    partyWarning = row
+  end
+end
+assert(sourceWarning and sourceWarning.partyIndex == 1
+    and sourceWarning.slotIndex == 2
+    and sourceWarning.sourceSpecies == "MOD_ADDED"
+    and sourceWarning.reason == "UNKNOWN_SOURCE",
+  "slot fallback diagnostics must identify the exact source location")
+assert(partyWarning and partyWarning.partyIndex == 1,
+  "malformed-party diagnostics must be attributed without aborting")
+assert(isolated.fallbackCount >= 2,
+  "each isolated trainer fallback must increment diagnostics")
+
+local mixedPrior = {
+  { species = "ALPHA", level = 10 },
+  { species = "MOD_ADDED", level = 11, moves = { "MOD_MOVE" } },
+  { species = "BETA", level = 12 },
+}
+local mixedRun = {
+  mappings = {
+    trainerParties = {
+      OPP_MIXED = { [1] = mixed },
+    },
+  },
+  _speciesSet = byId,
+}
+local mixedProjected = Runtime.party(
+  mixedPrior, "OPP_MIXED", 1, mixedRun)
+assert(mixedProjected[1].species == mixed[1].species
+    and mixedProjected[3].species == mixed[3].species,
+  "runtime must retain generated neighbors around a fallback slot")
+assert(mixedProjected[2].species == "MOD_ADDED"
+    and mixedProjected[2].level == 11
+    and mixedProjected[2].moves[1] == "MOD_MOVE",
+  "runtime fallback must preserve the prior species, level, and moves")
 
 local prior = {
   { species = "OLD", level = 4, moves = { "MOD_MOVE" } },

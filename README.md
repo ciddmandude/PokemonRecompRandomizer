@@ -107,7 +107,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.16.0`
+- randomizer mod version: `0.17.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -182,6 +182,8 @@ workflow also builds and natively extracts the archive on Windows and Linux.
 - Stock v0.1.30 receives only the three starter-ball talk overrides.
 - NPC trade replacement delegates to the stock trade command and restores
   the exact merged trade record after every interaction.
+- Legendary exclusion remains a hard rule under every trade fairness mode,
+  including the Casual preset's No Downgrade setting.
 - Game Corner TM rows and active-version prize ordering remain unchanged.
 - A failed mapped Pokemon prize award never consumes coins.
 - Oak, rival battles, parcel and Pokédex delivery, and lab movement remain
@@ -194,6 +196,8 @@ workflow also builds and natively extracts the archive on Windows and Linux.
   balls, rival pickup, and all vanilla rival party branches.
 - Rival projection copies the prior trainer party and changes only its final
   species; original levels, moves, and party sizes remain intact.
+- An out-of-pool trainer source falls back only for its affected saved slot;
+  eligible neighboring slots and unrelated trainer classes still randomize.
 - Scoped static and gift mappings are generated once and stored with the save.
 - Recomp 0.1.38's `pokemon.before_give` event provides an award-time safety
   net, while the scoped fossil-room adapter resolves the mapped name before

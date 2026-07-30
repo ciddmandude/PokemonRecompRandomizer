@@ -442,8 +442,13 @@ return function(Canonical, Crypto)
               and type(class[partyIndex]) == "table" then
             local members = {}
             for _, member in ipairs(class[partyIndex]) do
-              members[#members + 1] =
-                speciesName(member.species) .. levelText(member.level)
+              if member.fallback == true then
+                members[#members + 1] = ("Vanilla source slot %s"):format(
+                  tostring(member.sourceSlot or "?"))
+              else
+                members[#members + 1] =
+                  speciesName(member.species) .. levelText(member.level)
+              end
             end
             add(lines, ("    Party %-3s %s"):format(
               tostring(partyIndex), table.concat(members, ", ")))

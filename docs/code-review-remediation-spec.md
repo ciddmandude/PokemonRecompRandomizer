@@ -462,6 +462,8 @@ features.
 
 ### Milestone 1 — P0 cross-platform release repair
 
+Status: Implemented in `0.16.0`.
+
 Deliver:
 
 - replace backslash-producing ZIP creation;
@@ -477,6 +479,8 @@ Exit criteria:
 - the archive loads without unpacking-path repair.
 
 ### Milestone 2 — P1 trade policy and trainer isolation
+
+Status: Implemented in `0.17.0`.
 
 Deliver:
 

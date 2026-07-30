@@ -11,10 +11,10 @@ return function(StableSort, SpeciesFilters, Catalog)
     return { code = code, message = message, id = id }
   end
 
-  local function commonRules(settings, excluded, sourceLegendaryMode)
+  local function commonRules(settings, excluded)
     return {
       strengthPercent = tonumber(settings.similar_strength),
-      legendary = sourceLegendaryMode or settings.legendaries or "allow",
+      legendary = settings.legendaries or "allow",
       excludeIds = excluded,
     }
   end
@@ -57,7 +57,7 @@ return function(StableSort, SpeciesFilters, Catalog)
 
     if settings.trade_fairness == "no_downgrade" then
       local base = SpeciesFilters.candidates(
-        manifest, requested, commonRules(settings, excluded, "allow"))
+        manifest, requested, commonRules(settings, excluded))
       local request = manifest.byId[requested]
       local output = {}
       for _, row in ipairs(base) do

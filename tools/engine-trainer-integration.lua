@@ -13,6 +13,16 @@ local Data = require("src.core.Data")
 local hasGeneratedData = pcall(Data.load, Data)
 if not hasGeneratedData then
   Data = require("tests.modkit.fixtures").fresh()
+  Data.trainers.OPP_FIX_MIXED = {
+    id = "OPP_FIX_MIXED",
+    parties = {
+      {
+        { species = "FIXMON_A", level = 8 },
+        { species = "MOD_ONLY_SOURCE", level = 9,
+          moves = { "MOD_MOVE" } },
+      },
+    },
+  }
 end
 
 local alias = "mods/pokemon_randomizer"
@@ -74,7 +84,7 @@ local save = {
   meta = {
     engine = engineVersion,
     mods = {
-      { id = "pokemon_randomizer", version = "0.16.0", api = 2 },
+      { id = "pokemon_randomizer", version = "0.17.0", api = 2 },
     },
   },
   player = { id = 1234 },
@@ -117,7 +127,26 @@ if not hasGeneratedData then
   local expected = run.mappings.wildAreaSlots.FIX_ROUTE.grass[1]
   assert(wild.species == expected.species and wild.level == expected.level,
     "fixture area-slot encounter did not use its saved mapping")
-  print("engine integration: fixture area-slot encounter uses saved mapping")
+  local savedParty = run.mappings.trainerParties.OPP_FIX_MIXED[1]
+  assert(type(savedParty[1].species) == "string"
+      and savedParty[2].fallback == true
+      and savedParty[2].species == nil,
+    "fixture trainer did not isolate its out-of-pool source")
+  local priorParty = {
+    { species = "FIXMON_A", level = 8 },
+    { species = "MOD_ONLY_SOURCE", level = 9,
+      moves = { "MOD_MOVE" } },
+  }
+  local hookedParty = Runtime.call("trainer.party",
+    function(_, _, party) return party end,
+    "OPP_FIX_MIXED", 1, priorParty)
+  assert(hookedParty[1].species == savedParty[1].species,
+    "eligible fixture trainer slot did not use its saved mapping")
+  assert(hookedParty[2].species == "MOD_ONLY_SOURCE"
+      and hookedParty[2].level == 9
+      and hookedParty[2].moves[1] == "MOD_MOVE",
+    "out-of-pool fixture trainer slot did not preserve the prior result")
+  print("engine integration: fixture wild and isolated trainer mappings pass")
   loaded.release()
   return
 end
