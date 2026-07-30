@@ -106,7 +106,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.27.20`
+- randomizer mod version: `0.27.21`
 - generator contract: `1`
 - algorithm build: `1.3.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -138,7 +138,9 @@ payload through the Recomp 0.1.38 ROM-free fixture, and prints its SHA-256.
 build.
 
 The packager includes only `README.md`, `manifest.json`, `main.lua`, the
-runtime `src/*.lua` modules, and `.modkit/pack.json`.
+runtime `src/*.lua` modules, and `.modkit/pack.json`. Hidden package metadata
+is enumerated explicitly on every operating system, and scaffold validation
+accepts native LF or CRLF line endings.
 
 The build fails if an entry uses a backslash, an absolute or traversing path,
 a duplicate or case-colliding name, or an unexpected development-only path.

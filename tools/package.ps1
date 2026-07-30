@@ -32,7 +32,7 @@ try {
     -Destination $staging -Recurse
 
   $files = @()
-  foreach ($file in Get-ChildItem -LiteralPath $staging -File -Recurse |
+  foreach ($file in Get-ChildItem -LiteralPath $staging -File -Recurse -Force |
       Sort-Object FullName) {
     $relative = $file.FullName.Substring($staging.Length + 1) `
       -replace '\\', '/'
@@ -77,7 +77,7 @@ try {
     $OutputPath, [IO.Compression.ZipArchiveMode]::Create)
   try {
     $stagedFiles = @(
-      Get-ChildItem -LiteralPath $staging -File -Recurse |
+      Get-ChildItem -LiteralPath $staging -File -Recurse -Force |
         ForEach-Object {
           $relative = $_.FullName.Substring($staging.Length + 1) `
             -replace '\\', '/'
