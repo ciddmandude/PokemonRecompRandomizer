@@ -99,7 +99,7 @@ return function(mod)
     "src/spoiler_controller.lua", Constants, SpoilerLog)
   local OptionsSchema = loadModule("src/options_schema.lua")
   local Preferences = loadModule(
-    "src/preferences.lua", Constants, OptionsSchema, GeneralSettings)
+    "src/preferences.lua", Constants, OptionsSchema, GeneralSettings, Seed)
   local OptionsScreen = loadModule("src/options_screen.lua", Constants)
   local ReviewScreen = loadModule("src/review_screen.lua")
   local PublicFacade = loadModule("src/public_facade.lua")

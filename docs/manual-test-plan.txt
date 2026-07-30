@@ -1,0 +1,1437 @@
+================================================================================
+POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
+================================================================================
+Mod version .......... 0.34.3
+Algorithm build ...... 1.4.0-dev
+Engine range ......... >=0.1.30 <0.2.0  (0.1.38 recommended)
+Mod API .............. 2
+Run code format ...... R1-<seed8>-<settings8>-<pool8>
+Plan revision ........ 1
+Automated status ..... 23/23 Lua test files passing at time of writing
+
+
+--------------------------------------------------------------------------------
+0. HOW TO USE THIS PLAN
+--------------------------------------------------------------------------------
+
+Sections 1-3 are setup. Read them once.
+
+Section 4 defines eight named configurations (CFG-A .. CFG-H). Almost every
+later test says "start a run on CFG-x", which means: set the options exactly as
+listed in section 4, then NEW GAME.
+
+Sections 5-15 are the test suites. Each test has an ID, a setup, numbered
+steps, and expected results. Record PASS / FAIL / BLOCKED per ID using the
+template in section 17.
+
+Priority markers:
+  [P0] Release blocker. Run every time.
+  [P1] Core correctness. Run before any release.
+  [P2] Run when the related area changed.
+  [P3] Nice to have / long-tail.
+
+WHAT NOT TO TEST HERE
+The automated suite already covers determinism vectors, RNG bounds, one-to-one
+uniqueness, level bounds, legendary filters, save schema validation, script
+label control flow, and package layout. Do not spend manual time re-deriving
+those. Manual testing exists to check the things Lua tests cannot see: what the
+player actually sees on screen, whether dialogue matches the awarded Pokemon,
+whether one-time events stay consistent, and whether the engine seams behave.
+
+
+--------------------------------------------------------------------------------
+1. ENVIRONMENT SETUP
+--------------------------------------------------------------------------------
+
+1.1 Paths (Windows)
+
+  Save file .......... %APPDATA%\love\pokemon-love2d\save.lua
+  Options file ....... %APPDATA%\love\pokemon-love2d\options.lua
+  Editor backups ..... %APPDATA%\love\pokemon-love2d\save.lua.bak-YYYYMMDD-HHMMSS
+  Spoiler exports .... %APPDATA%\love\pokemon-love2d\pokemon_randomizer\spoilers\
+                       (file name is <first 8 chars of seed hash>.txt)
+
+  macOS  ~/Library/Application Support/LOVE/pokemon-love2d/
+  Linux  ~/.local/share/love/pokemon-love2d/
+
+1.2 Build and install the mod
+
+  From the repo root:
+      ./tools/test.ps1                       # must be fully green first
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.34.3.zip
+
+  Install the produced zip through the engine's mod manager (F10), or extract it
+  into the engine's mods directory. Do NOT test a hand-copied source tree: half
+  the packaging regressions this plan checks only appear in the built archive.
+
+1.3 Engine hotkeys you will use constantly
+
+  F1 .... quick save
+  F2 .... quick load
+  F10 ... open / close the mod manager (per-mod errors, options, state)
+  - / =  zoom out / in
+
+1.4 Baseline artifacts to capture before you start
+
+  Keep a scratch folder per test session containing:
+    - a copy of save.lua immediately after each NEW GAME
+    - the exported spoiler .txt for each run
+    - a screenshot of the RANDOMIZER options screen header line
+  You will diff these constantly. Most failures in this mod present as "two
+  things that should agree, don't", and you need both halves to prove it.
+
+
+--------------------------------------------------------------------------------
+2. THE SAVE EDITOR - YOUR MAIN ACCELERATOR
+--------------------------------------------------------------------------------
+
+Close the game first. From the engine repository root:
+
+    love . --editor
+    love . --editor --save "%APPDATA%\love\pokemon-love2d\save.lua"
+
+The editor can change: party, boxes, items, event flags, map location / warp
+position, and Pokedex flags. Every write makes a timestamped .bak first.
+
+2.1 CRITICAL RULE - do not hand-edit the randomizer namespace
+
+  save.modData.pokemon_randomizer is checksummed. Editing ANY field inside it
+  (seed, settings, compatibility, mappings, diagnostics) invalidates the
+  checksum and the mod will quarantine the run on load.
+
+  That is a legitimate test (see SAVE-05) but it must be deliberate. If you
+  edit it by accident, every later result in that session is garbage.
+
+  Editing anything OUTSIDE that namespace - party, boxes, items, flags,
+  position, money, Pokedex - does NOT touch the randomizer checksum. That is
+  what makes the editor safe to use as an accelerator.
+
+2.2 Warp recipes (skip hours of play)
+
+  Set the map location / warp position to jump straight to a test site:
+
+    POWER_PLANT ..................... 8 fake-item balls + Zapdos
+    CERULEAN_CAVE_B1F ............... Mewtwo
+    SEAFOAM_ISLANDS_B4F ............. Articuno
+    VICTORY_ROAD_2F ................. Moltres
+    ROUTE_12 / ROUTE_16 ............. the two Snorlax
+    CELADON_MANSION_ROOF_HOUSE ...... Eevee ball
+    MT_MOON_POKECENTER .............. Magikarp salesman
+    FIGHTING_DOJO ................... Hitmonlee / Hitmonchan choice
+    SILPH_CO_7F ..................... Lapras gift
+    CINNABAR_LAB_FOSSIL_ROOM ........ fossil revival + Ponyta/Seel trade
+    CINNABAR_LAB_TRADE_ROOM ......... Raichu/Electrode + Venonat/Tangela trades
+    ROUTE_11_GATE_2F ................ Nidorino/Nidorina trade
+    ROUTE_2_TRADE_HOUSE ............. Abra/Mr. Mime trade
+    VERMILION_TRADE_HOUSE ........... Spearow/Farfetch'd trade
+    ROUTE_18_GATE_2F ................ Slowbro/Lickitung trade
+    CERULEAN_TRADE_HOUSE ............ Poliwhirl/Jynx trade
+    UNDERGROUND_PATH_ROUTE_5 ........ Nidoran M/F trade
+    OAKS_LAB ........................ starter balls
+    (Celadon Game Corner prize counter for the six Pokemon prizes)
+
+2.3 Flag recipes
+
+  UNLOCK a gate so you can reach a test:
+    EVENT_FOLLOWED_OAK_INTO_LAB ..... required before starter balls respond
+    EVENT_BEAT_KARATE_MASTER ........ required before the Dojo offers a prize
+    EVENT_GOT_STARTER ............... set to simulate "already chose"
+
+  CLEAR a flag to re-run a one-time event without a fresh playthrough:
+    EVENT_GOT_EEVEE ................. re-offer the Celadon Eevee
+    EVENT_BOUGHT_MAGIKARP ........... re-offer the Magikarp sale
+    EVENT_GOT_HITMONLEE / _HITMONCHAN re-open the Dojo choice
+    EVENT_GOT_LAPRAS ................ re-offer the Silph Lapras
+    EVENT_BEAT_ROUTE12_SNORLAX ...... respawn the Route 12 Snorlax
+    EVENT_BEAT_ROUTE16_SNORLAX ...... respawn the Route 16 Snorlax
+    EVENT_BEAT_ZAPDOS / _ARTICUNO / _MOLTRES / _MEWTWO
+    EVENT_BEAT_POWER_PLANT_VOLTORB_0 .. _7   (the eight fake items)
+    EVENT_GAVE_FOSSIL_TO_LAB + EVENT_LAB_STILL_REVIVING_FOSSIL
+                                    ... reset the fossil quest
+    EVENT_TRADED_* .................. re-run any NPC trade
+
+  CAUTION: clearing a "beat" flag re-arms the encounter but does NOT remove a
+  Pokemon you already caught. Expect duplicates in the party. That is the
+  editor's behaviour, not a mod bug.
+
+2.4 Inventory / state recipes
+
+  Box-full and party-full paths (needed by GIFT-04, PRIZE-04):
+    fill party to 6 AND fill every box slot. Both must be full - the mod's
+    give path only reports "box is full" when there is nowhere left at all.
+
+  Money and coins:
+    money >= 500 ... Magikarp salesman accepts
+    money < 500 .... Magikarp salesman refuses (NO MONEY branch)
+    coins ......... set high for PRIZE tests, set to 0 for the
+                    insufficient-funds branch, and set to exactly one less
+                    than a prize's cost for the boundary case
+
+  Items to grant:
+    DOME_FOSSIL / HELIX_FOSSIL / OLD_AMBER ... fossil revival tests
+    OLD_ROD / GOOD_ROD / SUPER_ROD ........... fishing tests
+    POKE_FLUTE ............................... reach Route 12/16 Snorlax
+    COIN_CASE ................................ Game Corner prize counter
+    HM03 (Surf), HM04 (Strength), HM05 (Flash)  progression / access tests
+    badges ................................... gate-dependent maps
+
+2.5 The single biggest time-saver
+
+  Make ONE "god save" per configuration:
+    all 8 badges, all HMs, all key items, all three fossils, all three rods,
+    99999 money, 9999 coins, empty party, empty boxes, and every gate flag set
+    but every reward flag CLEAR.
+
+  Copy that file aside. For each encounter test, restore it, warp, test, then
+  restore again. This turns a 20-hour playthrough into a 10-minute loop.
+  Make a fresh god save per configuration - do not reuse one across configs,
+  because the randomizer namespace inside it belongs to that run's seed.
+
+
+--------------------------------------------------------------------------------
+3. READING THE MOD'S OWN OUTPUT
+--------------------------------------------------------------------------------
+
+3.1 Options screen header
+
+  Open OPTIONS > RANDOMIZER. The header shows:
+    <PAGE NAME> <n>/<total>
+    LOCKED:<first 8 of the active seed>   ... a randomized run is active
+    ACTIVE:VANILLA                        ... run exists but is not randomized
+    ACTIVE:DISABLED                       ... saved state was quarantined
+    ACTIVE:NONE                           ... no run loaded
+    NEXT NEW GAME                         ... the rows below are next-run only
+
+3.2 Actions page
+
+  REVIEW NEXT RUN ... settings + pool size + validation warnings for the NEXT run
+  COPY ACTIVE SEED .. seed, run code, algorithm, and locked category summary
+  VIEW SPOILERS ..... in-game spoiler browser for the ACTIVE run
+  EXPORT SPOILERS ... writes the plaintext .txt (path shown on screen)
+  RESET DEFAULTS .... confirm prompt, restores STANDARD and clears seed text
+
+3.3 Diagnostic codes worth recognising
+
+  These appear in the spoiler log DIAGNOSTICS section and in engine logs.
+  Seeing one is not automatically a bug - most are deliberate, recorded
+  degradations. Seeing one you cannot explain is a bug.
+
+    WILD_UNIQUENESS_POOL_RESET / TRAINER_UNIQUENESS_POOL_RESET
+        one-to-one pool genuinely exhausted; a new pool opened
+    WIDEN_STRENGTH / DROP_STRENGTH / DROP_TYPE
+        ordered, bounded relaxation of a soft filter
+    PROGRESSION_MAP_UNKNOWN
+        a map is not in the Red/Blue progression model, so it is excluded
+        from catchability guarantees
+    TRADE_REACHABILITY_REPAIRED / TRADE_REACHABILITY_UNSATISFIED
+        the validator swapped, or could not swap, an unreachable trade request
+    TRAINER_SOURCE_UNAVAILABLE / TRAINER_NO_CANDIDATE
+        a single trainer slot stayed vanilla
+    STARTER_TRIAD_UNAVAILABLE
+        no primary-type cycle existed; fell back to RANDOM
+    SPECIES_METADATA_CONFLICT_RESOLVED
+        two mods described the same species; a deterministic policy won
+    COMPATIBILITY_CHANGED / RELEVANT_MODS_CHANGED
+        the enabled mod set differs from the New Game snapshot
+    SAVE_SIZE_BUDGET_EXCEEDED
+        serialized mappings exceeded 256 KiB (262144 bytes)
+
+  These indicate a whole category fell back to vanilla and should be
+  investigated whenever they appear on stock data:
+    WILD_GENERATION_FAILED, STARTER_GENERATION_FAILED,
+    STATIC_GIFT_GENERATION_FAILED, TRADE_PRIZE_GENERATION_FAILED,
+    TRAINER_GENERATION_FAILED, CROSS_CATEGORY_VALIDATION_FAILED
+
+  These mean the run is broken and must never appear on stock data:
+    GENERATOR_ERROR, INVALID_GENERATION_RESULT, INVALID_RUN_CONFIGURATION,
+    RANDOMIZER_SAVE_DISABLED, EMPTY_POOL
+
+
+--------------------------------------------------------------------------------
+4. TEST CONFIGURATIONS
+--------------------------------------------------------------------------------
+
+Set SEED MODE = MANUAL and the exact SEED TEXT given, so results are
+reproducible and comparable between testers. Everything not listed is the
+preset default.
+
+CFG-A  "STANDARD baseline"                                   seed: TEST A
+  PRESET = STANDARD. Change nothing else.
+  Covers: global wild map, randomized fishing, unchanged levels, catch guard,
+  random starters (basic only), both-sides trades w/ similar strength,
+  randomized prizes, by-slot trainers, themed bosses, progression guard.
+
+CFG-B  "CASUAL"                                              seed: TEST B
+  PRESET = CASUAL. Change nothing else.
+  Covers: LEGENDARIES=EXCLUDE with TRADE FAIRNESS=NO DOWNGRADE (the round-1
+  legendary-bypass regression), boss trainers VANILLA, global-map trainers,
+  RECEIVED-only trades, +/-10% strength band.
+
+CFG-C  "CHAOS"                                               seed: TEST C
+  PRESET = CHAOS. Change nothing else.
+  Covers: merged pool, no strength band, legendaries ALLOW, duplicates ALLOW,
+  AREA SLOTS wild, +/-2 wild levels, catch guard OFF, ANY starter stage,
+  RANDOM OTHER rival, RANDOM +/-5 statics, SCALED gifts, allow dup gifts,
+  ANY trade fairness, trade safety OFF, SCALED prize levels, RANDOM +/-25%
+  prices, +/-10% trainer levels, bosses INCLUDE, 1-6 RANDOM party size,
+  progression guard OFF.
+
+CFG-D  "All categories OFF"                                  seed: TEST D
+  RANDOMIZER = ON, then set every category switch to OFF:
+    WILD POKEMON=OFF, FISHING=VANILLA, STARTERS=OFF, STATIC POKEMON=OFF,
+    GIFT POKEMON=OFF, IN-GAME TRADES=OFF, PRIZE POKEMON=OFF,
+    TRAINER POKEMON=OFF
+  Covers: vanilla parity while the mod is fully active.
+
+CFG-E  "Master switch OFF"                                   seed: TEST E
+  RANDOMIZER = OFF. Leave every other setting at STANDARD.
+  Covers: the master switch, and that a vanilla run still records a namespace.
+
+CFG-F  "Level and price torture"                             seed: TEST F
+  Start from STANDARD, then:
+    WILD LEVELS = SCALED
+    STATIC LEVELS = SCALED
+    GIFT LEVELS = FIXED 15
+    PRIZE LEVELS = SCALED
+    PRIZE PRICES = BY STRENGTH
+    TRAINER LEVELS = PROGRESSIVE
+    STARTER LEVEL = 2
+  Covers: every level formula and both price formulas at once.
+  Run a second pass with STARTER LEVEL = 20 (call it CFG-F20).
+
+CFG-G  "Type themed"                                         seed: TEST G
+  Start from STANDARD, then:
+    STARTERS = TYPE TRIAD
+    STARTER STAGE = ANY
+    TRAINER POKEMON = TYPE THEMED
+    BOSS TRAINERS = THEMED
+    SIMILAR STRENGTH = OFF
+    LEGENDARIES = ALLOW
+    DUPLICATES = ALLOW
+  Covers: type cycles, per-class themes, unconstrained pools.
+
+CFG-H  "Auto seed"                                           seed: (AUTO)
+  PRESET = STANDARD, SEED MODE = AUTO.
+  Covers: auto-seed generation, entropy diagnostics, seed uniqueness.
+
+
+================================================================================
+TEST SUITES
+================================================================================
+
+--------------------------------------------------------------------------------
+5. OPTIONS UI AND PREFERENCES
+--------------------------------------------------------------------------------
+
+OPT-01 [P1] Options row appears and opens - PASSED
+  1. Boot the engine with the mod enabled. Title screen > OPTIONS.
+  2. Find the RANDOMIZER row.
+  3. Press A.
+  EXPECT: row is present with value OPEN (no run) or LOCKED (run active).
+          Pressing A opens the paged Randomizer screen at page 1.
+  EXPECT: with the mod disabled in the mod manager, the row is absent and the
+          rest of the Options menu is unchanged.
+
+OPT-02 [P1] Navigation, paging, and help text - PASSED
+  1. Press Up/Down through every row on every page.
+  2. Press SELECT to page forward through all pages and wrap to page 1.
+  3. Press Left/Right on a choice row and on STARTER LEVEL.
+  4. Press B.
+  EXPECT: cursor wraps from the last row of a page to the first row of the
+          next page and from the last page back to page 1.
+  EXPECT: the bottom panel shows one or two lines of help for the highlighted
+          row, and it changes as the cursor moves.
+  EXPECT: Left and Right step the value in opposite directions; STARTER LEVEL
+          clamps at 2 and 20 and never wraps.
+  EXPECT: B closes the screen and returns to the main Options menu.
+
+OPT-03 [P1] Preset expansion and CUSTOM detection
+  1. Set PRESET = CASUAL. Page through every setting.
+  2. Set PRESET = CHAOS. Page through every setting.
+  3. Set PRESET = STANDARD, then change SIMILAR STRENGTH one step.
+  4. Change SIMILAR STRENGTH back to +/-20%.
+  EXPECT: after step 1 and 2 every value matches the CFG-B / CFG-C lists in
+          section 4 exactly.
+  EXPECT: after step 3 PRESET reads CUSTOM.
+  EXPECT: after step 4 PRESET reads STANDARD again (it re-detects, it does not
+          latch on CUSTOM).
+
+OPT-04 [P1] Preset handling of master / seed / spoiler rows
+  1. Set RANDOMIZER = OFF, SEED MODE = MANUAL, SEED TEXT = KEEPME,
+     ENABLE SPOILERS = OFF.
+  2. Set PRESET = CHAOS. Confirm ENABLE SPOILERS, then set it back to OFF.
+  3. Set PRESET = CASUAL. Confirm ENABLE SPOILERS, then set it back to OFF.
+  4. Set PRESET = STANDARD.
+  EXPECT: RANDOMIZER stays OFF, SEED MODE stays MANUAL, and SEED TEXT stays
+          KEEPME through all three preset changes.
+  EXPECT: ENABLE SPOILERS changes to ON whenever CHAOS, CASUAL, or STANDARD is
+          selected.
+
+OPT-05 [P1] Seed text entry and normalization
+  1. SEED TEXT, enter:  "  my   seed  "  (leading/trailing/repeated spaces)
+  2. Re-open the row and read the stored value.
+  3. Enter "race_seed-01".
+  4. Try to enter a 33rd character.
+  5. Enter punctuation such as "MEW!".
+  6. Clear the field to blank with SEED MODE = MANUAL, then REVIEW NEXT RUN.
+  EXPECT: step 2 shows MY SEED (uppercased, collapsed, trimmed).
+  EXPECT: step 3 stores RACE_SEED-01.
+  EXPECT: step 4 is refused at 32 characters.
+  EXPECT: step 5 is either refused at entry or reported by REVIEW NEXT RUN as
+          WARNING INVALID_MANUAL_SEED. It must never silently be accepted.
+  EXPECT: step 6 shows WARNING INVALID_MANUAL_SEED in REVIEW NEXT RUN.
+
+OPT-06 [P1] Reset defaults
+  1. Change at least six settings across different pages, set SEED TEXT.
+  2. Press START anywhere on the screen. Choose NO.
+  3. Press START again. Choose YES.
+  EXPECT: the confirm prompt defaults to NO.
+  EXPECT: NO leaves everything unchanged and shows RESET CANCELLED.
+  EXPECT: YES restores the STANDARD preset, clears SEED TEXT to (BLANK), shows
+          DEFAULTS RESTORED, and returns the cursor to page 1 row 1.
+
+OPT-07 [P1] Preferences persist across a restart
+  1. Set CFG-G's settings. Close the game completely.
+  2. Reopen the game and reopen OPTIONS > RANDOMIZER.
+  EXPECT: every setting is exactly as left. Nothing reverted to defaults.
+
+OPT-08 [P2] REVIEW NEXT RUN content
+  1. On CFG-A settings, open REVIEW NEXT RUN.
+  2. Change SPECIES POOL to MERGED DATA and re-open it.
+  EXPECT: lists SEED, every editable setting with its label, POOL: <n> ELIGIBLE,
+          and VALIDATION: OK.
+  EXPECT: with only the randomizer installed, VANILLA 151 reports 151 eligible.
+  EXPECT: MERGED DATA reports >= 151, and POOL EXCLUDED: <n> appears only if
+          some merged species failed validation.
+
+OPT-09 [P2] Active run is read-only
+  1. Start any randomized run (CFG-A). Return to OPTIONS > RANDOMIZER.
+  2. Change several settings.
+  3. Walk into grass and check encounters; check the starter you already have.
+  EXPECT: header reads LOCKED:<seed prefix> and the NEXT NEW GAME label is
+          visible above the editable rows.
+  EXPECT: changing settings mid-run changes nothing about the live run.
+
+OPT-10 [P3] Accessibility
+  1. Repeat OPT-02 using a gamepad.
+  2. If the platform supports touch, repeat with touch controls.
+  EXPECT: every row is reachable and editable with each input method. No
+          information is conveyed by colour alone.
+
+
+--------------------------------------------------------------------------------
+6. NEW GAME, SEEDS, AND RUN IDENTITY
+--------------------------------------------------------------------------------
+
+SEED-01 [P0] Manual seed produces a stable run code
+  1. CFG-A. NEW GAME.
+  2. Actions > COPY ACTIVE SEED. Record seed, run code, algorithm.
+  3. Delete the save. Repeat steps 1-2 with identical settings.
+  EXPECT: SEED reads TEST A both times.
+  EXPECT: run code is identical both times, in the form
+          R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
+  EXPECT: ALGORITHM reads 1.4.0-dev.
+
+SEED-02 [P0] Same seed, same everything, identical mappings
+  1. Do SEED-01 twice, exporting spoilers each time.
+  2. Diff the two exported .txt files.
+  EXPECT: the two spoiler logs are byte-identical apart from nothing at all.
+          Any difference is a determinism failure - capture both files.
+
+SEED-03 [P1] Different seed changes mappings, not identity format
+  1. CFG-A with seed TEST A, export. Then seed TEST B2, export.
+  EXPECT: the seed segment of the run code differs; the settings and pool
+          segments are identical (settings and pool did not change).
+  EXPECT: mappings differ substantially between the two logs.
+
+SEED-04 [P1] Settings change moves only the settings segment
+  1. CFG-A, note run code.
+  2. Same seed, change LEGENDARIES to ALLOW. NEW GAME, note run code.
+  EXPECT: seed segment identical, settings segment different, pool segment
+          identical.
+
+SEED-05 [P1] Species pool change moves only the pool segment
+  1. CFG-A, note run code.
+  2. Same seed and settings, change SPECIES POOL to MERGED DATA. NEW GAME.
+  EXPECT: seed segment identical, pool segment different.
+  NOTE: with no other content mods installed the merged pool may equal the
+        vanilla pool; if so the pool segment legitimately stays the same.
+        Install any species-adding mod to see the difference.
+
+SEED-06 [P1] Cosmetic settings do NOT move the run code
+  1. CFG-A, note run code.
+  2. Same seed, toggle ENABLE SPOILERS. NEW GAME, note run code.
+  3. Same seed, switch SEED MODE to MANUAL/back without changing the text.
+  EXPECT: run code is identical in all three cases. ENABLE SPOILERS,
+          PRESET, SEED MODE, and SEED TEXT are excluded from the settings hash
+          by design.
+
+SEED-07 [P1] Auto seed
+  1. CFG-H. NEW GAME. Record the seed.
+  2. Delete the save and repeat five times.
+  EXPECT: each seed is 26 characters from the Crockford Base32 alphabet
+          (0-9 and A-Z excluding I, L, O, U).
+  EXPECT: all six seeds are different.
+  EXPECT: SEED MODE still reads AUTO afterwards; the run itself is reproducible
+          if you re-enter that seed manually (verify once with SEED-02).
+
+SEED-08 [P1] Entropy diagnostic
+  1. CFG-H. NEW GAME with the engine log visible (mod manager F10).
+  EXPECT: no warning about the auto-seed entropy provider under normal LOVE
+          conditions. If a warning appears it must name which source was
+          unavailable (love.timer / love.math), and the run must still be
+          created successfully.
+
+SEED-09 [P1] Invalid manual seed disables cleanly
+  1. SEED MODE = MANUAL, SEED TEXT blank. RANDOMIZER = ON. NEW GAME.
+  2. Check the options header, then play into grass and to Oak's Lab.
+  EXPECT: a clear warning that the manual seed is invalid.
+  EXPECT: header shows ACTIVE:VANILLA - not LOCKED, not DISABLED.
+  EXPECT: encounters, starters, and trainers are all vanilla. The save is NOT
+          half-randomized.
+
+SEED-10 [P1] Master switch OFF
+  1. CFG-E. NEW GAME. Play the opening.
+  EXPECT: header ACTIVE:VANILLA. Bulbasaur / Charmander / Squirtle in Oak's Lab.
+          Vanilla encounters and trainers everywhere.
+  EXPECT: VIEW SPOILERS reports the run is not randomized rather than crashing.
+
+SEED-11 [P2] All categories OFF with the master ON
+  1. CFG-D. NEW GAME.
+  EXPECT: header shows LOCKED (a run exists and is randomized-enabled) but all
+          content is vanilla.
+  EXPECT: the exported spoiler shows every category as vanilla / no entries,
+          and DIAGNOSTICS shows 0 warnings and 0 fallbacks.
+
+
+--------------------------------------------------------------------------------
+7. SAVE LIFECYCLE AND INTEGRITY
+--------------------------------------------------------------------------------
+
+SAVE-01 [P0] Settings snapshot is frozen at New Game
+  1. CFG-A. NEW GAME. Catch or observe five wild species and record them.
+  2. Save and quit. Reopen OPTIONS > RANDOMIZER and change ten settings,
+     including SPECIES POOL, LEGENDARIES, and WILD POKEMON.
+  3. CONTINUE.
+  4. Return to the same routes and observe encounters again.
+  EXPECT: identical encounters. The active run ignores global preferences
+          entirely.
+  EXPECT: run code and seed unchanged in COPY ACTIVE SEED.
+
+SAVE-02 [P0] Continue restores everything
+  1. CFG-A. NEW GAME, play to Viridian, save, quit, relaunch, CONTINUE.
+  EXPECT: header LOCKED:<same prefix>, same run code, same starter, same
+          encounters, same trainer teams.
+
+SAVE-03 [P1] Vanilla save stays vanilla
+  1. Disable the randomizer mod. Start a NEW GAME, play a little, save, quit.
+  2. Re-enable the randomizer mod. CONTINUE.
+  EXPECT: header ACTIVE:NONE or ACTIVE:VANILLA. Content stays vanilla.
+  EXPECT: the mod does NOT retroactively randomize the save.
+
+SAVE-04 [P1] Disabling the mod mid-run
+  1. CFG-A. NEW GAME, catch several randomized Pokemon, save, quit.
+  2. Disable the mod in the mod manager. CONTINUE.
+  3. Re-enable the mod. CONTINUE again.
+  EXPECT: step 2 loads with the engine's normal missing-mod notice. Caught
+          Pokemon remain valid species and remain usable. Encounters are vanilla.
+  EXPECT: step 3 reclaims the original namespace - same run code, and the
+          original randomized encounters return.
+
+SAVE-05 [P1] Tampered checksum quarantines the session
+  1. CFG-A. NEW GAME. Quit.
+  2. Open save.lua in a text editor (not the save editor). Inside
+     save.modData.pokemon_randomizer, change one mapped species string.
+  3. CONTINUE.
+  4. Quit without saving, restore the .bak or your untouched copy, CONTINUE.
+  EXPECT: an attributed error naming pokemon_randomizer and a count of issues.
+  EXPECT: header reads ACTIVE:DISABLED. All content behaves as vanilla for the
+          session.
+  EXPECT: the tampered save is NOT overwritten - the original data survives for
+          recovery, and step 4 restores the working run.
+
+SAVE-06 [P1] Missing mapped content degrades per lookup
+  1. CFG-A with SPECIES POOL = MERGED DATA and a species-adding mod enabled.
+     NEW GAME so that mod species appear in mappings (check the spoiler log).
+  2. Quit. Disable the species-adding mod. CONTINUE.
+  3. Visit a location whose mapping used a now-missing species.
+  4. Re-enable the mod and CONTINUE again.
+  EXPECT: a warning that N mappings reference unavailable content, and that
+          runtime uses vanilla fallbacks.
+  EXPECT: the affected encounter/trainer/gift falls back to vanilla for that
+          lookup only; unaffected lookups stay randomized.
+  EXPECT: step 4 restores the original randomized results - the stored mapping
+          was never rewritten.
+
+SAVE-07 [P1] Relevant-mod drift is reported, not silently absorbed
+  1. CFG-A with a second gameplay mod enabled. NEW GAME. Quit.
+  2. Disable that second mod. CONTINUE.
+  3. Save, quit, CONTINUE again.
+  EXPECT: a warning naming added/removed/changed counts (COMPATIBILITY_CHANGED).
+  EXPECT: mappings are retained and unchanged.
+  EXPECT: on step 3 the warning still appears. The snapshot must NOT have been
+          rewritten to match the current mod set by the intervening save.
+
+SAVE-08 [P2] Repeated save/load stability
+  1. CFG-A. NEW GAME. Then F1/F2 twenty times, interleaved with walking.
+  2. COPY ACTIVE SEED after each fifth cycle.
+  EXPECT: run code never changes. No accumulating warnings. Save file size
+          does not grow monotonically.
+
+SAVE-09 [P2] Save size budget
+  1. CFG-C (chaos, area slots, merged pool - the largest mapping set).
+  2. NEW GAME. Export spoilers and read the DIAGNOSTICS section.
+  EXPECT: the estimated save bytes value is well under 262144.
+  EXPECT: no SAVE_SIZE_BUDGET_EXCEEDED warning.
+
+SAVE-10 [P3] Boot does not create a phantom run
+  1. With no save present, launch the game and sit on the title screen.
+  2. Open OPTIONS > RANDOMIZER.
+  EXPECT: header reads ACTIVE:NONE, not LOCKED. The mod must not treat the
+          engine's boot-time skeleton save as a New Game.
+  3. Restart the application and repeat.
+  EXPECT: same result every launch.
+
+
+--------------------------------------------------------------------------------
+8. STARTERS AND RIVAL
+--------------------------------------------------------------------------------
+
+Use the save editor to set EVENT_FOLLOWED_OAK_INTO_LAB and warp to OAKS_LAB.
+To retest a different ball on the same seed, restore the pre-choice save.
+
+STR-01 [P0] Preview, confirmation, and award all agree
+  1. CFG-A. NEW GAME. Reach the starter balls.
+  2. Examine the LEFT ball. Read the Pokedex preview screen and the
+     "So! You want X?" prompt. Say NO.
+  3. Examine it again and say YES. Read the received message.
+  4. Open the party and inspect the Pokemon.
+  EXPECT: the species shown in the Pokedex preview, the confirm prompt, the
+          received message, and the party member are ALL the same species.
+  EXPECT: the level matches STARTER LEVEL (5 on CFG-A).
+  EXPECT: saying NO awards nothing and leaves all three balls available.
+
+STR-02 [P0] All three balls, three separate runs
+  1. Same seed, CFG-A. Take the LEFT ball. Record species.
+  2. Restore the pre-choice save. Take MIDDLE. Record.
+  3. Restore. Take RIGHT. Record.
+  EXPECT: three distinct species.
+  EXPECT: each ball offers the SAME species every time you re-open it -
+          reopening never rerolls.
+  EXPECT: the three species match the STARTERS section of the spoiler log,
+          mapped LEFT / MIDDLE / RIGHT.
+
+STR-03 [P0] Ball removal and rival pickup
+  1. Take one starter and watch the scene through to the end.
+  EXPECT: your chosen ball disappears from the table.
+  EXPECT: the rival walks to a different ball, that ball disappears, and the
+          rival's received message names the species the spoiler log lists as
+          that offer's rival counterpick.
+  EXPECT: the third ball remains on the table and, if examined, gives the
+          vanilla "those are Poke Balls" message.
+
+STR-04 [P1] Rival's first battle team
+  1. Continue from STR-03 to the first rival battle in Oak's Lab / Route 22.
+  EXPECT: the rival's last party member is the counterpick species from the
+          spoiler log.
+  EXPECT: with PROGRESSION GUARD ON, that Pokemon's level is at most
+          STARTER LEVEL + 3.
+
+STR-05 [P1] Rival at every later branch
+  1. Continue the same run to the Route 22 rematch, Cerulean, S.S. Anne,
+     Pokemon Tower, Silph Co., Route 22 late, and the Champion fight.
+     (Use the save editor to warp and set the prerequisite flags.)
+  EXPECT: at every rival battle the final party slot is the counterpick species
+          consistent with the starter you actually chose.
+  EXPECT: party sizes and the levels of the non-starter slots follow the
+          trainer settings, not the starter settings.
+
+STR-06 [P1] BASIC ONLY is enforced
+  1. CFG-A (STARTER STAGE = BASIC ONLY). NEW GAME across five different seeds.
+  EXPECT: none of the fifteen offered starters is an evolved form (nothing that
+          has a pre-evolution inside the eligible pool).
+
+STR-07 [P1] ANY stage allows evolved forms
+  1. CFG-G (STARTER STAGE = ANY). NEW GAME across five seeds.
+  EXPECT: evolved forms appear at least once. No error or warning is produced.
+
+STR-08 [P1] Starter level bounds
+  1. CFG-F (STARTER LEVEL = 2). Take a starter.
+  2. CFG-F20 (STARTER LEVEL = 20). Take a starter.
+  EXPECT: the level shown in the lab preview equals the level of the received
+          Pokemon in both cases (2 and 20).
+  EXPECT: with PROGRESSION GUARD ON, the first rival battle is capped at
+          STARTER LEVEL + 3 in both cases.
+
+STR-09 [P1] TYPE TRIAD
+  1. CFG-G. NEW GAME across five seeds. Note the three primary types.
+  2. Export spoilers each time and check DIAGNOSTICS.
+  EXPECT: the three primary types form a directional cycle - A beats B, B beats
+          C, C beats A - under Gen 1 type effectiveness.
+  EXPECT: if no cycle exists the log records STARTER_TRIAD_UNAVAILABLE and
+          three random unique starters are offered instead. It must never fail
+          the category outright.
+
+STR-10 [P1] Rival counterpick modes
+  1. Run three seeds each on RIVAL PICK = BALL ORDER, TYPE ADVANTAGE, and
+     RANDOM OTHER, choosing each of the three balls.
+  EXPECT: BALL ORDER - the rival always takes the ball in the vanilla
+          positional relationship (left->middle, middle->right, right->left).
+  EXPECT: TYPE ADVANTAGE - the rival takes whichever unchosen starter has the
+          better type matchup against yours; ties resolve the same way every
+          time on the same seed.
+  EXPECT: RANDOM OTHER - the rival takes one of the two unchosen balls, and it
+          is the same one every time you replay that seed and that choice.
+
+STR-11 [P1] STARTERS = OFF
+  1. CFG-A but STARTERS = OFF. NEW GAME.
+  EXPECT: Bulbasaur, Charmander, Squirtle, all level 5, vanilla dialogue,
+          vanilla rival counterpick by ball order.
+  EXPECT: everything else in the run is still randomized.
+
+STR-12 [P2] Oak's Lab is otherwise untouched
+  1. Play the full opening: Oak's intro, the parcel delivery, the Pokedex
+     handout, the rival's lab movements.
+  EXPECT: all identical to vanilla. Only the three ball interactions differ.
+
+
+--------------------------------------------------------------------------------
+9. WILD ENCOUNTERS, FISHING, AND LEVELS
+--------------------------------------------------------------------------------
+
+WILD-01 [P0] GLOBAL MAP is globally consistent
+  1. CFG-A. Export spoilers and pick a source species that appears on at least
+     three different maps (Rattata and Pidgey are good choices).
+  2. Warp to each of those maps and encounter that slot repeatedly.
+  EXPECT: the same source species resolves to the SAME destination species on
+          every map and in both grass and surf.
+  EXPECT: the destination matches the WILD POKEMON - GLOBAL SPECIES section of
+          the spoiler log.
+
+WILD-02 [P0] AREA SLOTS varies by location
+  1. CFG-C. Export spoilers. Pick a source species present on several maps.
+  2. Visit each map and sample encounters heavily.
+  EXPECT: the same source species may resolve differently per map/terrain/slot.
+  EXPECT: each individual slot resolves consistently - repeated encounters at
+          the same slot always give the same species.
+  EXPECT: results match the WILD POKEMON - AREA SLOTS section of the log.
+
+WILD-03 [P0] Encounter rates and slot odds are untouched
+  1. CFG-A. Pick one route. Record 100 consecutive grass encounters.
+  2. Repeat the same 100-encounter sample with the mod disabled (vanilla).
+  EXPECT: the frequency distribution across the ten slots is comparable
+          between the two samples. The mod substitutes species, it must not
+          change how often each slot is drawn.
+  EXPECT: the number of steps taken to trigger encounters feels unchanged.
+
+WILD-04 [P1] Surfing
+  1. CFG-A. Give HM03 + SOUL_BADGE via the editor. Surf on three water maps.
+  EXPECT: water encounters are randomized and obey the same global mapping as
+          grass for shared source species.
+
+WILD-05 [P1] Fishing, all three rods
+  1. CFG-A. Give OLD_ROD, GOOD_ROD, SUPER_ROD. Fish 20 times per rod on at
+     least three maps.
+  EXPECT: bites are randomized per the FISHING section of the spoiler log.
+  EXPECT: "no bite" behaviour and the relative bite rate feel vanilla - the
+          mod does not change whether you get a bite, only what bites.
+  EXPECT: each rod has its own results; Old Rod results do not leak into
+          Super Rod.
+
+WILD-06 [P1] FISHING = VANILLA
+  1. CFG-A but FISHING = VANILLA. NEW GAME. Fish with all three rods.
+  EXPECT: Magikarp from the Old Rod and the vanilla species elsewhere, even
+          though walking and surfing encounters are randomized.
+  EXPECT: the FISHING section of the spoiler log reports no mappings.
+
+WILD-07 [P1] WILD LEVELS = UNCHANGED
+  1. CFG-A. Sample encounters on five routes and compare against a vanilla
+     reference for the same routes.
+  EXPECT: every encounter level equals the vanilla level of that slot,
+          regardless of which species replaced it.
+
+WILD-08 [P1] WILD LEVELS = +/-2
+  1. CFG-C. Sample the same slot 10 times on several routes.
+  EXPECT: each slot has ONE saved level, between vanilla-2 and vanilla+2,
+          clamped to 2..100. It does not reroll per encounter.
+  EXPECT: the same slot gives the same level every time.
+
+WILD-09 [P1] WILD LEVELS = SCALED
+  1. CFG-F. Export spoilers. Pick slots where the destination is much stronger
+     and much weaker than the source.
+  2. Encounter each slot.
+  EXPECT: a stronger destination appears at a LOWER level than vanilla; a
+          weaker destination appears at a HIGHER level. All levels stay within
+          2..100.
+  EXPECT: the in-game level matches the level printed in the spoiler log.
+
+WILD-10 [P1] Repel uses the randomized level
+  1. CFG-F (scaled levels). Find a route where a scaled level differs clearly
+     from vanilla.
+  2. Put a Pokemon at a level between the vanilla and randomized values in the
+     lead slot and use a Repel.
+  EXPECT: Repel suppression is decided by the FINAL randomized level, not the
+          original one.
+
+WILD-11 [P1] Catchability Guard ON
+  1. CFG-A (guard ON). Export spoilers and read DIAGNOSTICS.
+  EXPECT: no unexplained WILD_COVERAGE_UNSATISFIED entries on stock data.
+  EXPECT: PROGRESSION_MAP_UNKNOWN appears only for maps genuinely outside the
+          Red/Blue model (it should not appear at all on stock data).
+  2. Spot-check five non-legendary destination species from the log: confirm
+     each is obtainable somewhere reachable before the Elite Four (i.e. not
+     only in Cerulean Cave, and not only behind a gate you cannot pass).
+
+WILD-12 [P1] Catchability Guard OFF
+  1. CFG-C (guard OFF). Export spoilers.
+  EXPECT: the run generates successfully with no coverage repair warnings and
+          no repair swaps. Species may legitimately be unobtainable.
+
+WILD-13 [P2] WILD POKEMON = OFF with other categories on
+  1. CFG-A but WILD POKEMON = OFF. NEW GAME.
+  EXPECT: all grass, surf, and fishing encounters are vanilla.
+  EXPECT: starters, statics, gifts, trades, prizes, and trainers are still
+          randomized.
+
+WILD-14 [P2] Duplicate policy
+  1. CFG-A (ONE-TO-ONE). Read the global species list in the spoiler log.
+  2. CFG-C (ALLOW). Read the same section.
+  EXPECT: ONE-TO-ONE - no destination repeats until the eligible pool is
+          exhausted. If a WILD_UNIQUENESS_POOL_RESET warning appears, the log
+          must name the source and the constraints that exhausted the pool.
+  EXPECT: ALLOW - repeated destinations are normal and no reset warnings occur.
+
+WILD-15 [P3] Catching tutorial is vanilla
+  1. Trigger the catching tutorial in Viridian.
+  EXPECT: unchanged from vanilla; no Pokemon awarded.
+
+
+--------------------------------------------------------------------------------
+10. STATIC ENCOUNTERS
+--------------------------------------------------------------------------------
+
+Warp with the editor. Clear the EVENT_BEAT_* flag to retest an encounter.
+
+STA-01 [P0] The eight Power Plant fake items
+  1. CFG-A. Warp to POWER_PLANT. Interact with all eight ball objects.
+  EXPECT: each triggers a battle against the species and level listed in the
+          STATIC ENCOUNTERS section of the spoiler log (Fake item #1..#8).
+  EXPECT: the pre-battle text is the vanilla Voltorb battle text.
+  EXPECT: after defeating or catching one, its flag sets and re-interacting
+          does nothing.
+
+STA-02 [P0] The three legendary birds and Mewtwo
+  1. CFG-A. Warp in turn to POWER_PLANT (Zapdos), SEAFOAM_ISLANDS_B4F
+     (Articuno), VICTORY_ROAD_2F (Moltres), CERULEAN_CAVE_B1F (Mewtwo).
+  2. For each: interact, listen to the cry, read the name in the text, then
+     battle.
+  EXPECT: the cry played, the species named in the "<X>!" text, and the species
+          you actually battle are all the SAME and all match the spoiler log.
+  EXPECT: levels match the log (vanilla 50/50/50/70 on UNCHANGED).
+  EXPECT: the overworld sprite remains the vanilla bird/Mewtwo sprite. This is
+          a documented limitation, not a bug.
+
+STA-03 [P0] Both Snorlax
+  1. CFG-A. Give POKE_FLUTE. Warp to ROUTE_12 and ROUTE_16.
+  2. Talk to the sleeping Pokemon first, then use the Flute.
+  EXPECT: the "a sleeping <X> blocks the way" text names the mapped species.
+  EXPECT: the "woke up" text names the same species, the object disappears,
+          and the battle is against that species at the logged level.
+  EXPECT: after winning/catching, the calmed / returned-to-mountains text is
+          shown and the path is clear.
+
+STA-04 [P1] Escape, defeat, and catch all behave
+  1. For one legendary and one Power Plant ball, in separate reloads:
+     (a) run away, (b) faint it, (c) catch it.
+  EXPECT: (a) the encounter remains available and offers the SAME species
+          again - it does not reroll.
+  EXPECT: (b) and (c) both set the flag and the encounter does not repeat.
+  EXPECT: the caught Pokemon in your party is the mapped species.
+
+STA-05 [P1] Reload does not reroll
+  1. Save immediately before a static encounter. Trigger it, note the species.
+  2. Reload and trigger it four more times.
+  EXPECT: the same species and level every single time.
+
+STA-06 [P1] STATIC LEVELS = SCALED
+  1. CFG-F. Trigger several statics.
+  EXPECT: levels are compensated for strength (stronger destination -> lower
+          level than vanilla), clamped to 2..100, and match the spoiler log.
+
+STA-07 [P1] STATIC LEVELS = RANDOM +/-5
+  1. CFG-C. Trigger several statics, reloading each twice.
+  EXPECT: each encounter has ONE saved level within +/-5 of vanilla, stable
+          across reloads, clamped to 2..100.
+
+STA-08 [P1] STATIC POKEMON = OFF
+  1. CFG-A but STATIC POKEMON = OFF. NEW GAME.
+  EXPECT: Voltorb/Electrode fake items, all three birds, Mewtwo, and both
+          Snorlax are exactly vanilla in name, cry, level, and battle.
+  EXPECT: gifts, trades, prizes, wild, and trainers are still randomized.
+
+STA-09 [P1] Excluded static paths stay vanilla
+  1. In any randomized run, trigger the ghost Marowak in Pokemon Tower and any
+     generic object-event static encounter.
+  EXPECT: completely vanilla behaviour. These are deliberately out of scope.
+
+STA-10 [P2] Legendary policy interaction
+  1. CFG-B (LEGENDARIES = EXCLUDE). Read the STATIC ENCOUNTERS log section.
+  2. CFG-A (LEGENDARIES = MATCH). Read the same section.
+  EXPECT: EXCLUDE - no legendary appears as a destination anywhere, including
+          in place of Zapdos/Articuno/Moltres/Mewtwo.
+  EXPECT: MATCH - the four legendary statics map to legendary species, and
+          non-legendary statics map to non-legendaries.
+
+
+--------------------------------------------------------------------------------
+11. GIFT POKEMON
+--------------------------------------------------------------------------------
+
+GFT-01 [P0] Celadon Eevee
+  1. CFG-A. Warp to CELADON_MANSION_ROOF_HOUSE. Interact with the ball.
+  EXPECT: the "got <X>" text names the mapped species, the ball object
+          disappears, and the party member matches.
+  EXPECT: re-entering the room shows no ball and interacting does nothing.
+
+GFT-02 [P0] Magikarp salesman - all four branches
+  Warp to MT_MOON_POKECENTER. Reset EVENT_BOUGHT_MAGIKARP between runs.
+  (a) money < 500: accept the offer.
+      EXPECT: the offer text names the mapped species; you are told you cannot
+              afford it; NO money is deducted; the flag is NOT set.
+  (b) money >= 500: decline.
+      EXPECT: the "no" text; no money deducted; flag not set; offer repeatable.
+  (c) money >= 500: accept with room in the party.
+      EXPECT: the mapped species is awarded, exactly 500 is deducted once, and
+              the flag is set.
+  (d) money >= 500 but party AND all boxes full: accept.
+      EXPECT: "box is full" text, NO money deducted, flag NOT set, and the
+              same offer is still available afterwards. THIS IS THE KEY CASE -
+              the award must succeed before payment.
+  Finally: talk to him again after (c).
+      EXPECT: the vanilla "no refunds" text.
+
+GFT-03 [P0] Fighting Dojo choice group
+  1. CFG-A. Set EVENT_BEAT_KARATE_MASTER. Warp to FIGHTING_DOJO.
+  2. Read the spoiler log's DOJO_LEFT and DOJO_RIGHT entries first.
+  3. Examine the LEFT ball, decline. Examine the RIGHT ball, decline.
+  4. Accept the LEFT one.
+  5. Try to take the RIGHT one.
+  EXPECT: each ball names its own mapped species in the prompt, and the two
+          are the species listed in the log.
+  EXPECT: declining changes nothing and both remain available.
+  EXPECT: accepting one awards that species, hides that object, and sets both
+          the got flag and EVENT_DEFEATED_FIGHTING_DOJO.
+  EXPECT: the other ball then gives the vanilla "better not get greedy" text.
+  EXPECT: on a fresh restore of the same seed, taking the RIGHT ball instead
+          awards the RIGHT species from the log - both were generated at New
+          Game and neither choice rerolls the other.
+  6. Before beating the Karate Master, examine a ball.
+     EXPECT: "you'll have to beat the master first" and no award.
+
+GFT-04 [P0] Dojo box-full
+  1. As GFT-03 but with party and all boxes full when accepting.
+  EXPECT: "box is full", NO flag set, object NOT hidden, and the same offer is
+          available for retry afterwards.
+
+GFT-05 [P0] Silph Co. Lapras
+  1. CFG-A. Warp to SILPH_CO_7F. Talk to the worker.
+  EXPECT: the thank-you text names the mapped species and awards it.
+  EXPECT: talking again afterwards gives the "how is <X> doing?" text naming
+          the SAME mapped species.
+  2. Repeat with party and boxes full.
+     EXPECT: box-full text, flag not set, offer retryable.
+
+GFT-06 [P0] Fossil revival - full quest
+  1. CFG-A. Give all three fossils. Warp to CINNABAR_LAB_FOSSIL_ROOM.
+  2. Talk to the scientist. Read the fossil list.
+  3. Choose the Dome Fossil. Read the "it is fossil of <X>" text. Decline.
+  4. Talk again, choose Dome Fossil, accept.
+  5. Walk out and back in, talk to the scientist.
+  6. Talk again to receive.
+  EXPECT: the list shows only fossils you actually hold.
+  EXPECT: the preview text names the MAPPED species, not Kabuto.
+  EXPECT: declining consumes nothing - you still hold the fossil.
+  EXPECT: accepting removes exactly one of that fossil from the bag.
+  EXPECT: step 5 gives the "go for a walk" text.
+  EXPECT: step 6 names the mapped species in the "back to life" text and
+          awards that species at the logged level.
+  7. Repeat the whole flow for HELIX_FOSSIL and OLD_AMBER.
+  8. With party and boxes full, do step 6.
+     EXPECT: box-full text, the quest stays pending, and you can return later
+             to receive the SAME species.
+
+GFT-07 [P1] Fossil quest survives mod removal
+  1. Hand over a fossil so the quest is pending. Save, quit.
+  2. Disable the randomizer mod. CONTINUE and collect the revived Pokemon.
+  EXPECT: you receive the VANILLA species for that fossil (Omanyte / Kabuto /
+          Aerodactyl). The quest does not break or soft-lock.
+
+GFT-08 [P1] GIFT LEVELS modes
+  1. CFG-A (UNCHANGED): collect Eevee, Lapras, a Dojo prize, a fossil.
+     EXPECT: levels 25, 15, 30, 30 respectively.
+  2. CFG-F (FIXED 15): collect the same four.
+     EXPECT: every one is level 15.
+  3. CFG-C (SCALED): collect the same four.
+     EXPECT: levels compensated by strength, clamped 2..100, matching the log.
+
+GFT-09 [P1] GIFT UNIQUENESS
+  1. CFG-A (UNIQUE GIFTS). Read all eight gift entries in the spoiler log.
+  2. CFG-C (ALLOW DUPLICATES). Read the same.
+  EXPECT: UNIQUE - no destination species repeats across the eight gifts while
+          candidates remain.
+  EXPECT: ALLOW - duplicates among the eight are acceptable.
+  EXPECT: in both cases gifts may duplicate wild/starter/trade/prize species.
+          That is by design.
+
+GFT-10 [P1] GIFT POKEMON = OFF
+  1. CFG-A but GIFT POKEMON = OFF. NEW GAME.
+  EXPECT: Eevee, Magikarp, Hitmonlee, Hitmonchan, Lapras, Omanyte, Kabuto, and
+          Aerodactyl are all vanilla in name, level, and award.
+  EXPECT: statics, trades, prizes, wild, and trainers remain randomized.
+
+GFT-11 [P2] Pokedex updates
+  1. Receive several randomized gifts and statics.
+  EXPECT: the Pokedex marks the species you actually received as owned - not
+          the vanilla source species.
+
+
+--------------------------------------------------------------------------------
+12. IN-GAME TRADES
+--------------------------------------------------------------------------------
+
+There are nine wired trades. Warp to each location from section 2.2.
+Use the editor to place the requested species in your party.
+
+TRD-01 [P0] BOTH SIDES - full flow on all nine
+  1. CFG-A. For each of the nine trades: read the spoiler log entry, put the
+     requested species in your party, and complete the trade.
+  EXPECT: the NPC asks for the species listed as "Give" in the log.
+  EXPECT: you receive the species listed as "Receive", at the vanilla level
+          rule for that trade.
+  EXPECT: dialogue, nickname behaviour, OT behaviour, and the trade animation
+          are otherwise vanilla.
+  EXPECT: the Pokedex records the received species.
+
+TRD-02 [P0] Wrong species and cancel
+  1. Offer a species the NPC did not ask for.
+  2. Start the trade and cancel at the confirmation.
+  EXPECT: the vanilla "that's not what I asked for" style refusal.
+  EXPECT: cancelling leaves both parties unchanged and the trade repeatable.
+  EXPECT: the offered species does not change after you view it - viewing and
+          declining must not reroll.
+
+TRD-03 [P0] One-time completion
+  1. Complete a trade. Talk to the NPC again.
+  2. Save, reload, talk again.
+  EXPECT: the vanilla already-traded dialogue. The trade cannot be repeated.
+  EXPECT: no re-randomization on reload.
+
+TRD-04 [P0] RECEIVED-only mode
+  1. CFG-B (IN-GAME TRADES = RECEIVED). Check all nine trades.
+  EXPECT: each NPC asks for the VANILLA species (Nidorino, Abra, Ponyta,
+          Spearow, Slowbro, Poliwhirl, Raichu, Venonat, Nidoran M).
+  EXPECT: what you receive is randomized.
+
+TRD-05 [P0] LEGENDARY POLICY IS NOT BYPASSED  *** regression test ***
+  1. CFG-B - this preset combines LEGENDARIES = EXCLUDE with
+     TRADE FAIRNESS = NO DOWNGRADE. Export spoilers.
+  2. Read every requested and received species in the IN-GAME TRADES section.
+  3. Repeat across at least ten different seeds.
+  EXPECT: NO legendary species (Articuno, Zapdos, Moltres, Mewtwo, Mew, or any
+          mod species flagged legendary) appears on either side of any trade.
+  THIS WAS A REAL BUG. Treat any legendary here as a P0 failure.
+
+TRD-06 [P1] Trade fairness modes
+  1. SIMILAR STRENGTH (CFG-A): compare base stat totals of requested vs
+     received for all nine.
+     EXPECT: within the +/-20% band, or the log records a deterministic
+             relaxation.
+  2. NO DOWNGRADE (CFG-B): same comparison.
+     EXPECT: received BST >= requested BST minus 5%, or the log records
+             TRADE_NO_DOWNGRADE_RELAXED for that trade.
+  3. ANY (CFG-C): same comparison.
+     EXPECT: no strength constraint; wide mismatches are normal.
+
+TRD-07 [P1] Trade evolution safety ON
+  1. CFG-A (safety ON). Read all nine trade entries.
+  EXPECT: no trade asks you to give the same species it gives back.
+  EXPECT: with CATCHABILITY GUARD also on, every requested species is
+          obtainable before that trade's location. Spot-check three of them
+          against the wild/gift sections of the log.
+
+TRD-08 [P1] Trade evolution safety OFF
+  1. CFG-C (safety OFF). Read all nine entries.
+  EXPECT: generation succeeds. Same-species and hard-to-obtain requests are
+          permitted. No errors.
+
+TRD-09 [P1] IN-GAME TRADES = OFF
+  1. CFG-A but IN-GAME TRADES = OFF. NEW GAME. Check three trades.
+  EXPECT: fully vanilla requests, receives, levels, and dialogue.
+
+TRD-10 [P2] The unwired table row
+  1. Search the game for any NPC offering a Butterfree-for-Beedrill trade.
+  EXPECT: none exists. Trade table row 3 has no NPC script in stock Red or
+          Blue and is deliberately excluded from the catalog. Its absence is
+          correct.
+
+TRD-11 [P2] Trade reachability repair
+  1. Run several seeds on CFG-A and read DIAGNOSTICS.
+  EXPECT: if TRADE_REACHABILITY_REPAIRED appears, the named trade's requested
+          species IS obtainable in the wild per the log.
+  EXPECT: if TRADE_REACHABILITY_UNSATISFIED appears, confirm no safe swap was
+          possible; the run must still be completable in every other respect.
+
+
+--------------------------------------------------------------------------------
+13. GAME CORNER PRIZE POKEMON
+--------------------------------------------------------------------------------
+
+Give COIN_CASE and warp to the Celadon Game Corner prize counter.
+
+Vanilla reference (for comparison):
+  RED  : Abra L9 180, Clefairy L8 500, Nidorina L17 1200,
+         Dratini L18 2800, Scyther L25 5500, Porygon L26 9999
+  BLUE : Abra L6 120, Clefairy L12 750, Nidorino L17 1200,
+         Pinsir L20 2500, Dratini L24 4600, Porygon L18 6500
+  TM prizes (both): TM_DRAGON_RAGE 3300, TM_HYPER_BEAM 5500,
+                    TM_SUBSTITUTE 7700
+
+PRZ-01 [P0] Prize list contents
+  1. CFG-A. Open the prize counter. Read every row.
+  EXPECT: exactly six Pokemon rows and three TM rows.
+  EXPECT: the six Pokemon match the CELADON GAME CORNER PRIZES section of the
+          spoiler log, in the same slot order as vanilla.
+  EXPECT: the three TM rows are completely unchanged in item and cost.
+
+PRZ-02 [P0] Purchase shows and awards the same thing
+  1. Set coins high. Buy each of the six Pokemon prizes in turn.
+  EXPECT: the confirmation shows the mapped species and its level BEFORE
+          payment.
+  EXPECT: the coin cost shown is deducted exactly once.
+  EXPECT: the Pokemon added to the party is the species and level shown.
+  EXPECT: the Pokedex records it.
+
+PRZ-03 [P0] Insufficient funds
+  1. Set coins to one less than a prize's cost. Try to buy it.
+  EXPECT: the vanilla not-enough-coins message. No coins deducted, no Pokemon
+          awarded.
+  2. Set coins to exactly the cost. Buy it.
+  EXPECT: succeeds, coins end at 0.
+
+PRZ-04 [P0] Party and boxes full
+  1. Fill party and all boxes. Set coins well above a prize's cost. Buy it.
+  EXPECT: the storage-full message.
+  EXPECT: NO coins are deducted. THIS IS THE KEY CASE.
+  EXPECT: the prize is still purchasable afterwards at the same price.
+
+PRZ-05 [P1] No Coin Case
+  1. Remove the Coin Case. Approach the prize counter.
+  EXPECT: the vanilla "you need a Coin Case" behaviour.
+
+PRZ-06 [P1] No reroll after purchase
+  1. Buy one prize. Reopen the counter. Save, reload, reopen.
+  EXPECT: the remaining five rows are unchanged, and the purchased row still
+          shows the same species and price (it is repeatable in vanilla).
+
+PRZ-07 [P1] PRIZE LEVELS modes
+  1. UNCHANGED (CFG-A): compare to the vanilla level table above.
+     EXPECT: levels 9/8/17/18/25/26 (Red) regardless of species.
+  2. FIXED 15: EXPECT all six prizes at level 15.
+  3. SCALED (CFG-F): EXPECT strength-compensated levels clamped to 5..30.
+
+PRZ-08 [P1] PRIZE PRICES modes
+  1. UNCHANGED (CFG-A): EXPECT the vanilla costs above.
+  2. BY STRENGTH (CFG-F): EXPECT cost scaled by destination BST / source BST,
+     rounded to the nearest 10, clamped to 10..9999.
+  3. RANDOM +/-25% (CFG-C): EXPECT a stable per-slot cost within 75%-125% of
+     vanilla, rounded to 10, clamped 10..9999. Reload and confirm it does not
+     change.
+
+PRZ-09 [P1] PRIZE POKEMON = OFF
+  1. CFG-A but PRIZE POKEMON = OFF. NEW GAME. Open the counter.
+  EXPECT: the exact vanilla prize list for the active game version, including
+          levels and costs.
+
+PRZ-10 [P2] Red and Blue lists
+  1. Repeat PRZ-01 on a Blue-based install.
+  EXPECT: the source list used is the Blue table (Nidorino and Pinsir present,
+          Nidorina and Scyther absent), and the spoiler log labels the entries
+          "Blue slot N".
+
+PRZ-11 [P2] Ordinary Poke Marts untouched
+  1. Visit three Poke Marts.
+  EXPECT: item shops only, entirely vanilla. No Pokemon for sale anywhere.
+
+
+--------------------------------------------------------------------------------
+14. TRAINERS
+--------------------------------------------------------------------------------
+
+TRN-01 [P0] BY SLOT independence
+  1. CFG-A. Fight at least fifteen ordinary trainers across several routes.
+  EXPECT: parties match the TRAINER PARTIES section of the spoiler log exactly
+          in species, order, and level.
+  EXPECT: two trainers of the same class with the same vanilla party may have
+          different randomized parties.
+
+TRN-02 [P0] GLOBAL MAP consistency
+  1. CFG-B (trainers = GLOBAL MAP). Fight fifteen trainers.
+  EXPECT: the same vanilla source species always becomes the same destination
+          species in every party across the whole game.
+
+TRN-03 [P0] Party sizes and validity
+  1. CFG-A, CFG-B, CFG-C. Fight thirty trainers total across the three.
+  EXPECT: every party has between 1 and 6 members. No empty parties. No
+          crashes entering battle. Every species has a usable sprite, stats,
+          and at least one move.
+
+TRN-04 [P0] All boss battles
+  1. CFG-A. Fight all eight Gym Leaders, the Elite Four, and the Champion.
+     Warp and set badge flags to reach them quickly.
+  EXPECT: every boss battle starts and completes without error.
+  EXPECT: parties match the spoiler log.
+  EXPECT: with BOSS TRAINERS = THEMED, each boss's party is a single type
+          theme and retains its vanilla party SIZE.
+
+TRN-05 [P1] BOSS TRAINERS = VANILLA
+  1. CFG-B. Fight Brock, Misty, and Lance.
+  EXPECT: fully vanilla parties, species and levels, even though ordinary
+          trainers are randomized.
+
+TRN-06 [P1] BOSS TRAINERS = INCLUDE
+  1. CFG-C. Fight three Gym Leaders.
+  EXPECT: bosses follow the main trainer mode with no special theming, and
+          party sizes may change if PARTY SIZE = 1-6 RANDOM.
+
+TRN-07 [P1] TYPE THEMED
+  1. CFG-G. Fight fifteen trainers of at least six different classes.
+  EXPECT: every trainer of a given class draws from one saved type.
+  EXPECT: where the theme could not be satisfied, the log records a DROP_TYPE
+          relaxation naming the class. Silent off-theme members are a bug.
+
+TRN-08 [P1] TRAINER LEVELS = +/-10%
+  1. CFG-C. Compare fifteen parties against vanilla levels.
+  EXPECT: each level is a stable 90%-110% of vanilla, rounded, clamped 2..100.
+  EXPECT: reloading does not change them.
+
+TRN-09 [P1] TRAINER LEVELS = PROGRESSIVE
+  1. CFG-F. Compare early-, mid-, and late-game trainers against vanilla.
+  EXPECT: parties whose vanilla max level is <=15 are about 20% lower;
+          <=30 about 10% lower; <=45 unchanged; <=60 about 10% higher;
+          above 60 about 20% higher. All clamped 2..100.
+
+TRN-10 [P1] PARTY SIZE = 1-6 RANDOM with PROGRESSION GUARD ON
+  1. CFG-A but PARTY SIZE = 1-6 RANDOM. Fight every trainer available before
+     Brock, then a spread of later trainers.
+  EXPECT: pre-Brock trainers have 1 to 3 Pokemon.
+  EXPECT: no required battle exceeds 6.
+  EXPECT: sizes are stable across reloads.
+
+TRN-11 [P1] PROGRESSION GUARD OFF
+  1. CFG-C. Fight the earliest ten trainers.
+  EXPECT: generation succeeds. Early teams may be brutal - high BST and
+          legendary members are permitted. No errors, no empty parties.
+
+TRN-12 [P1] Special boss moves are legality-checked
+  1. CFG-A. Fight Brock, Misty, Lt. Surge, Erika, Koga, Sabrina, Blaine,
+     Giovanni, Lorelei, Bruno, Agatha, Lance, and the final rival.
+  2. Watch the moves used by the slot that vanilla gives a signature move
+     (Brock slot 2 Bide, Misty slot 2 Bubblebeam, Surge slot 3 Thunderbolt,
+     Erika slot 3 Mega Drain, Koga slot 4 Toxic, Sabrina slot 4 Psywave,
+     Blaine slot 4 Fire Blast, Elite Four slot 5, rival slot 1 Sky Attack).
+  EXPECT: the signature move is used only when the randomized species can
+          legally learn it.
+  EXPECT: otherwise the Pokemon uses a normal generated moveset. It must never
+          use a move it cannot learn, and it must never have an empty moveset.
+
+TRN-13 [P1] TRAINER POKEMON = OFF
+  1. CFG-A but TRAINER POKEMON = OFF. Fight ten trainers and two Gym Leaders.
+  EXPECT: fully vanilla parties, species, levels, and moves.
+  EXPECT: everything else in the run remains randomized.
+
+TRN-14 [P1] Per-slot fallback  *** regression test ***
+  1. CFG-A with SPECIES POOL = VANILLA 151 and a mod installed that ADDS a
+     trainer using a mod-added species. NEW GAME.
+  2. Export spoilers and read DIAGNOSTICS.
+  3. Fight that trainer and several ordinary trainers.
+  EXPECT: a TRAINER_SOURCE_UNAVAILABLE warning naming the class, party index,
+          and slot.
+  EXPECT: ONLY that slot is vanilla. The rest of that party is randomized, and
+          every other trainer in the game is randomized.
+  THIS WAS A REAL BUG - the whole category used to revert. If trainers are
+  globally vanilla here, that is a P0 failure.
+
+TRN-15 [P2] Rival projection does not clobber the rest of the party
+  1. CFG-A. Fight the final rival.
+  EXPECT: the last slot is the starter counterpick species.
+  EXPECT: the other five slots follow the trainer mapping and keep their
+          randomized levels and party size.
+
+TRN-16 [P2] Battle performance
+  1. Enter and exit twenty battles in a row.
+  EXPECT: no perceptible added delay at battle start compared with the mod
+          disabled.
+
+
+--------------------------------------------------------------------------------
+15. SPOILER LOG, BROWSER, AND EXPORT
+--------------------------------------------------------------------------------
+
+SPL-01 [P0] Export writes a readable log
+  1. CFG-A. Actions > EXPORT SPOILERS.
+  2. Open the file at the path shown on screen.
+  EXPECT: the on-screen path matches an actual file under
+          %APPDATA%\love\pokemon-love2d\pokemon_randomizer\spoilers\.
+  EXPECT: the file name is the first 8 characters of the seed hash + .txt.
+  EXPECT: it contains RUN SUMMARY, SETTINGS, and a section per category, with
+          readable names ("Mr. Mime", "Cerulean Cave B1F") not raw IDs.
+  EXPECT: it contains NO ROM bytes or dumped game text.
+
+SPL-02 [P0] Log matches reality
+  1. Pick ten entries at random across wild, starters, statics, gifts, trades,
+     prizes, and trainers. Verify each in-game.
+  EXPECT: every one matches. This is the single highest-value test in the plan
+          - the spoiler log is how you verify everything else.
+
+SPL-03 [P1] In-game browser
+  1. Actions > VIEW SPOILERS.
+  2. Browse by POKEMON: pick a species, view its locations.
+  3. Browse by MAP: pick a map, cycle its tabs.
+  4. Use the search function.
+  5. Press B repeatedly to unwind.
+  EXPECT: browser opens without error and its data agrees with the exported
+          .txt.
+  EXPECT: tab cycling, scrolling, and paging work with keyboard and gamepad.
+  EXPECT: B walks back one level at a time and eventually closes the screen.
+  EXPECT: no crash on a category with zero entries (e.g. open it on CFG-D).
+
+SPL-04 [P1] Spoilers disabled
+  1. Set ENABLE SPOILERS = OFF. NEW GAME. Try VIEW SPOILERS and EXPORT
+     SPOILERS.
+  EXPECT: both report SPOILERS DISABLED with guidance to enable it before
+          starting a new game.
+  EXPECT: neither crashes; no file is written.
+  EXPECT: the run code is IDENTICAL to the same seed with spoilers enabled
+          (this setting must not change generation).
+
+SPL-05 [P1] No active run
+  1. From the title screen with no save loaded, try VIEW SPOILERS and EXPORT
+     SPOILERS.
+  EXPECT: NO ACTIVE RUN, no crash, no file written.
+
+SPL-06 [P2] Repeat export
+  1. Export three times in a row on the same run.
+  EXPECT: the same path each time; contents identical; no error.
+
+SPL-07 [P2] Browser performance
+  1. On CFG-C (largest mapping set), open VIEW SPOILERS five times in a row.
+  EXPECT: it opens acceptably fast each time. Note the delay if the first open
+          is noticeably slower than later ones, and report the measured times.
+
+SPL-08 [P2] COPY ACTIVE SEED
+  1. Actions > COPY ACTIVE SEED. Paste into a text editor.
+  EXPECT: seed and run code are on screen regardless of clipboard support.
+  EXPECT: if the clipboard worked, the pasted text contains both.
+  EXPECT: if it did not, the screen says COPY UNAVAILABLE and still shows both
+          values for transcription.
+  EXPECT: the category summary lines show real values, never "nil".
+
+
+--------------------------------------------------------------------------------
+16. CROSS-CUTTING AND RELEASE CHECKS
+--------------------------------------------------------------------------------
+
+REL-01 [P0] Archive installs on a clean machine
+  1. Build with ./tools/package.ps1. Install the zip on a machine that has
+     never had the mod.
+  EXPECT: the mod loads, appears in the mod manager, and the RANDOMIZER row
+          appears in Options.
+
+REL-02 [P0] Non-Windows extraction
+  1. Copy the built zip to a Linux or macOS machine. Extract with the native
+     extractor (unzip / Archive Utility), NOT with PowerShell.
+  2. Confirm src/bootstrap.lua exists as a real file inside a real src folder.
+  3. Install and launch.
+  EXPECT: proper directories, no files literally named "src\bootstrap.lua".
+  EXPECT: the mod loads and runs.
+  THIS WAS A REAL BUG. Do not skip it on a release build.
+
+REL-03 [P1] Payload contents
+  1. List the archive contents.
+  EXPECT: manifest.json, main.lua, README.md, src/, and .modkit/pack.json.
+  EXPECT: NO docs/, tests/, tools/, or dist/ directories.
+
+REL-04 [P1] Version consistency
+  EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
+          compatibility block, and the archive file name all read 0.34.3.
+
+REL-05 [P1] Unsupported engine version
+  1. Install on an engine outside >=0.1.30 <0.2.0 if one is available.
+  EXPECT: the loader refuses the mod before gameplay with an error attributed
+          to pokemon_randomizer. The game must remain playable.
+
+REL-06 [P1] Mod manager reporting
+  1. Open F10 during a randomized run.
+  EXPECT: pokemon_randomizer is listed with no errors.
+  EXPECT: any warning shown is attributed to this mod, never to the engine or
+          another mod.
+
+REL-07 [P2] Two randomizer-adjacent mods
+  1. Install another mod that wraps encounter.species or trainer.party.
+  2. Start a run and sample encounters and battles.
+  EXPECT: both mods' effects compose without error, or a clear conflict is
+          reported. No silent loss of either mod's behaviour, no crash.
+
+REL-08 [P2] Long session stability
+  1. Play or fast-travel through a two-hour session on CFG-C, touching every
+     category.
+  EXPECT: no memory growth that degrades performance, no accumulating
+          warnings, no crash, run code unchanged at the end.
+
+REL-09 [P3] Generation performance
+  1. Time the NEW GAME confirmation to the first controllable frame on CFG-C
+     with a merged pool.
+  EXPECT: no perceptible stall. Report anything over about a second.
+
+
+--------------------------------------------------------------------------------
+17. RESULT RECORDING
+--------------------------------------------------------------------------------
+
+Record one row per test ID:
+
+  ID | CFG | Result | Engine ver | Mod ver | Seed | Notes / artifacts
+
+For every FAIL capture:
+  - the test ID and the exact step that failed
+  - expected vs actual, stated concretely
+  - the seed and run code (COPY ACTIVE SEED)
+  - the exported spoiler .txt
+  - a copy of save.lua from immediately before the failure
+  - a screenshot if the failure is visual
+  - the relevant lines from the mod manager log
+
+A failure without the seed and the spoiler log is usually not reproducible.
+Attach both every time.
+
+
+--------------------------------------------------------------------------------
+18. MINIMUM RELEASE GATE
+--------------------------------------------------------------------------------
+
+Do not ship unless all of the following pass:
+
+  [ ] ./tools/test.ps1 fully green on Windows and on Linux
+  [ ] All [P0] tests pass on CFG-A
+  [ ] TRD-05 passes on ten seeds        (legendary bypass regression)
+  [ ] TRN-14 passes                     (per-slot trainer fallback regression)
+  [ ] REL-02 passes                     (non-Windows extraction regression)
+  [ ] GFT-02(d), GFT-04, GFT-06(8), PRZ-04 pass   (award-before-payment)
+  [ ] SEED-01, SEED-02, SAVE-01, SAVE-02 pass     (determinism and locking)
+  [ ] SAVE-05 and SAVE-06 pass                    (quarantine and fallback)
+  [ ] CFG-D and CFG-E produce verifiably vanilla gameplay
+  [ ] A full CFG-A playthrough reaches the Hall of Fame without a soft-lock
+
+================================================================================
+END OF PLAN
+================================================================================

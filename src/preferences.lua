@@ -1,5 +1,5 @@
 -- Validated adapter over options.modOptions[pokemon_randomizer].
-return function(Constants, Schema, General)
+return function(Constants, Schema, General, Seed)
   local Preferences = {}
   Preferences.__index = Preferences
 
@@ -147,6 +147,12 @@ return function(Constants, Schema, General)
   function Preferences:set(key, value, game)
     local row = self.byKey[key]
     if not row then return nil, "unknown option" end
+    if key == "seed_text" and type(value) == "string" then
+      local canonical = Seed.normalize(value)
+      -- Preserve invalid input so REVIEW NEXT RUN can explain the problem.
+      -- Valid input is stored in the same canonical form used for generation.
+      if canonical then value = canonical end
+    end
     if not validValue(row, value) then return nil, "invalid option value" end
     assert(type(game) == "table" and type(game.save) == "table",
       "setting an option requires a live game")
@@ -155,6 +161,7 @@ return function(Constants, Schema, General)
       for _, presetKey in ipairs(General.presetKeys()) do
         persist(self, game, presetKey, expanded[presetKey], true)
       end
+      persist(self, game, "generate_spoiler_log", "on", true)
       persist(self, game, "preset", value, true)
       if game.writeOptions then game:writeOptions() end
       return value, nil

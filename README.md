@@ -16,7 +16,7 @@ vanilla run without deleting saved preferences.
 | Setting | Values | Default | Effect |
 |---|---|---|---|
 | Randomizer | `OFF`, `ON` | `ON` | Master switch for the next New Game. |
-| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS` | `STANDARD` | Applies a settings bundle. Editing a bundled value changes this to `CUSTOM`. |
+| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS` | `STANDARD` | Applies a settings bundle. Selecting any named preset enables spoiler access. Editing a bundled value changes this to `CUSTOM`. |
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` creates a new 128-bit seed; `MANUAL` uses Seed Text. |
 | Seed Text | 1–32 characters | blank | Manual seed using letters, digits, spaces, hyphens, or underscores. It is trimmed, uppercased, and saved in canonical form. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | Uses only the original 151, or all valid species contributed through the merged registry. |
@@ -106,7 +106,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.34.0`
+- randomizer mod version: `0.34.3`
 - generator contract: `1`
 - algorithm build: `1.4.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -208,7 +208,8 @@ belong in the project’s release-artifact storage.
 - Invalid stored preferences fall back to declared defaults.
 - Reset defaults requires confirmation and persists as one options write.
 - Standard exactly equals the declared default snapshot.
-- Presets never overwrite the master switch, seed, or spoiler-log choice.
+- Presets never overwrite the master switch or seed. Selecting `CASUAL`,
+  `STANDARD`, or `CHAOS` enables the spoiler log.
 - Manual seed errors disable generation atomically and remain reviewable.
 - Auto seeds mix the available LÖVE timer/PRNG values, runtime clocks, a
   process counter, and save context as best-effort non-cryptographic

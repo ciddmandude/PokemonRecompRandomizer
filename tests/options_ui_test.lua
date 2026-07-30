@@ -14,10 +14,11 @@ local function equal(actual, expected, label)
 end
 
 local Constants = loadFactory("src/constants.lua")
+local Seed = loadFactory("src/seed.lua")
 local Schema = loadFactory("src/options_schema.lua")
 local General = loadFactory("src/general_settings.lua", {})
 local Preferences = loadFactory(
-  "src/preferences.lua", Constants, Schema, General)
+  "src/preferences.lua", Constants, Schema, General, Seed)
 local Screen = loadFactory("src/options_screen.lua", Constants)
 local Review = loadFactory("src/review_screen.lua")
 
@@ -101,6 +102,18 @@ preferences:set("wild_pokemon", "global_map", game)
 equal(preferences:get("preset", game), "custom", "bundle edit is custom")
 preferences:set("wild_pokemon", "area_slots", game)
 equal(preferences:get("preset", game), "chaos", "matching bundle detected")
+preferences:set("generate_spoiler_log", "off", game)
+preferences:set("preset", "casual", game)
+equal(preferences:get("generate_spoiler_log", game), "on",
+  "casual enables spoilers")
+preferences:set("generate_spoiler_log", "off", game)
+preferences:set("preset", "chaos", game)
+equal(preferences:get("generate_spoiler_log", game), "on",
+  "chaos enables spoilers")
+preferences:set("generate_spoiler_log", "off", game)
+preferences:set("preset", "standard", game)
+equal(preferences:get("generate_spoiler_log", game), "on",
+  "standard enables spoilers")
 preferences:reset(game)
 
 local pressed = {}
@@ -165,8 +178,15 @@ equal(screen.page, 3, "select advances page")
 screen.page, screen.row = 1, 4
 screen:edit(screen:currentRow())
 assert(namingOptions and namingOptions.maxLen == 32)
-namingOptions.onDone("EDITED")
-equal(preferences:get("seed_text", game), "EDITED", "text editor saves")
+namingOptions.onDone("  my   seed  ")
+equal(preferences:get("seed_text", game), "MY SEED",
+  "text editor normalizes valid seed")
+namingOptions.onDone("race_seed-01")
+equal(preferences:get("seed_text", game), "RACE_SEED-01",
+  "text editor uppercases valid seed")
+namingOptions.onDone("MEW!")
+equal(preferences:get("seed_text", game), "MEW!",
+  "text editor preserves invalid seed for review warning")
 
 screen.page, screen.row = 5, 3
 screen:edit(screen:currentRow())
