@@ -107,7 +107,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.15.1`
+- randomizer mod version: `0.16.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -117,6 +117,19 @@ validation rules, see the linked design documents above or the
 The engine validates the API and game-version range before executing the mod.
 The bootstrap also verifies the mod object's required API-2 surfaces. A failed
 check is attributed to this mod and rolled back by gen1recomp's loader.
+
+## Release packaging
+
+Run `tools/package.ps1` from PowerShell to build the versioned archive under
+`dist/`. The packager includes only `README.md`, `manifest.json`, `main.lua`,
+the runtime `src/*.lua` modules, and `.modkit/pack.json`.
+
+The build fails if an entry uses a backslash, an absolute or traversing path,
+a duplicate or case-colliding name, or an unexpected development-only path.
+It then verifies every packaged byte count and SHA-256 value against the
+ledger and prints the final archive SHA-256. Release qualification loads that
+exact archive against the Recomp 0.1.38 ROM-free fixture. The packaging
+workflow also builds and natively extracts the archive on Windows and Linux.
 
 ## Design guarantees
 

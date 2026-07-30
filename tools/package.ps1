@@ -28,18 +28,8 @@ try {
     Copy-Item -LiteralPath (Join-Path $ProjectRoot $file) `
       -Destination $staging
   }
-  foreach ($directory in @('docs', 'src', 'tests')) {
-    Copy-Item -LiteralPath (Join-Path $ProjectRoot $directory) `
-      -Destination $staging -Recurse
-  }
-  $stagedTools = Join-Path $staging 'tools'
-  New-Item -ItemType Directory -Path $stagedTools | Out-Null
-  foreach ($file in @(
-    'diagnose-live-trainers.lua', 'test.ps1', 'validate-scaffold.ps1'
-  )) {
-    Copy-Item -LiteralPath (Join-Path $ProjectRoot ('tools\' + $file)) `
-      -Destination $stagedTools
-  }
+  Copy-Item -LiteralPath (Join-Path $ProjectRoot 'src') `
+    -Destination $staging -Recurse
 
   $files = @()
   foreach ($file in Get-ChildItem -LiteralPath $staging -File -Recurse |
@@ -76,9 +66,55 @@ try {
     $packJson + [Environment]::NewLine,
     [Text.UTF8Encoding]::new($false))
 
-  Compress-Archive -Path (Join-Path $staging '*') `
-    -DestinationPath $OutputPath -CompressionLevel Optimal -Force
-  Get-Item -LiteralPath $OutputPath
+  # Windows PowerShell 5.1 Compress-Archive writes backslashes into ZIP entry
+  # names. ZIP paths are platform-independent and must use forward slashes.
+  Add-Type -AssemblyName System.IO.Compression
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  if (Test-Path -LiteralPath $OutputPath) {
+    Remove-Item -LiteralPath $OutputPath -Force
+  }
+  $archive = [IO.Compression.ZipFile]::Open(
+    $OutputPath, [IO.Compression.ZipArchiveMode]::Create)
+  try {
+    $stagedFiles = @(
+      Get-ChildItem -LiteralPath $staging -File -Recurse |
+        ForEach-Object {
+          $relative = $_.FullName.Substring($staging.Length + 1) `
+            -replace '\\', '/'
+          [pscustomobject]@{ File = $_; Entry = $relative }
+        } |
+        Sort-Object Entry
+    )
+    foreach ($row in $stagedFiles) {
+      $entryName = $row.Entry
+      $segments = @($entryName -split '/')
+      if ([string]::IsNullOrWhiteSpace($entryName) `
+          -or $entryName.Contains('\') `
+          -or $entryName.StartsWith('/') `
+          -or $entryName -match '^[A-Za-z]:' `
+          -or $segments.Count -eq 0 `
+          -or @($segments | Where-Object {
+            $_ -eq '' -or $_ -eq '.' -or $_ -eq '..'
+          }).Count -gt 0) {
+        throw "Unsafe ZIP entry path: $entryName"
+      }
+      [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $archive,
+        $row.File.FullName,
+        $entryName,
+        [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+  } finally {
+    $archive.Dispose()
+  }
+
+  & (Join-Path $PSScriptRoot 'validate-package.ps1') `
+    -ArchivePath $OutputPath
+  $artifact = Get-Item -LiteralPath $OutputPath
+  $artifactHash = Get-FileHash -LiteralPath $artifact.FullName `
+    -Algorithm SHA256
+  Write-Output ("package SHA-256: {0}" -f $artifactHash.Hash)
+  $artifact
 } finally {
   if (Test-Path -LiteralPath $staging) {
     $resolvedStaging = (Resolve-Path -LiteralPath $staging).Path

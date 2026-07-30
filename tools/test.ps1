@@ -62,6 +62,7 @@ try {
   & $luaPath 'tests/race_validation_m14_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'race_validation_m14_test failed' }
   & (Join-Path $ProjectRoot 'tools/validate-scaffold.ps1')
+  & (Join-Path $ProjectRoot 'tools/package-test.ps1')
 } finally {
   Pop-Location
 }

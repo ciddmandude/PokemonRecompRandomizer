@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $requiredFiles = @(
+  '.github/workflows/package-validation.yml',
   'manifest.json',
   'main.lua',
   'README.md',
@@ -67,6 +68,10 @@ $requiredFiles = @(
   'tests/trainer_m13_test.lua',
   'tests/race_validation_m14_test.lua',
   'tools/test.ps1',
+  'tools/package.ps1',
+  'tools/package-test.ps1',
+  'tools/validate-package.ps1',
+  'tools/validate-scaffold.ps1',
   'tools/diagnose-live-trainers.lua',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
@@ -114,11 +119,11 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.15.1') {
-  throw "manifest version must be 0.15.1"
+if ($manifest.version -ne '0.16.0') {
+  throw "manifest version must be 0.16.0"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.15\.1"') {
-  throw "constants MOD_VERSION must match manifest version 0.15.1"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.16\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.16.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

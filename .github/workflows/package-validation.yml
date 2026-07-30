@@ -1,0 +1,62 @@
+name: Package validation
+
+on:
+  push:
+    paths:
+      - ".github/workflows/package-validation.yml"
+      - "manifest.json"
+      - "main.lua"
+      - "README.md"
+      - "src/**"
+      - "tools/package.ps1"
+      - "tools/package-test.ps1"
+      - "tools/validate-package.ps1"
+  pull_request:
+    paths:
+      - ".github/workflows/package-validation.yml"
+      - "manifest.json"
+      - "main.lua"
+      - "README.md"
+      - "src/**"
+      - "tools/package.ps1"
+      - "tools/package-test.ps1"
+      - "tools/validate-package.ps1"
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: Package on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and validate archive
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'pokemon_randomizer.zip'
+          ./tools/package.ps1 -OutputPath $archive
+          ./tools/validate-package.ps1 -ArchivePath $archive
+
+      - name: Verify native extraction paths
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'pokemon_randomizer.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'pokemon_randomizer'
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract
+          foreach ($required in @(
+            'manifest.json',
+            'main.lua',
+            'src/bootstrap.lua',
+            'src/constants.lua'
+          )) {
+            if (-not (Test-Path -LiteralPath (Join-Path $extract $required))) {
+              throw "Native extraction did not create $required"
+            }
+          }
