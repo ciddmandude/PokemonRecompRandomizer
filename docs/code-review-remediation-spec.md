@@ -516,6 +516,8 @@ Exit criteria:
 
 ### Milestone 4 — P2 generator vectors, real properties, and CI
 
+Status: Implemented in `0.19.0`.
+
 Deliver:
 
 - at least 20 combined generator golden vectors;

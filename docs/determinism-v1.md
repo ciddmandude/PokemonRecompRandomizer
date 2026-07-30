@@ -10,6 +10,26 @@ conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
 Changing any result requires a new hash or PRNG version and must not regenerate
 an existing saved run.
 
+Remediation M4 adds 24 full-generator vectors in
+`tests/generator_golden_vectors.lua` with literal expectations in
+`tests/generator_golden_expected.lua`. They cover Casual, Standard, Chaos,
+Blue-version prizes, themed and global trainers, scaled-level modes, and
+targeted category toggles. Each vector locks:
+
+- the complete generation-request hash;
+- the canonical 151-species manifest and source-fixture hashes;
+- all ten saved mapping-bucket hashes and their combined hash;
+- ordered warning codes and fallback count;
+- repair, reachability, node-count, and serialized-byte diagnostics.
+
+Every bucket is nonempty in at least one vector. A representative full request
+is also regenerated after recursively reversing map insertion order. Its
+complete result hash must remain identical.
+
+`tools/print-generator-vectors.lua` prints replacement literals after an
+intentional algorithm change. Updating them requires an algorithm-version
+decision and review; existing saves continue using their stored mappings.
+
 ## 1. Numeric model
 
 All words are unsigned 32-bit integers in the inclusive range
@@ -243,6 +263,11 @@ against stock Lua 5.1.5. They cover:
 - a forced rejection-sampling case;
 - a ten-element Fisher–Yates shuffle;
 - stable duplicate ordering and mixed numeric/string keys.
+
+The combined vectors execute the production generator and serve as
+implementation-level change detection. Their source fixture and expected
+values are stored separately so changing an input cannot silently bless new
+outputs.
 
 The complete suite runs with:
 

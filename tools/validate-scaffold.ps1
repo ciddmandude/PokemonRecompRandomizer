@@ -59,6 +59,11 @@ $requiredFiles = @(
   'tests/save_state_test.lua',
   'tests/options_ui_test.lua',
   'tests/general_settings_test.lua',
+  'tests/generator_harness.lua',
+  'tests/generator_golden_vectors.lua',
+  'tests/generator_golden_expected.lua',
+  'tests/generator_golden_test.lua',
+  'tests/generator_property_test.lua',
   'tests/wild_global_test.lua',
   'tests/wild_m8_test.lua',
   'tests/starter_seam_test.lua',
@@ -73,6 +78,7 @@ $requiredFiles = @(
   'tools/validate-package.ps1',
   'tools/validate-scaffold.ps1',
   'tools/diagnose-live-trainers.lua',
+  'tools/print-generator-vectors.lua',
   'docs/determinism-v1.md',
   'docs/species-manifest-v1.md',
   'docs/save-lifecycle-v1.md',
@@ -119,11 +125,11 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.18.0') {
-  throw "manifest version must be 0.18.0"
+if ($manifest.version -ne '0.19.0') {
+  throw "manifest version must be 0.19.0"
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.18\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.18.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.19\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.19.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

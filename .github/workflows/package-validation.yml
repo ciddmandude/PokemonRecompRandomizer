@@ -8,9 +8,8 @@ on:
       - "main.lua"
       - "README.md"
       - "src/**"
-      - "tools/package.ps1"
-      - "tools/package-test.ps1"
-      - "tools/validate-package.ps1"
+      - "tests/**"
+      - "tools/**"
   pull_request:
     paths:
       - ".github/workflows/package-validation.yml"
@@ -18,9 +17,8 @@ on:
       - "main.lua"
       - "README.md"
       - "src/**"
-      - "tools/package.ps1"
-      - "tools/package-test.ps1"
-      - "tools/validate-package.ps1"
+      - "tests/**"
+      - "tools/**"
   workflow_dispatch:
 
 jobs:
@@ -36,6 +34,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure MSVC for Lua on Windows
+        uses: step-security/msvc-dev-cmd@v1
+
+      - name: Install Lua 5.1.5
+        uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: "5.1.5"
+
+      - name: Run Lua 5.1 syntax and complete test suite
+        shell: pwsh
+        run: ./tools/test.ps1
 
       - name: Build and validate archive
         shell: pwsh

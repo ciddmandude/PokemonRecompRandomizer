@@ -555,7 +555,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 ### 12.4 Fuzz/property tests
 
-For at least 10,000 generated seeds per preset:
+Use a measured, documented bounded seed set that invokes the real combined
+generator for every shipped preset. The suite must finish within its CI budget
+and cover:
 
 - every species ID exists;
 - every level is within 2–100;

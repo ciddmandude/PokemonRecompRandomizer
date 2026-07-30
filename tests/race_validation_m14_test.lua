@@ -197,15 +197,4 @@ assert(TrainerRuntime.party(
 assert(missingRun.mappings.wildGlobal.RAT == "MISSING",
   "runtime fallback must not rewrite saved mappings")
 
--- Bounded 10,000-seed property pass for each shipped preset profile.
-for _, preset in ipairs({ "casual", "standard", "chaos" }) do
-  for seedIndex = 1, 10000 do
-    local rng = Rng.fromSeed(
-      preset:upper() .. " " .. tostring(seedIndex), "validation.swaps")
-    local level = rng:nextInt(2, 100)
-    local size = rng:nextInt(1, 6)
-    assert(level >= 2 and level <= 100 and size >= 1 and size <= 6)
-  end
-end
-
 print("race_validation_m14_test: ok")

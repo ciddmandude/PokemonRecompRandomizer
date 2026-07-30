@@ -64,5 +64,77 @@ return function(StableSort)
     return encode(value, {})
   end
 
+  function Canonical.decode(input)
+    assert(type(input) == "string", "canonical input must be a string")
+    local position = 1
+
+    local function countBefore(delimiter)
+      local first = position
+      while input:sub(position, position):match("%d") do
+        position = position + 1
+      end
+      assert(position > first and input:sub(position, position) == delimiter,
+        "malformed canonical length")
+      local count = assert(tonumber(input:sub(first, position - 1)))
+      position = position + 1
+      return count
+    end
+
+    local parse
+    parse = function()
+      local tag = input:sub(position, position)
+      assert(tag ~= "", "unexpected end of canonical input")
+      position = position + 1
+      if tag == "n" then return nil end
+      if tag == "b" then
+        local bit = input:sub(position, position)
+        assert(bit == "0" or bit == "1", "malformed canonical boolean")
+        position = position + 1
+        return bit == "1"
+      end
+      if tag == "s" or tag == "d" then
+        local length = countBefore(":")
+        local last = position + length - 1
+        assert(last <= #input, "truncated canonical scalar")
+        local text = input:sub(position, last)
+        position = last + 1
+        if tag == "s" then return text end
+        local number = tonumber(text)
+        assert(number ~= nil, "malformed canonical number")
+        return number
+      end
+      if tag == "a" then
+        local count = countBefore("[")
+        local output = {}
+        for index = 1, count do output[index] = parse() end
+        assert(input:sub(position, position) == "]",
+          "malformed canonical array")
+        position = position + 1
+        return output
+      end
+      if tag == "m" then
+        local count = countBefore("{")
+        local output = {}
+        for _ = 1, count do
+          local key = parse()
+          assert(type(key) == "number" or type(key) == "string",
+            "canonical map keys must be numbers or strings")
+          assert(output[key] == nil, "duplicate canonical map key")
+          output[key] = parse()
+        end
+        assert(input:sub(position, position) == "}",
+          "malformed canonical map")
+        position = position + 1
+        return output
+      end
+      error("unknown canonical tag")
+    end
+
+    local value = parse()
+    assert(position == #input + 1, "trailing canonical data")
+    assert(Canonical.encode(value) == input, "non-canonical encoded value")
+    return value
+  end
+
   return Canonical
 end

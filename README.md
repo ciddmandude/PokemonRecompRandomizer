@@ -107,7 +107,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
 - mod API: `2`
-- randomizer mod version: `0.18.0`
+- randomizer mod version: `0.19.0`
 - generator contract: `1`
 - algorithm build: `1.0.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -130,6 +130,9 @@ It then verifies every packaged byte count and SHA-256 value against the
 ledger and prints the final archive SHA-256. Release qualification loads that
 exact archive against the Recomp 0.1.38 ROM-free fixture. The packaging
 workflow also builds and natively extracts the archive on Windows and Linux.
+That same Windows/Linux matrix installs stock Lua 5.1.5, syntax-checks every
+Lua file, and runs the complete regression suite before validating the exact
+archive.
 
 ## Design guarantees
 
@@ -139,6 +142,13 @@ workflow also builds and natively extracts the archive on Windows and Linux.
 - Seed, hash, PRNG, sorting, and shuffle behavior is independent of platform
   bit libraries and table iteration order.
 - Every randomizer category can receive a separately derived named stream.
+- Twenty-four real combined-generator vectors lock every mapping bucket,
+  diagnostics, and complete input identity across Casual, Standard, Chaos,
+  and targeted custom runs.
+- Bounded properties execute the real generator for every shipped preset and
+  verify species, levels, starters, trainer parties, hard filters,
+  reachability attribution, uniqueness, canonical round trips, and category
+  stream isolation.
 - Integer ranges use rejection sampling rather than biased modulo-only draws.
 - Invalid merged species are excluded with structured reasons.
 - Registry insertion order cannot change species or pool fingerprints.

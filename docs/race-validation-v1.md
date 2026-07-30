@@ -103,8 +103,16 @@ race state from the already-saved M13 settings without regenerating mappings.
 
 ## Test and performance budgets
 
-The required suite includes 10,000 bounded property cases for each Casual,
-Standard, and Chaos preset (30,000 total), authenticated-envelope tamper tests,
-repair invariants, missing-content runtime fallbacks, and save-size checks.
-Generation uses finite registry passes and bounded candidate selection; runtime
-lookups retain their existing constant-time mapping access.
+The M4 property suite runs six complete 151-species generations for each of
+Casual, Standard, and Chaos, plus five stream-isolation generations. This
+bounded set replaced the old 30,000-case loop, which sampled PRNG integers but
+never invoked the generator. On the reference Lua 5.1.5 environment the real
+property pass takes about 2.4 seconds and has a conservative 45-second CI
+ceiling; the 24 golden vectors take about 17 seconds with a 60-second ceiling.
+
+Properties verify mapped IDs, integer levels, starter uniqueness, trainer
+party bounds, hard legendary/stage rules, uniqueness before fixture-pool
+exhaustion, Catchability Guard failure attribution, canonical encode/decode
+round trips, termination, and named-stream isolation. Authenticated-envelope
+tamper tests, repair invariants, missing-content fallbacks, and save-size
+checks remain in the complete suite.

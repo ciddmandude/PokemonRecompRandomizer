@@ -8,12 +8,18 @@ $luaCommand = Get-Command lua -ErrorAction SilentlyContinue
 $luacCommand = Get-Command luac -ErrorAction SilentlyContinue
 $luaPath = if ($luaCommand) { $luaCommand.Source } else { $null }
 $luacPath = if ($luacCommand) { $luacCommand.Source } else { $null }
-$fallback = Join-Path $env:LOCALAPPDATA 'Programs\Lua\5.1.5'
+$fallback = if ($env:LOCALAPPDATA) {
+  Join-Path $env:LOCALAPPDATA 'Programs\Lua\5.1.5'
+} else {
+  $null
+}
 
-if (-not $luaPath -and (Test-Path -LiteralPath (Join-Path $fallback 'lua.exe'))) {
+if (-not $luaPath -and $fallback `
+    -and (Test-Path -LiteralPath (Join-Path $fallback 'lua.exe'))) {
   $luaPath = Join-Path $fallback 'lua.exe'
 }
-if (-not $luacPath -and (Test-Path -LiteralPath (Join-Path $fallback 'luac.exe'))) {
+if (-not $luacPath -and $fallback `
+    -and (Test-Path -LiteralPath (Join-Path $fallback 'luac.exe'))) {
   $luacPath = Join-Path $fallback 'luac.exe'
 }
 if (-not $luaPath -or -not $luacPath) {
@@ -45,6 +51,10 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'options_ui_test failed' }
   & $luaPath 'tests/general_settings_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'general_settings_test failed' }
+  & $luaPath 'tests/generator_golden_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'generator_golden_test failed' }
+  & $luaPath 'tests/generator_property_test.lua'
+  if ($LASTEXITCODE -ne 0) { throw 'generator_property_test failed' }
   & $luaPath 'tests/wild_global_test.lua'
   if ($LASTEXITCODE -ne 0) { throw 'wild_global_test failed' }
   & $luaPath 'tests/wild_m8_test.lua'
