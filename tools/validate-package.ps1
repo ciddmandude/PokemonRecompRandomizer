@@ -107,8 +107,7 @@ try {
   $ledger = Get-EntryText $byName['.modkit/pack.json'] | ConvertFrom-Json
   if ($ledger.id -ne $manifest.id `
       -or $ledger.version -ne $manifest.version `
-      -or $ledger.api -ne $manifest.api `
-      -or $ledger.engine_range -ne $manifest.game_version) {
+      -or $ledger.api -ne $manifest.api) {
     throw 'Package ledger does not match the packaged manifest'
   }
 

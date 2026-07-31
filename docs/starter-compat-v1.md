@@ -62,8 +62,8 @@ it never rerolls at interaction time.
 This approach works with the released v0.1.30 app because it uses only public
 API-2 content composition. It intentionally duplicates the small
 `starterBall` command sequence from that release. The override is version
-bounded by the manifest (`>=0.1.30 <0.2.0`) and its parity tests must be
-reviewed whenever the supported recomp series changes.
+checked by parity tests that must be reviewed whenever the supported recomp
+series changes.
 
 On Yellow, the Eevee-ball winner composes with the engine's Yellow lab script.
 It preserves the rival snatch, movement, flags, first-battle branch, and

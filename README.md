@@ -113,7 +113,7 @@ validation rules, see the linked design documents above or the
 
 ## Compatibility
 
-- gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.45+` required for Yellow)
+- gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
 - randomizer mod version: `0.38.0`
 - generator contract: `1`

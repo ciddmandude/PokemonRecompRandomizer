@@ -147,7 +147,6 @@ return function(
       algorithmVersion = Constants.ALGORITHM_VERSION,
       hashVersion = Constants.HASH_VERSION,
       prngVersion = Constants.PRNG_VERSION,
-      gameVersionRange = Constants.GAME_VERSION_RANGE,
       generator = PublicFacade.generator(Generator),
       registerSpeciesMeta = function(id, metadata)
         return Species.Metadata:register(id, metadata)

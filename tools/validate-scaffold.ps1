@@ -128,8 +128,8 @@ if ($manifest.id -ne 'pokemon_randomizer') {
 if ($manifest.api -ne 2) {
   throw "manifest api must be 2"
 }
-if ($manifest.game_version -ne '>=0.1.30 <0.2.0') {
-  throw "unexpected game_version range"
+if ($null -ne $manifest.game_version) {
+  throw "manifest must not declare game_version"
 }
 if ($manifest.entry -ne 'main.lua') {
   throw "manifest entry must be main.lua"
@@ -163,9 +163,6 @@ if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.38\.0"') {
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"
-}
-if ($constants -notmatch 'GAME_VERSION_RANGE\s*=\s*">=0\.1\.30 <0\.2\.0"') {
-  throw "constants GAME_VERSION_RANGE must match manifest"
 }
 if ($constants -notmatch 'HASH_VERSION\s*=\s*"fnv1a32x4-v1"') {
   throw "unexpected hash version"

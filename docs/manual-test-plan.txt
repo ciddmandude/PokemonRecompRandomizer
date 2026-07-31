@@ -3,7 +3,7 @@ POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
 Mod version .......... 0.38.0
 Algorithm build ...... 1.8.0-dev
-Engine range ......... >=0.1.30 <0.2.0  (0.1.45 recommended; required for Yellow)
+Engine compatibility . API 2  (0.1.45 required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
 Plan revision ........ 1
@@ -1603,8 +1603,8 @@ REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
           compatibility block, and the archive file name all read 0.38.0.
 
-REL-05 [P1] Unsupported engine version
-  1. Install on an engine outside >=0.1.30 <0.2.0 if one is available.
+REL-05 [P1] Unsupported mod API
+  1. Install on an engine without mod API 2 if one is available.
   EXPECT: the loader refuses the mod before gameplay with an error attributed
           to pokemon_randomizer. The game must remain playable.
 

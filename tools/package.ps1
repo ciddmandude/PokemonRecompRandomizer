@@ -50,7 +50,6 @@ try {
     id = $manifest.id
     version = $manifest.version
     api = $manifest.api
-    engine_range = $manifest.game_version
     files = $files
     lint = [ordered]@{
       no_rom_content = 'pass'
