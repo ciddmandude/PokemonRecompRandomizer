@@ -13,7 +13,7 @@ return function(Catalog)
 
   local fossilByItem = {}
   local fossilBySpecies = {}
-  for _, record in ipairs(Catalog.gifts) do
+  for _, record in ipairs(Catalog.giftsFor("yellow")) do
     if record.style == "fossil" then
       fossilByItem[record.fossilItem] = record
       fossilBySpecies[record.species] = record
@@ -61,7 +61,10 @@ return function(Catalog)
     end
     local mapId = currentMapId(gift)
     if not mapId then return nil end
-    for _, record in ipairs(Catalog.gifts) do
+    local game = gift.ctx.game
+    local version = type(game) == "table" and type(game.save) == "table"
+      and game.save.version or "red"
+    for _, record in ipairs(Catalog.giftsFor(version)) do
       if record.mapId == mapId and record.species == gift.species
           and (type(gift.level) ~= "number"
             or gift.level == record.level) then
@@ -282,6 +285,90 @@ return function(Catalog)
     end
   end
 
+  local function yellowBulbasaurHandler(record, activeRun)
+    return function(game, overworld, npc, onDone)
+      local flags = game.save.flags or {}
+      local run = activeRun()
+      local randomizedStarter = type(run) == "table"
+        and type(run.settings) == "table"
+        and run.settings.starters ~= nil
+        and run.settings.starters ~= "off"
+      local rows = { { "face_player" } }
+      if flags[record.flag] then
+        rows[#rows + 1] = { "show_text", "MelanieText4" }
+      elseif not randomizedStarter
+          and (game.save.pikachuHappiness or 90) < 147 then
+        rows[#rows + 1] = { "show_text", "MelanieText1" }
+      else
+        rows[#rows + 1] = { "show_text", "MelanieText1" }
+        rows[#rows + 1] = { CMD.ask, "gifts", record.id,
+          record.species, record.level, "Will you take\n{RAM}?", "MelanieText2" }
+        rows[#rows + 1] = { "jump_if_false", "declined" }
+        rows[#rows + 1] = { CMD.give, record.id, record.species, record.level }
+        rows[#rows + 1] = { "jump_if_false", "done" }
+        rows[#rows + 1] = { "set_flag", record.flag }
+        rows[#rows + 1] = { "hide_object", record.mapId, record.object }
+        rows[#rows + 1] = { "show_text", "MelanieText3" }
+        rows[#rows + 1] = { "jump", "done" }
+        rows[#rows + 1] = { "label", "declined" }
+        rows[#rows + 1] = { "show_text", "MelanieText5" }
+      end
+      rows[#rows + 1] = { "label", "done" }
+      return runnerHandler(rows)(game, overworld, npc, onDone)
+    end
+  end
+
+  local function yellowCharmanderHandler(record, activeRun)
+    return function(game, overworld, npc, onDone)
+      local flags = game.save.flags or {}
+      local rows = { { "face_player" } }
+      if flags[record.flag] then
+        rows[#rows + 1] = { "show_text", "_Route24DamianText4" }
+      else
+        rows[#rows + 1] = { CMD.ask, "gifts", record.id,
+          record.species, record.level, "Will you take\n{RAM}?",
+          "_Route24DamianText1" }
+        rows[#rows + 1] = { "jump_if_false", "declined" }
+        rows[#rows + 1] = { CMD.give, record.id, record.species, record.level }
+        rows[#rows + 1] = { "jump_if_false", "done" }
+        rows[#rows + 1] = { "set_flag", record.flag }
+        rows[#rows + 1] = { "show_text", "_Route24DamianText2" }
+        rows[#rows + 1] = { "jump", "done" }
+        rows[#rows + 1] = { "label", "declined" }
+        rows[#rows + 1] = { "show_text", "_Route24DamianText3" }
+      end
+      rows[#rows + 1] = { "label", "done" }
+      return runnerHandler(rows)(game, overworld, npc, onDone)
+    end
+  end
+
+  local function yellowSquirtleHandler(record, activeRun)
+    return function(game, overworld, npc, onDone)
+      local flags = game.save.flags or {}
+      local inventory = game.save.inventory or {}
+      local rows = { { "face_player" } }
+      if flags[record.flag] then
+        rows[#rows + 1] = { "show_text", "_OfficerJennyText5" }
+      elseif not inventory.THUNDERBADGE then
+        rows[#rows + 1] = { "show_text", "_OfficerJennyText1" }
+      else
+        rows[#rows + 1] = { CMD.ask, "gifts", record.id,
+          record.species, record.level, "Will you take\n{RAM}?",
+          "_OfficerJennyText2" }
+        rows[#rows + 1] = { "jump_if_false", "declined" }
+        rows[#rows + 1] = { CMD.give, record.id, record.species, record.level }
+        rows[#rows + 1] = { "jump_if_false", "done" }
+        rows[#rows + 1] = { "set_flag", record.flag }
+        rows[#rows + 1] = { "show_text", "_OfficerJennyText3" }
+        rows[#rows + 1] = { "jump", "done" }
+        rows[#rows + 1] = { "label", "declined" }
+        rows[#rows + 1] = { "show_text", "_OfficerJennyText4" }
+      end
+      rows[#rows + 1] = { "label", "done" }
+      return runnerHandler(rows)(game, overworld, npc, onDone)
+    end
+  end
+
   local function fossilHandler(activeRun, ui)
     return function(game, overworld, npc, onDone)
       local save = game.save
@@ -423,7 +510,7 @@ return function(Catalog)
     end
   end
 
-  local function contributionMap(activeRun, ui)
+  local function contributionMap(activeRun, ui, version)
     activeRun = activeRun or function() return nil end
     local output = {}
     local function mapRecord(mapId)
@@ -437,7 +524,7 @@ return function(Catalog)
         mapRecord(record.mapId).talk[record.talkKey] = staticRows(record)
       end
     end
-    for _, record in ipairs(Catalog.gifts) do
+    for _, record in ipairs(Catalog.giftsFor(version)) do
       local handler
       if record.style == "eevee" then
         handler = eeveeRows(record)
@@ -449,6 +536,12 @@ return function(Catalog)
         handler = laprasHandler(record, activeRun)
       elseif record.style == "fossil" and ui then
         handler = fossilHandler(activeRun, ui)
+      elseif record.style == "yellow_bulbasaur" then
+        handler = yellowBulbasaurHandler(record, activeRun)
+      elseif record.style == "yellow_charmander" then
+        handler = yellowCharmanderHandler(record, activeRun)
+      elseif record.style == "yellow_squirtle" then
+        handler = yellowSquirtleHandler(record, activeRun)
       end
       if handler then
         mapRecord(record.mapId).talk[record.talkKey] = handler
@@ -523,7 +616,11 @@ return function(Catalog)
       gift.randomizerGiftId = record.id
     end)
 
-    local contributions = contributionMap(activeRun, mod.ui)
+    local maps = mod.content.maps
+    local yellow = type(maps) == "table" and type(maps.get) == "function"
+      and maps:get("CERULEAN_MELANIES_HOUSE") ~= nil
+    local contributions = contributionMap(
+      activeRun, mod.ui, yellow and "yellow" or "red")
     for mapId, contribution in pairs(contributions) do
       mod.content.map_scripts:register(mapId, contribution)
     end

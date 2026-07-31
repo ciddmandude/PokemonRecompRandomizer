@@ -1,13 +1,13 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.36.0
-Algorithm build ...... 1.6.0-dev
-Engine range ......... >=0.1.30 <0.2.0  (0.1.38 recommended)
+Mod version .......... 0.38.0
+Algorithm build ...... 1.8.0-dev
+Engine range ......... >=0.1.30 <0.2.0  (0.1.45 recommended; required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
 Plan revision ........ 1
-Automated status ..... 23/23 Lua test files passing at time of writing
+Automated status ..... 24/24 Lua test files passing at time of writing
 
 
 --------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.36.0.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.38.0.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -364,6 +364,12 @@ CFG-I  "Same evolutionary stage"                            seed: TEST STAGE
     SIMILAR STRENGTH = SAME STAGE
   Covers: hard BASIC/MIDDLE/FINAL matching without a BST restriction.
 
+CFG-J  "Absolute BST ranges"                                  seed: TEST BST
+  Start from STANDARD. Run once with each:
+    SIMILAR STRENGTH = BST +/-50
+    SIMILAR STRENGTH = BST +/-100
+  Covers: inclusive absolute five-stat-total ranges.
+
 
 ================================================================================
 TEST SUITES
@@ -514,6 +520,18 @@ OPT-11 [P1] SAME STAGE ignores BST and preserves evolution stage
           If they leave no same-stage destination, only that affected slot
           remains vanilla; the stage requirement is never relaxed.
 
+OPT-12 [P1] Absolute BST +/-50 and +/-100
+  1. CFG-J with BST +/-50. Export the spoiler log and compare at least fifty
+     source/destination pairs across wild, static/gift/prize, trades, and
+     trainers.
+  EXPECT: each destination's five-stat BST is within 50 points of its source,
+          unless a WIDEN_BST or DROP_BST diagnostic records a deterministic
+          relaxation. The comparison is absolute, not a percentage.
+  2. Repeat with BST +/-100.
+  EXPECT: the inclusive range is 100 points. A difference of exactly 100 is
+          valid; 101 is invalid unless a relaxation is recorded.
+  EXPECT: identical seeds and settings reproduce identical results.
+
 
 --------------------------------------------------------------------------------
 6. NEW GAME, SEEDS, AND RUN IDENTITY
@@ -526,7 +544,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.6.0-dev.
+  EXPECT: ALGORITHM reads 1.8.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -1490,7 +1508,75 @@ SPL-08 [P2] COPY ACTIVE SEED
 
 
 --------------------------------------------------------------------------------
-16. CROSS-CUTTING AND RELEASE CHECKS
+16. POKEMON YELLOW VERSION
+--------------------------------------------------------------------------------
+
+YEL-01 [P0] Vanilla Yellow starters when disabled
+  1. Start Pokemon Yellow with Starters OFF.
+  2. Complete Oak's Lab through the first rival battle.
+  EXPECT: the player receives Pikachu at Lv. 5 and the rival receives Eevee.
+  EXPECT: the normal Pikachu follower behavior remains intact.
+
+YEL-02 [P0] Randomized Pikachu replacement
+  1. Start Pokemon Yellow with Starters RANDOM and a recorded manual seed.
+  2. Complete Oak's Lab through the first rival battle.
+  EXPECT: the player receives the single saved YELLOW starter shown in the
+          spoiler log, at the configured starter level.
+  EXPECT: the rival uses the distinct saved Yellow rival species.
+  EXPECT: the award, displayed names, flags, object removal, and first battle
+          agree; no Pikachu is silently substituted at award time.
+  EXPECT: if the player starter is not Pikachu, no follower appears.
+
+YEL-03 [P0] Yellow starter determinism and Continue
+  1. Save after YEL-02, exit, change starter preferences, and Continue.
+  2. Recreate the same seed/settings in a second Yellow save.
+  EXPECT: Continue keeps the original player/rival pair.
+  EXPECT: the second save produces the same pair and run code.
+
+YEL-04 [P1] Yellow rival continuity
+  1. Play every recurring rival battle on a randomized Yellow save.
+  2. Repeat with seeds that drive each vanilla Eevee evolution branch.
+  EXPECT: every rival party uses the saved randomized rival family projection
+          at the vanilla branch's expected evolution depth.
+  EXPECT: other recurring rival slots follow Rival Keep Pokemon and Rival
+          Pokemon settings normally.
+
+YEL-05 [P1] Yellow-only gifts
+  1. With Gift Pokemon RANDOMIZED, obtain Melanie's Cerulean gift, the Route 24
+     Charmander gift, and Officer Jenny's Vermilion gift.
+  EXPECT: all three match their saved spoiler entries and levels.
+  EXPECT: Melanie's happiness gate is bypassed while randomized starters are
+          active so a non-Pikachu starter cannot make the gift unobtainable.
+  2. Repeat with Starters OFF.
+  EXPECT: Melanie retains the vanilla Pikachu-happiness requirement.
+
+YEL-06 [P1] Yellow trades and Game Corner
+  1. Exercise all nine NPC-wired Yellow trades, including cancel, wrong Pokemon,
+     full storage, success, and already-completed branches.
+  2. Inspect and purchase all six Pokemon prize rows at the Game Corner.
+  EXPECT: offers and prizes match saved Yellow stable IDs; dialogue, payment,
+          completion flags, levels, and awards use the displayed values.
+
+YEL-07 [P1] Yellow encounters and trainers
+  1. Sample Yellow-exclusive wild tables and trainer parties, including every
+     Jessie/James encounter.
+  EXPECT: enabled categories randomize and disabled categories stay vanilla.
+  EXPECT: no Red/Blue-only map or trainer assumption causes a fallback or crash.
+
+YEL-08 [P1] Yellow spoiler coverage
+  1. Inspect Pokemon mode and Map mode, then export the text spoiler.
+  EXPECT: the forced starter, rival starter, Yellow-only gifts, Yellow trades,
+          prizes, wild encounters, and trainer parties are indexed correctly.
+
+YEL-09 [P0] Version isolation
+  1. Run the Red and Blue starter, gift, trade, prize, wild, and trainer smoke
+     tests after completing YEL-01 through YEL-08.
+  EXPECT: Red/Blue mappings and behavior are unchanged by Yellow support.
+  EXPECT: no Yellow-only script override is active on Red or Blue.
+
+
+--------------------------------------------------------------------------------
+17. CROSS-CUTTING AND RELEASE CHECKS
 --------------------------------------------------------------------------------
 
 REL-01 [P0] Archive installs on a clean machine
@@ -1515,7 +1601,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.36.0.
+          compatibility block, and the archive file name all read 0.38.0.
 
 REL-05 [P1] Unsupported engine version
   1. Install on an engine outside >=0.1.30 <0.2.0 if one is available.
@@ -1547,7 +1633,7 @@ REL-09 [P3] Generation performance
 
 
 --------------------------------------------------------------------------------
-17. RESULT RECORDING
+18. RESULT RECORDING
 --------------------------------------------------------------------------------
 
 Record one row per test ID:
@@ -1568,7 +1654,7 @@ Attach both every time.
 
 
 --------------------------------------------------------------------------------
-18. MINIMUM RELEASE GATE
+19. MINIMUM RELEASE GATE
 --------------------------------------------------------------------------------
 
 Do not ship unless all of the following pass:
@@ -1583,6 +1669,7 @@ Do not ship unless all of the following pass:
   [ ] SAVE-05 and SAVE-06 pass                    (quarantine and fallback)
   [ ] CFG-D and CFG-E produce verifiably vanilla gameplay
   [ ] A full CFG-A playthrough reaches the Hall of Fame without a soft-lock
+  [ ] YEL-01, YEL-02, YEL-03, YEL-04, and YEL-09 pass on Recomp 0.1.45+
 
 ================================================================================
 END OF PLAN

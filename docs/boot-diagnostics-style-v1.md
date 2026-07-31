@@ -29,4 +29,4 @@ event follows the normal atomic generation lifecycle.
 indentation. The change is whitespace-only. Progression access tests retain
 their exact ordered requirements and Fighting Dojo stage, while the complete
 24-vector generator golden suite retains the same mappings, warnings,
-fallback counts, and hashes under algorithm `1.6.0-dev`.
+fallback counts, and hashes under algorithm `1.8.0-dev`.

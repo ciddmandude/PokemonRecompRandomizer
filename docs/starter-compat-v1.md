@@ -11,6 +11,7 @@ The mod registers one `OAKS_LAB` contribution through the API-2
 - `TEXT_OAKSLAB_CHARMANDER_POKE_BALL`
 - `TEXT_OAKSLAB_SQUIRTLE_POKE_BALL`
 - `TEXT_OAKSLAB_BULBASAUR_POKE_BALL`
+- `TEXT_OAKSLAB_EEVEE_POKE_BALL` (Yellow only)
 
 Oak, the rival, lab entry/step behavior, parcel delivery, Pokédex delivery,
 the first rival battle trigger, and every other lab handler remain
@@ -63,3 +64,10 @@ API-2 content composition. It intentionally duplicates the small
 `starterBall` command sequence from that release. The override is version
 bounded by the manifest (`>=0.1.30 <0.2.0`) and its parity tests must be
 reviewed whenever the supported recomp series changes.
+
+On Yellow, the Eevee-ball winner composes with the engine's Yellow lab script.
+It preserves the rival snatch, movement, flags, first-battle branch, and
+Pikachu/Eevee flow when no mapping exists. An active Yellow mapping replaces
+the awarded Pikachu and rival Eevee while retaining the story flags required
+by the rest of the Yellow campaign. This public map-script composition requires
+gen1recomp 0.1.45 or newer and no engine permission.

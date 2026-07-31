@@ -102,6 +102,7 @@ return {
       trade_evolution_safety = "off",
       prize_prices = "random_25",
       party_size = "random_1_6",
+      similar_strength = "bst_100",
     },
   },
   {

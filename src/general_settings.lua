@@ -217,8 +217,11 @@ return function(SaveState)
 
   function General.filterRules(settings)
     local strength = tonumber(settings.similar_strength)
+    local points = settings.similar_strength == "bst_50" and 50
+      or settings.similar_strength == "bst_100" and 100 or nil
     return {
       strengthPercent = strength,
+      strengthPoints = points,
       sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries,
       duplicatePolicy = settings.duplicate_policy,

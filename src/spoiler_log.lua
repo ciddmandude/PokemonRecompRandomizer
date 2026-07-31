@@ -129,6 +129,15 @@ return function()
     TRADE_08_DORIS = "CINNABAR_LAB_TRADE_ROOM",
     TRADE_09_CRINKLES = "CINNABAR_LAB_TRADE_ROOM",
     TRADE_10_SPOT = "UNDERGROUND_PATH_ROUTE_5",
+    TRADE_01_GURIO = "ROUTE_11_GATE_2F",
+    TRADE_02_MILES = "ROUTE_2_TRADE_HOUSE",
+    TRADE_04_STICKY = "CINNABAR_LAB_FOSSIL_ROOM",
+    TRADE_05_BART = "VERMILION_TRADE_HOUSE",
+    TRADE_06_SPIKE = "ROUTE_18_GATE_2F",
+    TRADE_07_MARTY = "CERULEAN_TRADE_HOUSE",
+    TRADE_08_BUFFY = "CINNABAR_LAB_TRADE_ROOM",
+    TRADE_09_CEZANNE = "CINNABAR_LAB_TRADE_ROOM",
+    TRADE_10_RICKY = "UNDERGROUND_PATH_ROUTE_5",
   }
 
   local WORD_NAMES = {
@@ -348,13 +357,16 @@ return function()
       add(lines, "  Starters are vanilla.")
       return
     end
-    for _, slot in ipairs({ "LEFT", "MIDDLE", "RIGHT" }) do
+    local slots = starters.YELLOW and { "YELLOW" }
+      or { "LEFT", "MIDDLE", "RIGHT" }
+    for _, slot in ipairs(slots) do
       local row = starters[slot]
       if type(row) == "table" then
         local rival = row.rivalSpecies
           and ("; rival counterpick: " .. speciesName(row.rivalSpecies)) or ""
         add(lines, ("  %-12s %s%s%s"):format(
-          readableId(slot) .. " ball:", speciesName(row.species),
+          (slot == "YELLOW" and "Yellow:" or readableId(slot) .. " ball:"),
+          speciesName(row.species),
           levelText(row.level), rival))
       end
     end

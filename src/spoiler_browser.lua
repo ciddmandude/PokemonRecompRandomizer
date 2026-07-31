@@ -346,13 +346,17 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
 
   local function addStarters(index)
     local mappings = index.run.mappings.starters or {}
-    for _, source in ipairs(STARTERS) do
+    local version = tostring(index.sources.gameVersion or "red"):lower()
+    local sources = version == "yellow"
+      and { { id = "YELLOW", source = "PIKACHU" } } or STARTERS
+    for _, source in ipairs(sources) do
       local mapped = mappings[source.id]
       local species = type(mapped) == "table" and mapped.species or source.source
       local level = type(mapped) == "table" and mapped.level
         or tonumber(index.run.settings.starter_level) or 5
       addMapRow(index, "OAKS_LAB", "starters", {
-        kind = "starter", label = words(source.id) .. " BALL",
+        kind = "starter", label = version == "yellow"
+          and "STARTER" or words(source.id) .. " BALL",
         source = source.source, species = species, level = level,
         vanilla = type(mapped) ~= "table",
       }, species)
@@ -361,7 +365,8 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
 
   local function addStaticGifts(index)
     local mappings = index.run.mappings or {}
-    for _, source in ipairs(StaticGiftCatalog.statics or {}) do
+    local version = tostring(index.sources.gameVersion or "red"):lower()
+    for _, source in ipairs(StaticGiftCatalog.staticsFor(version)) do
       local mapped = type(mappings.staticEncounters) == "table"
         and mappings.staticEncounters[source.id]
       local species, level, vanilla = mappedOrVanilla(mapped, source)
@@ -371,7 +376,7 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
         level = level or source.level, vanilla = vanilla,
       }, species)
     end
-    for _, source in ipairs(StaticGiftCatalog.gifts or {}) do
+    for _, source in ipairs(StaticGiftCatalog.giftsFor(version)) do
       local mapped = type(mappings.gifts) == "table"
         and mappings.gifts[source.id]
       local species, level, vanilla = mappedOrVanilla(mapped, source)
@@ -395,7 +400,8 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
 
   local function addTradesPrizes(index)
     local mappings = index.run.mappings or {}
-    for _, source in ipairs(TradePrizeCatalog.trades or {}) do
+    local version = tostring(index.sources.gameVersion or "red"):lower()
+    for _, source in ipairs(TradePrizeCatalog.tradesFor(version)) do
       local vanilla = fieldTrade(index, source)
       local mapped = type(mappings.trades) == "table"
         and mappings.trades[source.id]
@@ -412,8 +418,7 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
       addMapRow(index, source.mapId, "trades", row, receivedSpecies)
     end
 
-    local version = tostring(index.sources.gameVersion or "red"):lower()
-    local prizes = TradePrizeCatalog.prizes[version] or {}
+    local prizes = TradePrizeCatalog.prizesFor(version) or {}
     for _, source in ipairs(prizes) do
       local mapped = type(mappings.prizes) == "table"
         and mappings.prizes[source.id]

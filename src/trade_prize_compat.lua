@@ -34,7 +34,7 @@ return function(Catalog)
         or { priority = 100, talk = {} }
       output[record.mapId].talk[record.talkKey] = {
         { "face_player" },
-        { TRADE_COMMAND, record.id, record.index, record.flag },
+        { TRADE_COMMAND, record.index, record.flag },
         { "label", "done" },
       }
     end
@@ -42,10 +42,9 @@ return function(Catalog)
   end
 
   local function prizeRecords(game, activeRun)
-    local version = game.save and game.save.version == "blue"
-      and "blue" or "red"
+    local version = game.save and game.save.version or "red"
     local output = {}
-    for _, record in ipairs(Catalog.prizes[version]) do
+    for _, record in ipairs(Catalog.prizesFor(version) or {}) do
       local saved = mapping(activeRun, "prizes", record.id)
       if saved and (type(saved.species) ~= "string"
           or type(saved.level) ~= "number"
@@ -93,7 +92,14 @@ return function(Catalog)
       commands:get("give_pokemon"), "give_pokemon command missing")
 
     commands:register(TRADE_COMMAND,
-      function(ctx, id, tradeIndex, doneFlag)
+      function(ctx, idOrIndex, indexOrFlag, legacyFlag)
+        local version = ctx.game and ctx.game.save
+          and ctx.game.save.version or "red"
+        local legacy = type(idOrIndex) == "string"
+        local tradeIndex = legacy and indexOrFlag or idOrIndex
+        local doneFlag = legacy and legacyFlag or indexOrFlag
+        local record = Catalog.tradeAt(version, tradeIndex)
+        local id = legacy and idOrIndex or record and record.id
         local saved = mapping(activeRun, "trades", id)
         if not saved then return baseTrade(ctx, tradeIndex, doneFlag) end
         local trades = ctx.game.data.field.trades
@@ -116,8 +122,6 @@ return function(Catalog)
 
     mod.content.screens:register(PRIZE_SCREEN, {
       new = function(game, done)
-        local version = game.save and game.save.version == "blue"
-          and "blue" or "red"
         local items = {}
         for _, prize in ipairs(prizeRecords(game, activeRun)) do
           local label

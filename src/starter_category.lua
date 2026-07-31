@@ -25,6 +25,7 @@ return function(StableSort)
     MIDDLE = "RIGHT",
     RIGHT = "LEFT",
   }
+  local YELLOW_SLOT = "YELLOW"
 
   -- Generation-I attacking type effectiveness. Missing pairs are neutral.
   local SUPER = {
@@ -118,6 +119,12 @@ return function(StableSort)
     return { shuffled[1], shuffled[2], shuffled[3] }
   end
 
+  local function randomTwo(entries, rng)
+    if #entries < 2 then return nil end
+    local shuffled = rng:shuffle(entries)
+    return { shuffled[1], shuffled[2] }
+  end
+
   local function typeTriad(entries, rng, mergedChart)
     local byType = {}
     for _, entry in ipairs(entries) do
@@ -175,7 +182,77 @@ return function(StableSort)
     return bestSlot
   end
 
-  function StarterCategory.generate(manifest, settings, rngs, mergedChart)
+  local function yellowChoices(entries, settings, rngs, mergedChart)
+    local choices
+    if settings.starters == "type_triad" then
+      choices = typeTriad(entries, rngs.starters, mergedChart)
+    end
+    if not choices then choices = randomTwo(entries, rngs.starters) end
+    if not choices then return nil end
+
+    local player = choices[1]
+    local rivals = {}
+    for _, entry in ipairs(entries) do
+      if entry.id ~= player.id then rivals[#rivals + 1] = entry end
+    end
+    if #rivals == 0 then return nil end
+    local rival
+    if settings.rival_counterpick == "type_advantage" then
+      local best, tied = -1, {}
+      for _, entry in ipairs(rivals) do
+        local score = matchup(entry, player, mergedChart)
+        if score > best then
+          best, tied = score, { entry }
+        elseif score == best then
+          tied[#tied + 1] = entry
+        end
+      end
+      rival = tied[rngs.rival:nextInt(1, #tied)]
+    elseif #choices >= 2 then
+      rival = choices[2]
+    else
+      rival = rivals[rngs.rival:nextInt(1, #rivals)]
+    end
+    return player, rival
+  end
+
+  local function generateYellow(
+      result, manifest, settings, rngs, mergedChart)
+    local candidates = eligibleEntries(manifest, settings)
+    local player, rival = yellowChoices(
+      candidates, settings, rngs, mergedChart)
+    if not player or not rival then
+      result.warnings[#result.warnings + 1] = {
+        code = "STARTER_GENERATION_FAILED",
+        message = "fewer than two eligible unique Yellow starters; using vanilla",
+      }
+      result.fallbackCount = 1
+      return result
+    end
+    local level = tonumber(settings.starter_level) or 5
+    level = math.max(2, math.min(20, math.floor(level)))
+    result.starters[YELLOW_SLOT] = {
+      slotId = YELLOW_SLOT,
+      starterIndex = 1,
+      species = player.id,
+      level = level,
+      choseFlag = "EVENT_CHOSE_PIKACHU",
+      ballObject = "YELLOW_STARTER_GIFT",
+      rivalBall = "OAKSLAB_EEVEE_POKE_BALL",
+      rivalSlot = "YELLOW_RIVAL",
+      rivalSpecies = rival.id,
+      gameVersion = "yellow",
+    }
+    result.starterFlags = {
+      gameVersion = "yellow",
+      partyOffsetSlots = { YELLOW_SLOT, YELLOW_SLOT, YELLOW_SLOT },
+      choiceFlags = { [YELLOW_SLOT] = "EVENT_CHOSE_PIKACHU" },
+    }
+    return result
+  end
+
+  function StarterCategory.generate(
+      manifest, settings, rngs, mergedChart, gameVersion)
     assert(type(manifest) == "table", "species manifest is required")
     assert(type(settings) == "table", "starter settings are required")
     assert(type(rngs) == "table" and type(rngs.starters) == "table"
@@ -189,6 +266,10 @@ return function(StableSort)
     }
     if settings.starters == nil or settings.starters == "off" then
       return result
+    end
+
+    if string.lower(tostring(gameVersion or "red")) == "yellow" then
+      return generateYellow(result, manifest, settings, rngs, mergedChart)
     end
 
     local candidates = eligibleEntries(manifest, settings)

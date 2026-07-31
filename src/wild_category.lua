@@ -7,6 +7,8 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
   local function rules(settings, excluded)
     return {
       strengthPercent = tonumber(settings.similar_strength),
+      strengthPoints = settings.similar_strength == "bst_50" and 50
+        or settings.similar_strength == "bst_100" and 100 or nil,
       sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries or "allow",
       excludeIds = excluded,
@@ -25,6 +27,8 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
         diagnostics = diagnostics,
         hardConstraints = {
           similarStrength = tonumber(settings.similar_strength),
+          baseStatRange = settings.similar_strength == "bst_50" and 50
+            or settings.similar_strength == "bst_100" and 100 or nil,
           sameStage = settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
         },
@@ -182,8 +186,24 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
     return rows, true
   end
 
+  local function repairCompatible(sourceId, destinationId, manifest, mode)
+    if mode == nil or mode == false
+        or (mode ~= true and mode ~= "same_stage"
+          and mode ~= "bst_50" and mode ~= "bst_100") then
+      return true
+    end
+    local source = manifest.byId[sourceId]
+    local destination = manifest.byId[destinationId]
+    if not source or not destination then return false end
+    if mode == true or mode == "same_stage" then
+      return source.stage == destination.stage
+    end
+    local points = mode == "bst_50" and 50 or 100
+    return math.abs(source.bst - destination.bst) <= points
+  end
+
   local function repairCoverage(
-      occurrences, manifest, result, sameStage)
+      occurrences, manifest, result, strengthMode)
     local reachableCounts, totalCounts = {}, {}
     for _, row in ipairs(occurrences) do
       local id = row.record.species
@@ -211,8 +231,12 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
           local id = row.record.species
           local entry = manifest.byId[id]
           if row.reachable and entry and not entry.legendary
-              and (not sameStage or (missingEntry
-                and entry.stage == missingEntry.stage))
+              and (strengthMode ~= true
+                or (missingEntry and entry.stage == missingEntry.stage))
+              and repairCompatible(
+                row.source, missing, manifest, strengthMode)
+              and repairCompatible(
+                target and target.source, id, manifest, strengthMode)
               and (reachableCounts[id] or 0) > 1 then
             donor = row
             break
@@ -236,7 +260,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
   end
 
   local function repairGlobalCoverage(
-      units, manifest, result, sameStage)
+      units, manifest, result, strengthMode)
     local reachableCounts, totalCounts = {}, {}
     for _, unit in ipairs(units) do
       local id = unit.mapping[unit.key]
@@ -263,8 +287,12 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
           local id = unit.mapping[unit.key]
           local entry = manifest.byId[id]
           if unit.reachable and entry and not entry.legendary
-              and (not sameStage or (missingEntry
-                and entry.stage == missingEntry.stage))
+              and (strengthMode ~= true
+                or (missingEntry and entry.stage == missingEntry.stage))
+              and repairCompatible(
+                unit.source, missing, manifest, strengthMode)
+              and repairCompatible(
+                target and target.source, id, manifest, strengthMode)
               and (reachableCounts[id] or 0) > 1 then
             donor = unit
             break
@@ -333,6 +361,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
         globalUnits[#globalUnits + 1] = {
           mapping = result.wildGlobal,
           key = source,
+          source = source,
           reachable = reachableBySource[source] == true,
         }
       end
@@ -349,6 +378,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
           end
           occurrences[#occurrences + 1] = {
             record = { species = destination },
+            source = slot.source,
             reachable = slot.reachable,
             access = slot.access,
           }
@@ -390,7 +420,8 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
           ensurePath(result.wildAreaSlots,
             slot.mapId, slot.terrain)[slot.index] = record
           occurrences[#occurrences + 1] = {
-            record = record, reachable = slot.reachable, access = slot.access,
+            record = record, source = slot.source,
+            reachable = slot.reachable, access = slot.access,
           }
         else
           addWarning(result, "WILD_"
@@ -480,6 +511,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
             occurrences[#occurrences + 1] = {
               record = settings.wild_pokemon == "area_slots"
                   and record or { species = destination },
+              source = slot.source,
               reachable = slot.reachable,
               access = slot.access,
             }
@@ -507,6 +539,7 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
             globalUnits[#globalUnits + 1] = {
               mapping = result.fishing.global,
               key = source,
+              source = source,
               reachable = reachableBySource[source] == true,
             }
           end
@@ -515,11 +548,11 @@ return function(StableSort, SpeciesFilters, WildGlobal, Matching, Progression)
     end
 
     if settings.catchability_guard == "on" then
-      local sameStage = settings.similar_strength == "same_stage"
+      local strengthMode = settings.similar_strength
       if settings.wild_pokemon == "area_slots" then
-        repairCoverage(occurrences, manifest, result, sameStage)
+        repairCoverage(occurrences, manifest, result, strengthMode)
       else
-        repairGlobalCoverage(globalUnits, manifest, result, sameStage)
+        repairGlobalCoverage(globalUnits, manifest, result, strengthMode)
       end
       if settings.wild_levels == "scaled" then
         for _, slot in ipairs(encounterRows) do

@@ -81,10 +81,13 @@ local postgame = Progression.access("CERULEAN_CAVE_B1F", "walk", nil, "red")
 assert(postgame.stage == Progression.STAGES.POSTGAME)
 assert(postgame.postgame and not Progression.isPreEliteFour(postgame))
 
-local unavailableVersion =
+local yellowRoute =
   Progression.access("ROUTE_1", "walk", nil, "yellow")
-assert(not unavailableVersion.available)
-assert(unavailableVersion.reason == "unsupported version")
+assert(yellowRoute.available and yellowRoute.stage == Progression.STAGES.START)
+local yellowGift = Progression.access(
+  "CERULEAN_MELANIES_HOUSE", "walk", nil, "yellow")
+assert(yellowGift.available
+  and yellowGift.stage == Progression.STAGES.CERULEAN)
 
 local unknown = Progression.access("CUSTOM_MOD_MAP", "walk", nil, "red")
 assert(not unknown.available and not unknown.known)

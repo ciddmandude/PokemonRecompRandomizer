@@ -24,6 +24,10 @@ The imported trade table also contains row 3, CHIKUCHIKU
 to this row, so it is not a player-accessible offer and receives no saved
 mapping.
 
+Yellow uses the same nine wired indices and locations with its ROM-specific
+GURIO, MILES, STICKY, BART, SPIKE, MARTY, BUFFY, CEZANNE, and RICKY source
+offers. The saved IDs and spoiler labels follow that active Yellow table.
+
 `IN-GAME TRADES: RECEIVED` keeps the requested species vanilla and saves a
 new received species. `BOTH SIDES` saves both. `OFF` creates no mappings.
 
@@ -70,12 +74,15 @@ the trade animation remain stock-engine behavior.
 
 The active save version receives six saved Pokémon prize records:
 
-Only explicit `red` and `blue` source versions select a prize catalog.
+Only explicit `red`, `blue`, and `yellow` source versions select a prize catalog.
 Missing or unknown versions retain their vanilla Pokémon prizes and add a
 `PRIZE_VERSION_UNSUPPORTED` generation warning; they never default to Red.
 
 - Red: Abra, Clefairy, Nidorina, Dratini, Scyther, and Porygon slots.
 - Blue: Abra, Clefairy, Nidorino, Pinsir, Dratini, and Porygon slots.
+- Yellow on gen1recomp 0.1.45: the public prize screen currently exposes the
+  Red six-slot table, so the randomizer mirrors those sources under stable
+  Yellow IDs. This keeps `OFF` behavior identical to the supported engine.
 
 The three TM rows remain unchanged. The three prize counters all open the
 same registered randomizer prize screen, matching the stock shared-counter
@@ -111,8 +118,8 @@ settings apply to prize species selection.
 
 ## Compatibility limits
 
-- The adapter is scoped to the nine stock v0.1.30 NPC bindings and the stock
-  Red/Blue Game Corner prize room.
+- The adapter is scoped to the nine stock NPC bindings and the stock
+  Red/Blue/Yellow Game Corner prize room exposed by supported recomp releases.
 - A mod that replaces one of the same map-script winners may take precedence
   according to normal `map_scripts` composition rules.
 - A mod that changes the base trade record still keeps its nickname,

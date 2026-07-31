@@ -6,12 +6,12 @@ Document date: 2026-07-28
 
 ## 1. Purpose
 
-Build a first-class `gen1recomp` mod that creates deterministic randomized playthroughs of Pokémon Red/Blue content while preserving the engine's vanilla-parity and save-safety guarantees.
+Build a first-class `gen1recomp` mod that creates deterministic randomized playthroughs of Pokémon Red, Blue, and Yellow content while preserving the engine's vanilla-parity and save-safety guarantees.
 
 The randomizer must support:
 
 - wild Pokémon;
-- the three starter choices;
+- the three Red/Blue starter choices or Yellow's forced player/rival pair;
 - static encounters and non-starter gift Pokémon;
 - in-game NPC trades;
 - Pokémon sold by the Game Corner Prize Exchange ("shop Pokémon");
@@ -109,7 +109,7 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` generates a new 128-bit seed when New Game is confirmed. `MANUAL` uses Seed Text after normalization. Changing this setting never rerolls an existing save. |
 | Seed Text | text, 1–32 characters | blank | Used only in `MANUAL`. Accept uppercase letters, digits, space, hyphen, and underscore. Trim outer spaces, collapse repeated spaces, and uppercase before hashing. Reject an empty canonical seed. The original display text and canonical value are both saved. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | `VANILLA 151` excludes mod-added species. `MERGED DATA` includes every valid merged-registry species that has battle sprites, stats, growth data, and a learnset. Missing or invalid species are excluded with a logged reason. |
-| Similar Strength | `OFF`, `±10%`, `±20%`, `SAME STAGE` | `±20%` | Percentage modes restrict candidate base-stat totals around the source and widen in 5-point increments if empty. `SAME STAGE` ignores base stats and requires the destination to have the same derived evolutionary stage as the source: `BASIC`, `MIDDLE`, or `FINAL`. Stage is a hard rule and never relaxes. Legendary filtering and other hard rules still apply. |
+| Similar Strength | `OFF`, `±10%`, `±20%`, `BST ±50`, `BST ±100`, `SAME STAGE` | `±20%` | Percentage modes restrict candidate BST relative to the source and widen in 5-percentage-point increments if empty. `BST ±50` and `BST ±100` use an inclusive absolute difference between the source and destination five-stat totals; an empty absolute band widens in 25-BST increments before being dropped. `SAME STAGE` ignores BST and requires the same derived `BASIC`, `MIDDLE`, or `FINAL` stage. Stage never relaxes. Legendary filtering and other hard rules still apply. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | `EXCLUDE` removes legendary/mythical species from destinations. `MATCH` lets legendary sources map only to legendary destinations and non-legendaries only to non-legendaries. `ALLOW` treats them like any species. The built-in classification is Articuno, Zapdos, Moltres, Mewtwo, and Mew; merged species may declare randomizer metadata through the mod's exported API. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | `ALLOW` samples with replacement. `ONE-TO-ONE` uses a deterministic shuffled destination pool, maximizing variety and preventing duplicate destinations until the eligible pool is exhausted. Category-specific uniqueness rules take precedence for starters. |
 | Enable Spoiler Log | `OFF`, `ON` | `ON` | Saved per run. `ON` permits the in-game spoiler viewer and explicit plaintext export. `OFF` blocks both. New Game never writes a file automatically. This setting does not affect the seed, behavior-settings hash, or mappings. |
@@ -123,10 +123,10 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Wild Levels | `UNCHANGED`, `±2`, `SCALED` | `UNCHANGED` | `UNCHANGED` preserves each original slot level. `±2` deterministically adjusts each slot from -2 to +2, clamped to 2–100. `SCALED` preserves the source area's relative difficulty but compensates for destination strength using `round(level × sqrt(sourceBST/destinationBST))`, clamped to 2–100. |
 | Catchability Guard | `OFF`, `ON` | `ON` | Ensures every non-legendary destination species is available in at least one reachable pre–Elite Four encounter when mathematically possible. It does not alter encounter rates, map access, or require sequence-breaking. A post-generation validator swaps destinations between slots to meet coverage. |
 
-When `SAME STAGE` is active, Catchability Guard and trade-reachability repairs
-may swap only destinations from the same evolutionary stage. If no compatible
-donor exists, the repair is reported as unsatisfied rather than weakening the
-stage rule.
+When `SAME STAGE`, `BST ±50`, or `BST ±100` is active, Catchability Guard and
+trade-reachability repairs may use only swaps that remain valid for both
+affected source species. If no compatible donor exists, the repair is
+reported as unsatisfied rather than silently weakening the selected rule.
 
 Wild encounter rate and the ten-slot probability buckets remain vanilla. Repel checks continue to use the final randomized level. Static encounters and gifts are controlled separately below. The catching tutorial remains vanilla because it teaches a fixed mechanic and awards no Pokémon.
 
@@ -134,12 +134,12 @@ Wild encounter rate and the ten-slot probability buckets remain vanilla. Repel c
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
-| Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | `OFF` keeps Bulbasaur, Charmander, and Squirtle. `RANDOM` chooses three unique eligible species. `TYPE TRIAD` attempts to choose three unique species whose primary types form a directional effectiveness cycle; if no valid cycle exists, it falls back to `RANDOM` and records a warning. |
+| Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | In Red/Blue, `OFF` keeps Bulbasaur, Charmander, and Squirtle; enabled modes choose three unique eligible species. In Yellow, `OFF` keeps Pikachu and Eevee; enabled modes replace Pikachu with one saved eligible player starter and resolve one distinct saved rival starter in place of Eevee. `TYPE TRIAD` uses the triad candidate pool when one exists, then resolves the Yellow pair from that pool; otherwise it records a warning and falls back to `RANDOM`. |
 | Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | `BASIC ONLY` permits species with no pre-evolution in the eligible pool. `ANY` permits evolved forms. This filter applies only to the three player choices, not the rival's later randomized parties. |
 | Starter Level | number 2–20 | `5` | Sets the received starter's level and the level shown in the starter preview. The first rival battle remains governed by Trainer Levels, but cannot be more than three levels above the chosen starter when Progression Guard is on. |
 | Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | `BALL ORDER` preserves the vanilla positional counterpick. `TYPE ADVANTAGE` gives the rival whichever unchosen starter has the strongest type matchup against the player's choice, with deterministic ties. `RANDOM OTHER` selects either unchosen starter from the saved seed. This choice controls starter flags and every vanilla rival-party branch that depends on them. |
 
-The Pokédex preview, confirmation text, received species, ball removal, rival movement, rival selection, and first rival team must agree. A solution that changes only `pokemon.before_give` is incomplete because the current Oak's Lab script displays the original species before the gift event.
+The Pokédex preview, confirmation text, received species, ball removal, rival movement, rival selection, and first rival team must agree. A solution that changes only `pokemon.before_give` is incomplete because the current Oak's Lab scripts display the original species before the gift event. In Yellow, a non-Pikachu randomized starter does not follow the player because the follower is a Pikachu-specific game feature.
 
 ### 5.4 Static encounter and gift settings
 
@@ -147,7 +147,7 @@ The Pokédex preview, confirmation text, received species, ball removal, rival m
 |---|---|---:|---|
 | Static Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | On stock v0.1.30, randomizes 14 named map-script encounters: eight Power Plant balls, Zapdos, Articuno, Moltres, Mewtwo, and both Snorlax. Each stable encounter ID resolves once. Generic object-event statics, ghost Marowak, and the catching tutorial remain vanilla. |
 | Static Levels | `UNCHANGED`, `SCALED`, `RANDOM ±5` | `UNCHANGED` | `UNCHANGED` preserves the encounter's level. `SCALED` compensates using `round(level × sqrt(sourceBST/destinationBST))`, clamped to 2–100. `RANDOM ±5` adds a saved deterministic offset from -5 through +5, clamped to 2–100. |
-| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, the Route 4 Magikarp seller, and the Helix Fossil, Dome Fossil, and Old Amber restorations at Cinnabar Lab. Game Corner prizes and NPC trades remain controlled separately. |
+| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, the Route 4 Magikarp seller, and the Helix Fossil, Dome Fossil, and Old Amber restorations at Cinnabar Lab. Yellow also includes Melanie's Bulbasaur, the Route 24 Charmander, and Officer Jenny's Squirtle. Game Corner prizes and NPC trades remain controlled separately. |
 | Gift Levels | `UNCHANGED`, `SCALED`, `FIXED 15` | `UNCHANGED` | `UNCHANGED` preserves each supported gift's original level. `SCALED` uses the BST compensation formula and clamps to 2–100. `FIXED 15` gives every supported randomized gift at level 15. Excluded gifts remain completely vanilla. |
 | Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | `UNIQUE GIFTS` prevents duplicate destinations among the eight supported gifts while candidates remain. It does not make gifts unique relative to wild encounters, starters, trades, or prizes. Both Fighting Dojo choices and all three fossil sources are generated at New Game. |
 
@@ -174,7 +174,7 @@ Blue and is not a player-accessible offer.
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
-| Game Corner Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes only Pokémon prizes at the Celadon Game Corner. TM prizes remain unchanged. The Red and Blue prize lists are generated from the active game version, keeping the same number of Pokémon slots. |
+| Game Corner Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes only Pokémon prizes at the Celadon Game Corner. TM prizes remain unchanged. Red, Blue, and Yellow use version-specific stable IDs and keep the active engine version's number of Pokémon slots. |
 | Prize Levels | `UNCHANGED`, `FIXED 15`, `SCALED` | `UNCHANGED` | `UNCHANGED` keeps each prize slot's original level. `FIXED 15` sets all Pokémon prizes to level 15. `SCALED` uses the same BST compensation formula as wild levels, clamped to 5–30. |
 | Prize Prices | `UNCHANGED`, `BY STRENGTH`, `RANDOM ±25%` | `UNCHANGED` | `UNCHANGED` preserves each slot's coin cost. `BY STRENGTH` multiplies slot cost by destinationBST/sourceBST, rounded to the nearest 10 and clamped to 10–9999. `RANDOM ±25%` applies a saved deterministic modifier to the original slot cost, rounded and clamped. |
 
@@ -366,7 +366,7 @@ Requirements:
 | Wild walking/surfing | Wrap `encounter.species` for global mappings. Wrap `encounter.roll` when area-slot mapping or saved level adjustment needs the original slot identity; on 0.1.38+, observe the delegated engine RNG's bucket draw without adding a draw or rerolling. |
 | Fishing | Wrap `encounter.fishing`. |
 | Trainers | Wrap `trainer.party` and return the saved party for `(trainerClass, partyIndex)`. |
-| Oak's Lab starters | Register API-2 `map_scripts` winners for only the three starter-ball talk keys. Each handler resolves one offer record before building the preview, confirmation, gift, flags, ball removal, and rival counterpick rows. |
+| Oak's Lab starters | Register API-2 `map_scripts` winners for the three Red/Blue starter-ball talk keys and Yellow's Eevee-ball flow. Each handler resolves saved offers before building the preview or Yellow snatch sequence, gift, flags, object removal, and rival projection rows. |
 | Scoped statics/gifts | Register namespaced commands that resolve saved stable IDs, then replace only the supported v0.1.30 `map_scripts` talk/wake handlers. Excluded paths remain entirely vanilla. |
 | NPC trades | Replace only the nine stock talk handlers with a namespaced command. Temporarily install a copied saved offer at its original trade index, delegate to the stock `trade` command, then restore the exact merged record. |
 | Game Corner prizes | Replace the three shared prize-counter talk handlers with a public `screens`/`mod.ui.ListMenu` implementation that resolves the active version's six saved Pokémon rows and preserves all three TM rows. |
@@ -408,12 +408,15 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 ### 9.2 Starters
 
-- Resolve exactly three unique species or fail the category to vanilla.
-- Store each ball's original stable identity and resolved offer.
+- In Red/Blue, resolve exactly three unique species or fail the category to vanilla.
+- In Yellow, resolve exactly one player species and one distinct rival species or fail the category to vanilla. The player mapping replaces Pikachu and the rival mapping replaces Eevee.
+- Store each ball or forced Yellow offer's original stable identity and resolved offer.
 - Ensure the starter preview and received Pokémon are identical.
 - Translate the chosen ball into a stable randomizer starter index. Do not overload vanilla species-named flags as the source of truth.
 - Provide a compatibility projection to the vanilla flags/counterpick table so rival scripts continue to select a valid party.
 - Static starter choices are generated once; reopening a ball does not reroll it.
+- In Yellow, project the saved rival species through all three vanilla Eevee-evolution branches so later rival teams remain deterministic.
+- Do not synthesize follower behavior for a non-Pikachu Yellow starter.
 
 ### 9.3 Trades
 
@@ -474,9 +477,9 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - With Rival Keep Pokémon off, independently resolve every later rival slot,
   including the former starter position.
 - Type-themed selection prefers dual-type candidates containing the theme.
-  Percentage strength bands relax before the type requirement. `SAME STAGE`
-  never relaxes; if no same-stage themed candidate exists, only the type
-  requirement may relax. Record every relaxation.
+  Percentage strength bands and absolute BST ranges relax before the type
+  requirement. `SAME STAGE` never relaxes; if no same-stage themed candidate
+  exists, only the type requirement may relax. Record every relaxation.
 - Required battles may never have zero valid Pokémon.
 - Runtime lookup must be O(1) by trainer ID and party index and must allocate only the returned party copy.
 
@@ -497,6 +500,10 @@ All new hook results must be type-checked. Invalid results log an attributed err
 `FR-07` Wild randomization shall cover grass, surfing, and optionally fishing while preserving encounter rates.
 
 `FR-08` Starter randomization shall keep preview, confirmation, received Pokémon, rival selection, and choice state consistent.
+
+`FR-08A` On Yellow, enabling starter randomization shall replace the forced Pikachu award with one saved eligible species and replace Eevee with one distinct saved rival species.
+
+`FR-08B` On Yellow, the saved rival species shall project consistently through all later vanilla rival branches; a non-Pikachu player starter shall not receive Pikachu-only follower behavior.
 
 `FR-09` In-game trade randomization shall preserve completion and dialog behavior while using the saved offer.
 
@@ -577,7 +584,7 @@ All new hook results must be type-checked. Invalid results log an attributed err
 ### 12.3 Gameplay integration tests
 
 - Sample every wild map/terrain and all fishing rods.
-- Inspect all three starter balls, pick each in separate runs, and verify rival behavior.
+- In Red/Blue, inspect all three starter balls and verify each rival branch. In Yellow, verify `OFF` preserves Pikachu/Eevee and enabled modes award the one saved randomized starter/rival pair.
 - Trigger every static in the partial M11 catalog and verify capture, defeat,
   escape, and reload behavior; verify each excluded static remains vanilla.
 - Accept, decline, retry, purchase, and exhaust storage for all five partial
@@ -587,7 +594,7 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Buy every Game Corner Pokémon prize with insufficient funds, enough funds, full party, and full storage cases.
 - Instantiate every trainer party variant and complete required boss and rival
   battles under every rival mode and both keep choices.
-- Exercise Red and Blue data paths where supported.
+- Exercise Red, Blue, and Yellow data paths where supported.
 
 ### 12.4 Fuzz/property tests
 
@@ -654,7 +661,7 @@ and cover:
     spoiler export, cross-category reachability, deterministic repair swaps,
     missing-content fallbacks, relevant-mod fingerprints, fuzzing, and
     performance/save-size budgets.
-15. **Release qualification** — Complete Red/Blue regression passes, controller/touch accessibility review, vanilla-disabled parity suite, migration rehearsal, documentation, packaging validation, and a release candidate with reproducible checksums.
+15. **Release qualification** — Complete Red/Blue/Yellow regression passes, controller/touch accessibility review, vanilla-disabled parity suite, migration rehearsal, documentation, packaging validation, and a release candidate with reproducible checksums.
 
 ## 16. Resolved product decisions
 

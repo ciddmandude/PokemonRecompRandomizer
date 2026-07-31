@@ -37,16 +37,20 @@ local function hardEligible(entry, source, rules, excluded)
   return true
 end
 
-local function strengthEligible(entry, source, percent)
-  if percent == nil then return true end
-  return math.abs(entry.bst - source.bst) * 100 <= source.bst * percent
+local function strengthEligible(entry, source, percent, points)
+  local difference = math.abs(entry.bst - source.bst)
+  if percent ~= nil
+      and difference * 100 > source.bst * percent then return false end
+  if points ~= nil and difference > points then return false end
+  return true
 end
 
-local function collect(manifest, source, rules, excluded, percent, typeRequired)
+local function collect(
+    manifest, source, rules, excluded, percent, points, typeRequired)
   local output = {}
   for _, entry in ipairs(manifest.entries) do
     if hardEligible(entry, source, rules, excluded)
-        and strengthEligible(entry, source, percent)
+        and strengthEligible(entry, source, percent, points)
         and (not typeRequired or containsType(entry, rules.requiredType)) then
       output[#output + 1] = entry
     end
@@ -82,6 +86,14 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
   assert(percent == nil or (type(percent) == "number" and percent >= 0
       and percent <= 100 and percent == math.floor(percent)),
     "strengthPercent must be an integer from 0 through 100")
+  local points = rules.strengthPoints
+  assert(points == nil or (type(points) == "number" and points >= 0
+      and points <= 1275 and points == math.floor(points)),
+    "strengthPoints must be an integer from 0 through 1275")
+  assert(not (percent ~= nil and points ~= nil),
+    "percentage and point strength limits are mutually exclusive")
+  assert(not (rules.sameStage and (percent ~= nil or points ~= nil)),
+    "sameStage ignores and cannot combine with strength limits")
   if rules.requiredType ~= nil then
     assert(type(rules.requiredType) == "string" and rules.requiredType ~= "",
       "requiredType must be a non-empty type id")
@@ -91,6 +103,8 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
     sourceId = sourceId,
     requestedStrengthPercent = percent,
     appliedStrengthPercent = percent,
+    requestedStrengthPoints = points,
+    appliedStrengthPoints = points,
     sameStage = rules.sameStage == true,
     requiredType = rules.requiredType,
     typeRelaxed = false,
@@ -99,7 +113,7 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
   local excluded = exclusions(rules.excludeIds)
   local typeRequired = rules.requiredType ~= nil
   local output = collect(
-    manifest, source, rules, excluded, percent, typeRequired)
+    manifest, source, rules, excluded, percent, points, typeRequired)
 
   while #output == 0 and percent ~= nil and percent < 100 do
     local nextPercent = math.min(100, percent + 5)
@@ -111,7 +125,7 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
     percent = nextPercent
     diagnostics.appliedStrengthPercent = percent
     output = collect(
-      manifest, source, rules, excluded, percent, typeRequired)
+      manifest, source, rules, excluded, percent, points, typeRequired)
   end
 
   if #output == 0 and percent ~= nil then
@@ -122,7 +136,37 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
     percent = nil
     diagnostics.appliedStrengthPercent = nil
     output = collect(
-      manifest, source, rules, excluded, percent, typeRequired)
+      manifest, source, rules, excluded, percent, points, typeRequired)
+  end
+
+  local maximumDifference = 0
+  for _, entry in ipairs(manifest.entries) do
+    maximumDifference =
+      math.max(maximumDifference, math.abs(entry.bst - source.bst))
+  end
+  while #output == 0 and points ~= nil
+      and points < maximumDifference do
+    local nextPoints = math.min(maximumDifference, points + 25)
+    diagnostics.relaxations[#diagnostics.relaxations + 1] = {
+      code = "WIDEN_BST",
+      from = points,
+      to = nextPoints,
+    }
+    points = nextPoints
+    diagnostics.appliedStrengthPoints = points
+    output = collect(
+      manifest, source, rules, excluded, percent, points, typeRequired)
+  end
+
+  if #output == 0 and points ~= nil then
+    diagnostics.relaxations[#diagnostics.relaxations + 1] = {
+      code = "DROP_BST",
+      from = points,
+    }
+    points = nil
+    diagnostics.appliedStrengthPoints = nil
+    output = collect(
+      manifest, source, rules, excluded, percent, points, typeRequired)
   end
 
   if #output == 0 and typeRequired and rules.allowTypeRelaxation then
@@ -133,7 +177,7 @@ function SpeciesFilters.candidates(manifest, sourceId, rules)
     typeRequired = false
     diagnostics.typeRelaxed = true
     output = collect(
-      manifest, source, rules, excluded, percent, typeRequired)
+      manifest, source, rules, excluded, percent, points, typeRequired)
   end
 
   diagnostics.candidateCount = #output

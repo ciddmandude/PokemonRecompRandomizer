@@ -62,6 +62,7 @@ local groups = {
       }, "GEN 1 OR VALID MERGED SPECIES."),
       choice("similar_strength", "SIMILAR STRENGTH", "20", {
         { "OFF", "off" }, { "+/-10%", "10" }, { "+/-20%", "20" },
+        { "BST +/-50", "bst_50" }, { "BST +/-100", "bst_100" },
         { "SAME STAGE", "same_stage" },
       }, "MATCH BST OR EVOLUTION STAGE."),
       choice("legendaries", "LEGENDARIES", "match", {

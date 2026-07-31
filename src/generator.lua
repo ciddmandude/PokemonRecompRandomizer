@@ -76,7 +76,9 @@ return function(
             request.seed.canonical, "starters"),
           rival = Foundation.Rng.fromSeed(
             request.seed.canonical, "rival.counterpick"),
-        }, request.sources and request.sources.typeEffectiveness)
+        }, request.sources and request.sources.typeEffectiveness,
+        request.sources and (request.sources.gameVersion
+          or request.sources.version))
       if ok then
         result.mappings.starters = category.starters
         result.mappings.starterFlags = category.starterFlags
@@ -113,7 +115,7 @@ return function(
             request.seed.canonical, "gifts"),
           giftLevels = Foundation.Rng.fromSeed(
             request.seed.canonical, "gift.levels"),
-        })
+        }, request.sources or {})
       if ok then
         result.mappings.staticEncounters = category.staticEncounters
         result.mappings.gifts = category.gifts

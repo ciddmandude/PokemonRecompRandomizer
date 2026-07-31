@@ -274,4 +274,19 @@ assert(stageLate.species == "VENUSAUR"
     and stageCoverage.warnings[1].code == "WILD_COVERAGE_UNSATISFIED",
   "same-stage coverage must report unsatisfied instead of dropping stage")
 
+local bstCoverage = {
+  warnings = {}, fallbackCount = 0, coverageSwaps = 0,
+}
+local bstReachableA = { species = "BULBASAUR" }
+local bstReachableB = { species = "BULBASAUR" }
+local bstLate = { species = "VENUSAUR" }
+WildCategory.repairCoverage({
+  { record = bstReachableA, source = "BULBASAUR", reachable = true },
+  { record = bstReachableB, source = "BULBASAUR", reachable = true },
+  { record = bstLate, source = "VENUSAUR", reachable = false },
+}, manifest, bstCoverage, "bst_50")
+assert(bstCoverage.coverageSwaps == 0
+    and bstLate.species == "VENUSAUR",
+  "coverage repair must not violate an absolute BST range")
+
 io.write("wild_m8_test: ok\n")

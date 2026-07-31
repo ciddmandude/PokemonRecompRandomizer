@@ -41,7 +41,11 @@ for _, trade in ipairs(Catalog.trades) do
   byId[trade.give] = byId[trade.give] or entry(trade.give, 300)
   byId[trade.get] = byId[trade.get] or entry(trade.get, 310)
 end
-for _, version in ipairs({ "red", "blue" }) do
+for _, trade in ipairs(Catalog.yellowTrades) do
+  byId[trade.give] = byId[trade.give] or entry(trade.give, 300)
+  byId[trade.get] = byId[trade.get] or entry(trade.get, 310)
+end
+for _, version in ipairs({ "red", "blue", "yellow" }) do
   for _, prize in ipairs(Catalog.prizes[version]) do
     byId[prize.species] = byId[prize.species]
       or entry(prize.species, 280)
@@ -119,20 +123,15 @@ local blue = Category.generate(
 assert(blue.prizes.GAME_CORNER_BLUE_1)
 assert(not blue.prizes.GAME_CORNER_RED_1)
 
-local unsupported = Category.generate(
+local yellow = Category.generate(
   manifest, { gameVersion = "yellow" }, settings,
-  streams("M12 UNSUPPORTED"), {})
-assert(next(unsupported.prizes) == nil,
-  "unsupported versions must retain vanilla prizes")
-assert(unsupported.fallbackCount == 1)
-local sawUnsupported = false
-for _, row in ipairs(unsupported.warnings) do
-  if row.code == "PRIZE_VERSION_UNSUPPORTED" then
-    sawUnsupported = row.version == "yellow"
-  end
-end
-assert(sawUnsupported,
-  "unsupported prize fallback must record its source version")
+  streams("M12 YELLOW"), {})
+assert(yellow.prizes.GAME_CORNER_YELLOW_1
+  and not yellow.prizes.GAME_CORNER_RED_1,
+  "Yellow must use its own stable prize mapping IDs")
+assert(yellow.trades.TRADE_01_GURIO
+  and not yellow.trades.TRADE_01_TERRY,
+  "Yellow must use its ROM-specific trade catalog")
 
 local missingVersion = Category.generate(
   manifest, {}, settings, streams("M12 MISSING VERSION"), {})

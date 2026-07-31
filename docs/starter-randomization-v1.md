@@ -19,6 +19,19 @@ draws random numbers.
 If fewer than three eligible unique species exist, the entire starter
 category falls back to vanilla and records `STARTER_GENERATION_FAILED`.
 
+### Yellow
+
+Yellow has one forced player starter rather than three selectable balls.
+With `OFF`, the engine-owned Pikachu/Eevee opening is unchanged. With either
+enabled mode, generation saves one player species and one distinct rival
+species. `TYPE TRIAD` uses a valid triad as the initial candidate set when
+one exists; `TYPE ADVANTAGE` may choose the best eligible rival matchup from
+the complete pool. Fewer than two eligible species falls back to vanilla.
+
+A randomized non-Pikachu does not use Yellow's engine-owned Pikachu follower.
+The Yellow-only Melanie gift adapter drops its Pikachu-happiness gate only
+when starter randomization is active, ensuring the gift remains obtainable.
+
 ### Starter Stage
 
 - `BASIC ONLY` admits only manifest entries whose saved stage is `basic`.
@@ -81,6 +94,12 @@ Save validation requires three unique player species, levels from 2 through
 20, a different rival slot, a matching saved rival species, and the fixed
 LEFT/MIDDLE/RIGHT party-offset projection. Mapped and rival species must
 still exist in merged content.
+
+Yellow instead stores one `YELLOW` offer. Its physical projection retains
+`EVENT_CHOSE_PIKACHU`, the Eevee-ball identity, and three repeated Yellow
+rival offsets because the stock Yellow rival table still has three evolution
+branches. Save validation requires distinct player/rival species and a level
+from 2 through 20.
 
 ## Runtime behavior
 

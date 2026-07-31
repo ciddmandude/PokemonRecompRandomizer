@@ -5,6 +5,8 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
   local function rules(settings, excluded)
     return {
       strengthPercent = tonumber(settings.similar_strength),
+      strengthPoints = settings.similar_strength == "bst_50" and 50
+        or settings.similar_strength == "bst_100" and 100 or nil,
       sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries or "allow",
       excludeIds = excluded,
@@ -22,6 +24,8 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
         candidates = candidates, diagnostics = diagnostics,
         hardConstraints = {
           similarStrength = tonumber(settings.similar_strength),
+          baseStatRange = settings.similar_strength == "bst_50" and 50
+            or settings.similar_strength == "bst_100" and 100 or nil,
           sameStage = settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
         },
@@ -81,13 +85,13 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
     return { code = code, message = message, id = id }
   end
 
-  local function generateStatics(manifest, settings, rngs)
+  local function generateStatics(manifest, settings, rngs, records)
     if settings.static_pokemon == nil or settings.static_pokemon == "off" then
       return {}, {}, 0
     end
     local mappings, warnings = {}, {}
     local unique = settings.duplicate_policy == "one_to_one"
-    local matched = assignments(Catalog.statics, manifest, settings,
+    local matched = assignments(records, manifest, settings,
       rngs.species, unique, "static.encounters",
       "STATIC_UNIQUENESS_EXHAUSTED")
     if #matched.unmatched > 0 then
@@ -101,7 +105,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
       warnings[#warnings + 1] = Matching.warning(reset,
         "static destination pool was proven exhausted and restarted")
     end
-    for _, record in ipairs(Catalog.statics) do
+    for _, record in ipairs(records) do
       local species = matched.assignments[record.id]
       mappings[record.id] = {
         encounterId = record.id,
@@ -116,13 +120,13 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
     return mappings, warnings, 0
   end
 
-  local function generateGifts(manifest, settings, rngs)
+  local function generateGifts(manifest, settings, rngs, records)
     if settings.gift_pokemon == nil or settings.gift_pokemon == "off" then
       return {}, {}, 0
     end
     local mappings, warnings = {}, {}
     local unique = settings.gift_uniqueness == "unique"
-    local matched = assignments(Catalog.gifts, manifest, settings,
+    local matched = assignments(records, manifest, settings,
       rngs.species, unique, "gifts", "GIFT_UNIQUENESS_EXHAUSTED")
     if #matched.unmatched > 0 then
       return {}, {
@@ -135,7 +139,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
       warnings[#warnings + 1] = Matching.warning(reset,
         "gift destination pool was proven exhausted and restarted")
     end
-    for _, record in ipairs(Catalog.gifts) do
+    for _, record in ipairs(records) do
       local species = matched.assignments[record.id]
       mappings[record.id] = {
         giftId = record.id,
@@ -151,26 +155,30 @@ return function(StableSort, SpeciesFilters, Catalog, Matching)
     return mappings, warnings, 0
   end
 
-  function Category.generate(manifest, settings, rngs)
+  function Category.generate(manifest, settings, rngs, sources)
     assert(type(manifest) == "table", "species manifest is required")
     assert(type(settings) == "table", "M11 settings are required")
     assert(type(rngs) == "table", "M11 RNG streams are required")
-    local statics, staticWarnings, staticFallback = generateStatics(
+    local version = type(sources) == "table"
+      and (sources.gameVersion or sources.version) or sources
+    local statics = Catalog.staticsFor(version)
+    local gifts = Catalog.giftsFor(version)
+    local staticMappings, staticWarnings, staticFallback = generateStatics(
       manifest, settings, {
         species = assert(rngs.staticSpecies),
         levels = assert(rngs.staticLevels),
-      })
-    local gifts, giftWarnings, giftFallback = generateGifts(
+      }, statics)
+    local giftMappings, giftWarnings, giftFallback = generateGifts(
       manifest, settings, {
         species = assert(rngs.giftSpecies),
         levels = assert(rngs.giftLevels),
-      })
+      }, gifts)
     local warnings = {}
     for _, row in ipairs(staticWarnings) do warnings[#warnings + 1] = row end
     for _, row in ipairs(giftWarnings) do warnings[#warnings + 1] = row end
     return {
-      staticEncounters = statics,
-      gifts = gifts,
+      staticEncounters = staticMappings,
+      gifts = giftMappings,
       warnings = warnings,
       fallbackCount = staticFallback + giftFallback,
     }

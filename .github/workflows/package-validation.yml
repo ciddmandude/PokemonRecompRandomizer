@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/package-validation.yml"
+      - ".github/workflows/release.yml"
       - "manifest.json"
       - "main.lua"
       - "README.md"
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/package-validation.yml"
+      - ".github/workflows/release.yml"
       - "manifest.json"
       - "main.lua"
       - "README.md"

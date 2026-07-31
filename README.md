@@ -2,6 +2,8 @@
 
 A deterministic, per-save randomizer for
 [Pokémon Gen 1 Recomp](https://github.com/bryanthaboi/gen1recomp).
+Red, Blue, and Yellow ROM imports are supported. Yellow support requires
+gen1recomp 0.1.45 or newer.
 
 ## Settings
 
@@ -20,7 +22,7 @@ vanilla run without deleting saved preferences.
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` creates a new 128-bit seed; `MANUAL` uses Seed Text. |
 | Seed Text | 1–32 characters | blank | Manual seed using letters, digits, spaces, hyphens, or underscores. It is trimmed, uppercased, and saved in canonical form. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | Uses only the original 151, or all valid species contributed through the merged registry. |
-| Similar Strength | `OFF`, `±10%`, `±20%`, `SAME STAGE` | `±20%` | Percentage modes restrict candidates by base-stat total and widen deterministically if empty. `SAME STAGE` ignores base stats and requires the destination to share the source's evolutionary stage. |
+| Similar Strength | `OFF`, `±10%`, `±20%`, `BST ±50`, `BST ±100`, `SAME STAGE` | `±20%` | Percentage modes use a relative BST band. `BST ±50` and `BST ±100` use an absolute five-stat-total difference. Empty BST bands widen deterministically. `SAME STAGE` ignores base stats and requires matching evolutionary stages. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | Excludes legendaries, maps legendary status like-for-like, or treats them like any species. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | Samples with replacement or maximizes unique destinations until the eligible pool is exhausted. |
 | Enable Spoiler Log | `OFF`, `ON` | `ON` | Saved with the new run. `ON` allows the in-game viewer and manual file export; `OFF` blocks both. Starting a game never exports a file automatically. It does not affect the seed or mappings. |
@@ -40,10 +42,14 @@ Encounter rates, slot probability buckets, and Repel behavior remain vanilla.
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
-| Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | Keeps the original trio, chooses three unique species, or attempts a three-way primary-type effectiveness cycle. |
+| Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | In Red/Blue, keeps or replaces the original trio. In Yellow, `OFF` keeps Pikachu and Eevee; either enabled mode replaces the forced Pikachu and the rival's Eevee with two distinct saved species. `TYPE TRIAD` uses a triad as its candidate basis where possible. |
 | Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | Allows any eligible species or only species without a pre-evolution. |
 | Starter Level | `2`–`20` | `5` | Sets the level shown in Oak's Lab and the level of the received starter. |
-| Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | Uses the vanilla ball relationship, the strongest matchup, or either unchosen starter. |
+| Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | Uses the vanilla ball relationship, strongest matchup, or another starter. In Yellow, `TYPE ADVANTAGE` chooses the strongest eligible rival matchup; the other modes choose a distinct saved rival species. |
+
+When Yellow's randomized starter is not Pikachu, the engine's Pikachu-only
+follower does not appear. Melanie's Bulbasaur gift no longer requires Pikachu
+happiness for that run, so starter randomization cannot make it unobtainable.
 
 ### Static encounters and gifts
 
@@ -51,7 +57,7 @@ Encounter rates, slot probability buckets, and Repel behavior remain vanilla.
 |---|---|---|---|
 | Static Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes the supported named encounters: the eight Power Plant balls, legendary birds, Mewtwo, and both Snorlax. |
 | Static Levels | `UNCHANGED`, `SCALED`, `RANDOM ±5` | `UNCHANGED` | Preserves levels, compensates for strength, or applies a saved -5 to +5 offset. |
-| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, the Route 4 Magikarp seller, and all three Cinnabar fossil restorations. |
+| Gift Pokémon | `OFF`, `RANDOMIZED` | `RANDOMIZED` | Randomizes Celadon Eevee, Silph Lapras, both Fighting Dojo prizes, the Route 4 Magikarp seller, and all three Cinnabar fossil restorations. Yellow also includes Melanie's Bulbasaur, Damian's Charmander, and Officer Jenny's Squirtle. |
 | Gift Levels | `UNCHANGED`, `SCALED`, `FIXED 15` | `UNCHANGED` | Preserves each gift level, compensates for strength, or gives supported gifts at level 15. |
 | Gift Uniqueness | `ALLOW DUPLICATES`, `UNIQUE GIFTS` | `UNIQUE GIFTS` | Prevents duplicate destinations among supported gifts while candidates remain. |
 
@@ -67,7 +73,8 @@ because the current public API has no safe pre-battle hook for them.
 | Trade Fairness | `ANY`, `SIMILAR STRENGTH`, `NO DOWNGRADE` | `SIMILAR STRENGTH` | Uses the full eligible pool, applies the selected global strength/stage rule, or avoids a received Pokémon more than 5% weaker when possible. |
 | Trade Evolution Safety | `OFF`, `ON` | `ON` | Prevents same-species exchanges and requests that cannot be obtained under Catchability Guard. |
 
-The nine NPC-wired trades are generated by stable trade index. Their normal
+The nine NPC-wired trades are generated by stable trade index using the
+active Red/Blue or Yellow trade table. Their normal
 one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 
 ### Celadon Game Corner Prize Exchange
@@ -106,11 +113,11 @@ validation rules, see the linked design documents above or the
 
 ## Compatibility
 
-- gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.38` recommended)
+- gen1recomp engine: `>=0.1.30 <0.2.0` (`0.1.45+` required for Yellow)
 - mod API: `2`
-- randomizer mod version: `0.36.0`
+- randomizer mod version: `0.38.0`
 - generator contract: `1`
-- algorithm build: `1.6.0-dev`
+- algorithm build: `1.8.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)
@@ -121,7 +128,7 @@ check is attributed to this mod and rolled back by gen1recomp's loader.
 The disposable `save.created` event emitted before `game.ready` is ignored and
 reported once at debug level; only the real New Game event creates mappings.
 
-Catchability Guard uses an explicit Red/Blue progression model. Walking,
+Catchability Guard uses an explicit Red/Blue/Yellow Kanto progression model. Walking,
 Surf-only water, all three rods, Safari access, story gates, Victory Road,
 postgame maps, and the availability stage of each supported NPC trade are
 evaluated separately. Unknown custom map IDs are excluded from guarantees and
@@ -139,7 +146,7 @@ tools/release.ps1 -EngineRoot C:\path\to\gen1recomp
 
 This single command runs the complete suite, builds the versioned archive
 under `dist/`, validates that exact ZIP, extracts it, loads the extracted
-payload through the Recomp 0.1.38 ROM-free fixture, and prints its SHA-256.
+payload through the Recomp 0.1.45 ROM-free fixture, and prints its SHA-256.
 `tools/package.ps1` remains available for a faster packaging-only development
 build.
 
@@ -180,8 +187,8 @@ belong in the project’s release-artifact storage.
 - Registry insertion order cannot change species or pool fingerprints.
 - Strength/type relaxation is ordered, bounded, and recorded; hard stage and
   legendary rules never relax silently.
-- Same Stage ignores BST and remains enforced during catchability and trade
-  reachability repair swaps.
+- Same Stage and absolute BST ranges remain enforced during catchability and
+  trade-reachability repair swaps.
 - Inter-mod metadata is validated and freezes before play.
 - A namespace is assigned on New Game only after complete validation and
   checksum stamping.
@@ -268,7 +275,7 @@ belong in the project’s release-artifact storage.
 - An out-of-pool trainer source falls back only for its affected saved slot;
   eligible neighboring slots and unrelated trainer classes still randomize.
 - Scoped static and gift mappings are generated once and stored with the save.
-- Recomp 0.1.38's `pokemon.before_give` event provides an award-time safety
+- Recomp 0.1.45's `pokemon.before_give` event provides an award-time safety
   net, while the scoped fossil-room adapter resolves the mapped name before
   confirmation and resurrection dialogue.
 - Static battle flags, object hiding, gift choice flags, payment, party/box

@@ -2,10 +2,11 @@
 return function(StableSort, Canonical, Progression, TradeCatalog)
   local Validation = {}
 
-  local function addUnit(units, owner, key, species, access)
+  local function addUnit(units, owner, key, species, source, access)
     if type(species) == "string" then
       units[#units + 1] = {
-        owner = owner, key = key, species = species, access = access,
+        owner = owner, key = key, species = species,
+        source = source, access = access,
       }
     end
   end
@@ -63,7 +64,7 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
     local units = {}
     for _, source in ipairs(StableSort.keys(mappings.wildGlobal or {})) do
       addUnit(units, mappings.wildGlobal, source, mappings.wildGlobal[source],
-        earliestEncounterAccess(source, sources.encounters, version))
+        source, earliestEncounterAccess(source, sources.encounters, version))
     end
     for _, mapId in ipairs(StableSort.keys(mappings.wildAreaSlots or {})) do
       local map = mappings.wildAreaSlots[mapId]
@@ -74,7 +75,15 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
         for _, index in ipairs(StableSort.keys(slots or {})) do
           local record = slots[index]
           if type(record) == "table" then
-            addUnit(units, record, "species", record.species, access)
+            local encounter = type(sources.encounters) == "table"
+              and sources.encounters[mapId]
+            local sourceSlots = type(encounter) == "table"
+              and type(encounter[terrain]) == "table"
+              and encounter[terrain].slots
+            local source = type(sourceSlots) == "table"
+              and sourceSlots[index]
+            addUnit(units, record, "species", record.species,
+              type(source) == "table" and source.species, access)
           end
         end
       end
@@ -82,7 +91,7 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
     local fishing = mappings.fishing or {}
     for _, source in ipairs(StableSort.keys(fishing.global or {})) do
       addUnit(units, fishing.global, source, fishing.global[source],
-        earliestFishingAccess(source, sources.field, version))
+        source, earliestFishingAccess(source, sources.field, version))
     end
     for _, rod in ipairs(StableSort.keys(fishing.slots or {})) do
       for _, mapId in ipairs(StableSort.keys(fishing.slots[rod] or {})) do
@@ -90,7 +99,7 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
         for _, index in ipairs(StableSort.keys(fishing.slots[rod][mapId] or {})) do
           local record = fishing.slots[rod][mapId][index]
           if type(record) == "table" then
-            addUnit(units, record, "species", record.species, access)
+            addUnit(units, record, "species", record.species, nil, access)
           end
         end
       end
@@ -161,11 +170,28 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
     return count
   end
 
-  local function tradeRecord(id)
-    for _, record in ipairs(TradeCatalog.trades or {}) do
+  local function tradeRecord(id, version)
+    for _, record in ipairs(TradeCatalog.tradesFor(version)) do
       if record.id == id then return record end
     end
     return nil
+  end
+
+  local function repairCompatible(
+      sourceId, destinationId, manifest, strengthMode)
+    if strengthMode ~= "same_stage"
+        and strengthMode ~= "bst_50"
+        and strengthMode ~= "bst_100" then return true end
+    local source = type(manifest) == "table"
+      and type(manifest.byId) == "table" and manifest.byId[sourceId]
+    local destination = type(manifest) == "table"
+      and type(manifest.byId) == "table" and manifest.byId[destinationId]
+    if not source or not destination then return false end
+    if strengthMode == "same_stage" then
+      return source.stage == destination.stage
+    end
+    local points = strengthMode == "bst_50" and 50 or 100
+    return math.abs(source.bst - destination.bst) <= points
   end
 
   function Validation.apply(mappings, settings, rng, context)
@@ -195,7 +221,8 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
         local trade = mappings.trades[tradeId]
         local requested = type(trade) == "table" and trade.requested
         local species = type(requested) == "table" and requested.species
-        local record = tradeRecord(tradeId)
+        local record = tradeRecord(tradeId,
+          sources.gameVersion or sources.version)
         local access = Progression.tradeAccess(record,
           sources.gameVersion or sources.version)
         local obtainable = type(species) == "string"
@@ -205,19 +232,15 @@ return function(StableSort, Canonical, Progression, TradeCatalog)
         if type(species) == "string" and not obtainable then
           local counts = access.available and countsAt(units, access.stage) or {}
           local donors = {}
-          local requestedEntry = type(manifest) == "table"
-            and type(manifest.byId) == "table"
-            and manifest.byId[species]
           for _, unit in ipairs(units) do
-            local donorEntry = type(manifest) == "table"
-              and type(manifest.byId) == "table"
-              and manifest.byId[unit.species]
-            local stageCompatible =
-              settings.similar_strength ~= "same_stage"
-              or (requestedEntry and donorEntry
-                and requestedEntry.stage == donorEntry.stage)
+            local displaced = unit.owner[unit.key]
+            local compatible = repairCompatible(
+                unit.source, species, manifest, settings.similar_strength)
+              and repairCompatible(
+                requested.sourceSpecies, displaced,
+                manifest, settings.similar_strength)
             if Progression.isAvailableAt(unit.access, access.stage)
-                and stageCompatible
+                and compatible
                 and (counts[unit.species] or 0) > 1 then
               donors[#donors + 1] = unit
             end

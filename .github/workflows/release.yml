@@ -1,0 +1,99 @@
+name: Create release
+
+on:
+  workflow_run:
+    workflows:
+      - Package validation
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content manifest.json -Raw | ConvertFrom-Json
+          $version = $manifest.version
+          $tag = "v$version"
+          $archive = "dist/pokemon_randomizer-$version.zip"
+          $checksums = "dist/sha256sums.txt"
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "archive=$archive" >> $env:GITHUB_OUTPUT
+          "checksums=$checksums" >> $env:GITHUB_OUTPUT
+
+      - name: Check whether release exists
+        id: existing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release view $env:RELEASE_TAG *> $null
+
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Release $env:RELEASE_TAG already exists."
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build release ZIP
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          ARCHIVE_PATH: ${{ steps.version.outputs.archive }}
+        run: |
+          ./tools/package.ps1 -OutputPath $env:ARCHIVE_PATH
+
+      - name: Create SHA-256 checksum file
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          ARCHIVE_PATH: ${{ steps.version.outputs.archive }}
+          CHECKSUM_PATH: ${{ steps.version.outputs.checksums }}
+        run: |
+          $hash = (Get-FileHash -LiteralPath $env:ARCHIVE_PATH `
+            -Algorithm SHA256).Hash.ToLowerInvariant()
+          $fileName = Split-Path -Leaf $env:ARCHIVE_PATH
+          $line = "$hash  $fileName`n"
+          [IO.File]::WriteAllText(
+            $env:CHECKSUM_PATH,
+            $line,
+            [Text.UTF8Encoding]::new($false)
+          )
+          Get-Content -LiteralPath $env:CHECKSUM_PATH
+
+      - name: Publish GitHub Release
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          ARCHIVE_PATH: ${{ steps.version.outputs.archive }}
+          CHECKSUM_PATH: ${{ steps.version.outputs.checksums }}
+          TARGET_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          gh release create $env:RELEASE_TAG `
+            $env:ARCHIVE_PATH `
+            $env:CHECKSUM_PATH `
+            --target $env:TARGET_COMMIT `
+            --title "Pokemon Randomizer $env:RELEASE_VERSION" `
+            --generate-notes

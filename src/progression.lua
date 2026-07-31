@@ -65,6 +65,7 @@ return function(StableSort)
   local SUPPORTED_VERSIONS = {
     red = true,
     blue = true,
+    yellow = true,
   }
 
   local EXACT_MAPS = {
@@ -83,6 +84,7 @@ return function(StableSort)
 
     ROUTE_4 = { stage = 2 },
     CERULEAN_CITY = { stage = 2 },
+    CERULEAN_MELANIES_HOUSE = { stage = 2 },
     ROUTE_24 = { stage = 2 },
     ROUTE_25 = { stage = 2 },
 
@@ -322,7 +324,7 @@ return function(StableSort)
         method = method,
         rod = rod,
         version = gameVersion,
-        reason = "map is not present in the Red/Blue progression model",
+        reason = "map is not present in the Kanto progression model",
         requirements = {},
       }
     end

@@ -194,6 +194,54 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     local starters = mappings.starters
     local flags = mappings.starterFlags
     if next(starters) == nil and next(flags) == nil then return end
+    if starters.YELLOW ~= nil or flags.gameVersion == "yellow" then
+      local offer = starters.YELLOW
+      local path = "mappings.starters.YELLOW"
+      if type(offer) ~= "table" then
+        addError(errors, path, "REQUIRED",
+          "the saved Yellow starter offer is required")
+      else
+        if offer.slotId ~= "YELLOW"
+            or offer.starterIndex ~= 1
+            or offer.choseFlag ~= "EVENT_CHOSE_PIKACHU"
+            or offer.ballObject ~= "YELLOW_STARTER_GIFT"
+            or offer.rivalBall ~= "OAKSLAB_EEVEE_POKE_BALL"
+            or offer.rivalSlot ~= "YELLOW_RIVAL"
+            or offer.gameVersion ~= "yellow" then
+          addError(errors, path, "PROJECTION",
+            "saved Yellow starter must preserve the Yellow lab projection")
+        end
+        if type(offer.level) ~= "number" or offer.level % 1 ~= 0
+            or offer.level < 2 or offer.level > 20 then
+          addError(errors, path .. ".level", "VALUE",
+            "starter level must be an integer from 2 through 20")
+        end
+        if type(offer.species) == "string"
+            and offer.species == offer.rivalSpecies then
+          addError(errors, path .. ".rivalSpecies", "DUPLICATE",
+            "the Yellow player and rival starters must be distinct")
+        end
+      end
+      for slotId in pairs(starters) do
+        if slotId ~= "YELLOW" then
+          addError(errors, "mappings.starters." .. tostring(slotId),
+            "VALUE", "Yellow saves may contain only the Yellow starter slot")
+        end
+      end
+      local offsets = flags.partyOffsetSlots
+      if not isDenseArray(offsets) or #offsets ~= 3
+          or offsets[1] ~= "YELLOW" or offsets[2] ~= "YELLOW"
+          or offsets[3] ~= "YELLOW" then
+        addError(errors, "mappings.starterFlags.partyOffsetSlots", "VALUE",
+          "Yellow rival party offsets must use the Yellow starter slot")
+      end
+      if type(flags.choiceFlags) ~= "table"
+          or flags.choiceFlags.YELLOW ~= "EVENT_CHOSE_PIKACHU" then
+        addError(errors, "mappings.starterFlags.choiceFlags.YELLOW", "VALUE",
+          "Yellow starter choice must preserve EVENT_CHOSE_PIKACHU")
+      end
+      return
+    end
     local slots = { "LEFT", "MIDDLE", "RIGHT" }
     local expected = {
       LEFT = {

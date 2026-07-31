@@ -155,6 +155,50 @@ Catalog.gifts = {
   },
 }
 
+Catalog.yellowGifts = {
+  {
+    id = "YELLOW_BULBASAUR", mapId = "CERULEAN_MELANIES_HOUSE",
+    talkKey = "TEXT_CERULEANMELANIESHOUSE_MELANIE",
+    species = "BULBASAUR", level = 10, style = "yellow_bulbasaur",
+    flag = "EVENT_GOT_BULBASAUR_IN_CERULEAN",
+    object = "CERULEANMELANIESHOUSE_BULBASAUR",
+  },
+  {
+    id = "YELLOW_CHARMANDER", mapId = "ROUTE_24",
+    talkKey = "TEXT_ROUTE24_COOLTRAINER_M4",
+    species = "CHARMANDER", level = 10, style = "yellow_charmander",
+    flag = "EVENT_54F",
+  },
+  {
+    id = "YELLOW_SQUIRTLE", mapId = "VERMILION_CITY",
+    talkKey = "TEXT_VERMILIONCITY_OFFICER_JENNY",
+    species = "SQUIRTLE", level = 10, style = "yellow_squirtle",
+    flag = "EVENT_GOT_SQUIRTLE_FROM_OFFICER_JENNY",
+  },
+}
+
+local function normalizedVersion(version)
+  return string.lower(tostring(version or "red"))
+end
+
+local function append(base, extra)
+  local output = {}
+  for _, row in ipairs(base or {}) do output[#output + 1] = row end
+  for _, row in ipairs(extra or {}) do output[#output + 1] = row end
+  return output
+end
+
+function Catalog.staticsFor(_version)
+  return Catalog.statics
+end
+
+function Catalog.giftsFor(version)
+  if normalizedVersion(version) == "yellow" then
+    return append(Catalog.gifts, Catalog.yellowGifts)
+  end
+  return Catalog.gifts
+end
+
 Catalog.exclusions = {
   "POKEMON_TOWER_GHOST",
   "GAME_CORNER_PRIZES",

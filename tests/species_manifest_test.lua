@@ -196,6 +196,18 @@ local stageManifest = {
       id = "FINAL_NEAR", bst = 101, stage = "final",
       legendary = false, types = { "NORMAL" },
     },
+    {
+      id = "FINAL_150", bst = 150, stage = "final",
+      legendary = false, types = { "NORMAL" },
+    },
+    {
+      id = "FINAL_151", bst = 151, stage = "final",
+      legendary = false, types = { "NORMAL" },
+    },
+    {
+      id = "FINAL_201", bst = 201, stage = "final",
+      legendary = false, types = { "NORMAL" },
+    },
   },
   byId = {},
 }
@@ -216,6 +228,33 @@ equal(diagnostics.requestedStrengthPercent, nil,
   "same-stage has no BST percentage")
 equal(#diagnostics.relaxations, 0,
   "same-stage does not widen or drop the stage rule")
+
+candidates, diagnostics = Filters.candidates(
+  stageManifest, "BASIC_LOW", {
+    strengthPoints = 50,
+    excludeIds = { BASIC_LOW = true },
+    legendary = "allow",
+  })
+assert(hasId(candidates, "FINAL_NEAR")
+    and hasId(candidates, "FINAL_150"),
+  "BST +/-50 includes destinations at or inside 50 points")
+assert(not hasId(candidates, "FINAL_151")
+    and not hasId(candidates, "FINAL_201"),
+  "BST +/-50 excludes destinations beyond 50 points")
+equal(diagnostics.requestedStrengthPoints, 50,
+  "BST +/-50 diagnostic")
+equal(diagnostics.appliedStrengthPoints, 50,
+  "BST +/-50 remains absolute")
+
+candidates, diagnostics = Filters.candidates(
+  stageManifest, "BASIC_LOW", {
+    strengthPoints = 100,
+    excludeIds = { BASIC_LOW = true },
+    legendary = "allow",
+  })
+assert(hasId(candidates, "FINAL_151")
+    and not hasId(candidates, "FINAL_201"),
+  "BST +/-100 uses an inclusive 100-point window")
 
 candidates, diagnostics = Filters.candidates(
   merged, "BULBASAUR", {

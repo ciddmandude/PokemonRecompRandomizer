@@ -14,6 +14,8 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
   local function commonRules(settings, excluded)
     return {
       strengthPercent = tonumber(settings.similar_strength),
+      strengthPoints = settings.similar_strength == "bst_50" and 50
+        or settings.similar_strength == "bst_100" and 100 or nil,
       sameStage = settings.similar_strength == "same_stage",
       legendary = settings.legendaries or "allow",
       excludeIds = excluded,
@@ -93,6 +95,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
     local rules = commonRules(settings, excluded)
     if settings.trade_fairness == "any" then
       rules.strengthPercent = nil
+      rules.strengthPoints = nil
       rules.sameStage = false
     end
     return SpeciesFilters.candidates(manifest, requested, rules), false
@@ -105,10 +108,12 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
       return {}, {}, 0
     end
     local mappings, warnings = {}, {}
+    local records = Catalog.tradesFor(
+      sources.gameVersion or sources.version)
     local both = settings.in_game_trades == "both_sides"
     local safety = settings.trade_evolution_safety ~= "off"
     local sourceById, requestUnits = {}, {}
-    for _, record in ipairs(Catalog.trades) do
+    for _, record in ipairs(records) do
       local source = sourceTrade(record, sources)
       sourceById[record.id] = source
       if not manifest.byId[source.give] or not manifest.byId[source.get] then
@@ -144,6 +149,8 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
           id = record.id, source = source.give, candidates = candidates,
           hardConstraints = {
             similarStrength = tonumber(settings.similar_strength),
+            baseStatRange = settings.similar_strength == "bst_50" and 50
+              or settings.similar_strength == "bst_100" and 100 or nil,
             sameStage = settings.similar_strength == "same_stage",
             legendary = settings.legendaries or "allow",
             reachable = settings.catchability_guard == "on",
@@ -166,7 +173,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
     end
 
     local receiveUnits, fairnessById = {}, {}
-    for _, record in ipairs(Catalog.trades) do
+    for _, record in ipairs(records) do
       local source = sourceById[record.id]
       local requested = both
           and requestedMatch.assignments[record.id] or source.give
@@ -178,6 +185,10 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
         hardConstraints = {
           similarStrength = settings.trade_fairness == "any"
               and nil or tonumber(settings.similar_strength),
+          baseStatRange = settings.trade_fairness ~= "any"
+              and (settings.similar_strength == "bst_50" and 50
+                or settings.similar_strength == "bst_100"
+                  and 100 or nil) or nil,
           sameStage = settings.trade_fairness ~= "any"
             and settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
@@ -198,7 +209,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
       warnings[#warnings + 1] = Matching.warning(reset)
     end
 
-    for _, record in ipairs(Catalog.trades) do
+    for _, record in ipairs(records) do
       local source = sourceById[record.id]
       local requested = both
           and requestedMatch.assignments[record.id] or source.give
@@ -272,26 +283,29 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
       and (sources.gameVersion or sources.version)
     local version = type(sourceVersion) == "string"
       and string.lower(sourceVersion) or nil
-    if version ~= "red" and version ~= "blue" then
+    local records = version and Catalog.prizesFor(version) or nil
+    if not records then
       local displayed = sourceVersion == nil and "(missing)"
         or tostring(sourceVersion)
       local row = warning(
         "PRIZE_VERSION_UNSUPPORTED",
         "Game Corner Pokemon prizes remain vanilla because version "
-          .. displayed .. " is outside the supported Red/Blue catalog",
+          .. displayed .. " is outside the supported catalog",
         "GAME_CORNER")
       row.version = sourceVersion
       return {}, { row }, 1
     end
     local mappings, warnings = {}, {}
     local units = {}
-    for _, record in ipairs(Catalog.prizes[version]) do
+    for _, record in ipairs(records) do
       local candidates = SpeciesFilters.candidates(
         manifest, record.species, commonRules(settings, nil))
       units[#units + 1] = {
         id = record.id, source = record.species, candidates = candidates,
         hardConstraints = {
           similarStrength = tonumber(settings.similar_strength),
+          baseStatRange = settings.similar_strength == "bst_50" and 50
+            or settings.similar_strength == "bst_100" and 100 or nil,
           sameStage = settings.similar_strength == "same_stage",
           legendary = settings.legendaries or "allow",
         },
@@ -308,7 +322,7 @@ return function(StableSort, SpeciesFilters, Catalog, Matching, Progression)
     for _, reset in ipairs(matched.resets) do
       warnings[#warnings + 1] = Matching.warning(reset)
     end
-    for _, record in ipairs(Catalog.prizes[version]) do
+    for _, record in ipairs(records) do
       local species = matched.assignments[record.id]
       mappings[record.id] = {
         prizeId = record.id,

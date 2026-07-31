@@ -71,8 +71,10 @@ local strengthRow
 for _, row in ipairs(defined) do
   if row.key == "similar_strength" then strengthRow = row break end
 end
-assert(strengthRow and strengthRow.choices[4][2] == "same_stage",
-  "similar strength exposes SAME STAGE")
+assert(strengthRow and strengthRow.choices[4][2] == "bst_50"
+    and strengthRow.choices[5][2] == "bst_100"
+    and strengthRow.choices[6][2] == "same_stage",
+  "similar strength exposes BST ranges and SAME STAGE")
 
 assert(preferences:set("randomizer", "off", game))
 equal(writes, 1, "single preference persistence")
