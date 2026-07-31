@@ -44,14 +44,36 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          gh release view $env:RELEASE_TAG *> $null
+          $tag = [Uri]::EscapeDataString($env:RELEASE_TAG)
+          $uri = "https://api.github.com/repos/$env:REPOSITORY/releases/tags/$tag"
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+            "User-Agent" = "pokemon-randomizer-release-workflow"
+          }
+          try {
+            $response = Invoke-WebRequest -Uri $uri -Headers $headers `
+              -ErrorAction Stop
+            $statusCode = [int]$response.StatusCode
+          } catch {
+            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+              $statusCode = [int]$_.Exception.Response.StatusCode
+            } else {
+              throw
+            }
+          }
 
-          if ($LASTEXITCODE -eq 0) {
+          if ($statusCode -eq 200) {
             "exists=true" >> $env:GITHUB_OUTPUT
             Write-Host "Release $env:RELEASE_TAG already exists."
-          } else {
+          } elseif ($statusCode -eq 404) {
             "exists=false" >> $env:GITHUB_OUTPUT
+            Write-Host "Release $env:RELEASE_TAG does not exist yet."
+          } else {
+            throw "Release lookup failed with HTTP $statusCode."
           }
 
       - name: Build release ZIP
