@@ -1,0 +1,33 @@
+{
+  "id": "pokemon_randomizer",
+  "title": "Pokemon Gen 1 Randomizer",
+  "author": "ciddmandude",
+  "summary": "A deterministic per-save randomizer for Pokemon Red, Blue, and Yellow in Gen1Recomp.",
+  "version": "0.38.0",
+  "categories": [
+    "GAMEPLAY",
+    "BALANCE",
+    "QOL"
+  ],
+  "tags": [
+    "randomizer",
+    "encounters",
+    "trainers",
+    "starters",
+    "trades",
+    "spoilers",
+    "red blue yellow"
+  ],
+  "repo": "https://github.com/ciddmandude/PokemonRecompRandomizer",
+  "github": "ciddmandude/PokemonRecompRandomizer",
+  "automatic_version_check": true,
+  "api": 2,
+  "game_version": ">=0.1.30 <0.2.0",
+  "profile": "overhaul",
+  "affects_link": true,
+  "permissions": [
+    "filesystem"
+  ],
+  "dependencies": [],
+  "conflicts": []
+}

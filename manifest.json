@@ -10,6 +10,7 @@
   "conflicts": [],
   "category": "GAMEPLAY",
   "game_version": ">=0.1.30 <0.2.0",
+  "github": "ciddmandude/PokemonRecompRandomizer",
   "description": "Deterministic per-save randomization for Pokémon Gen 1 Recomp.",
   "profile": "overhaul",
   "affects_link": true,
