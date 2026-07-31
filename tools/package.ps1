@@ -110,7 +110,10 @@ try {
 
   & (Join-Path $PSScriptRoot 'validate-package.ps1') `
     -ArchivePath $OutputPath
-  $artifact = Get-Item -LiteralPath $OutputPath
+  # package-test intentionally uses dot-prefixed temporary archives. On Unix,
+  # PowerShell treats those paths as hidden and Get-Item requires -Force even
+  # though ZipFile and Test-Path can already see the file.
+  $artifact = Get-Item -LiteralPath $OutputPath -Force
   $artifactHash = Get-FileHash -LiteralPath $artifact.FullName `
     -Algorithm SHA256
   Write-Output ("package SHA-256: {0}" -f $artifactHash.Hash)
