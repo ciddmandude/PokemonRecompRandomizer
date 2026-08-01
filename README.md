@@ -89,13 +89,13 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
-| Non-key Location | `VANILLA`, `SHUFFLED` | `VANILLA` | Keeps ordinary items in place or shuffles them among eligible ordinary-item checks. |
+| Non-key Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps ordinary items in place, shuffles ordinary checks as a closed pool, or combines them with every other item category set to `MIXED`. Both ordinary and safety-constrained mixed placement avoid leaving an original item at its own check whenever the pool permits it. |
 | TM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps TMs in place, shuffles only TM checks, or joins TMs and supported one-time checks in the mixed pool. Randomized shops may also stock TMs when this is not `VANILLA`. |
 | HM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps HMs in place, shuffles only HM checks, or joins them to the mixed pool. HMs are never sold in shops. |
 | Key Item Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps key items in place, shuffles only key-item checks, or joins supported key items to the mixed pool. |
 | Badge Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps badges with their Gym Leaders, shuffles them among Gym rewards, or joins badges to the mixed one-time-check pool. Repeatable shops and mutually exclusive fossil choices are excluded. |
 | Hidden Items | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps hidden checks untouched and out of every other pool, shuffles all hidden checks as a closed pool, or lets them exchange items with supported visible and scripted checks. |
-| Progression Safety | `OFF`, `ON` | `ON` | Independently constrains enabled progression-item pools to reachable stages. If safety cannot be proven, the affected pool remains vanilla and a diagnostic is recorded. `OFF` honors unrestricted deterministic placement and may produce an unbeatable seed. |
+| Progression Safety | `OFF`, `ON` | `ON` | Independently constrains enabled progression-item pools to reachable stages. Postgame and unknown-map checks remain vanilla instead of invalidating the reachable mixed pool. If safety cannot be proven for that reachable pool, it remains vanilla and a diagnostic is recorded. `OFF` honors unrestricted deterministic placement and may produce an unbeatable seed. |
 | Shops | `VANILLA`, `RANDOMIZED` | `VANILLA` | Randomizes Poké Marts, Celadon Department Store counters, vending machines, and Game Corner TM prizes. Game Corner Pokémon remain controlled by Prize Pokémon. |
 | Shop Prices | `VANILLA`, `RANDOM`, `CHEAP` | `VANILLA` | Uses normal slot/special-shop pricing, deterministic prices from ¥100–¥5000 (or the equivalent coin value), or a price of 100. This setting has no effect while Shops is vanilla. |
 
@@ -138,9 +138,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-- randomizer mod version: `0.43.0`
+- randomizer mod version: `0.43.6`
 - generator contract: `1`
-- algorithm build: `1.12.0-dev`
+- algorithm build: `1.15.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)

@@ -1,8 +1,8 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.43.0
-Algorithm build ...... 1.12.0-dev
+Mod version .......... 0.43.6
+Algorithm build ...... 1.15.0-dev
 Engine compatibility . API 2  (0.1.45 required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.43.0.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.43.6.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -563,7 +563,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.12.0-dev.
+  EXPECT: ALGORITHM reads 1.15.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -1451,6 +1451,33 @@ ITM-20 [P0] Hidden-item pool modes
           moving items only among hidden checks. MIXED exchanges hidden items
           with supported visible, starting-PC, and scripted one-time checks.
 
+ITM-21 [P0] Non-key MIXED
+  1. Set NON-KEY LOCATION and TM LOCATION to MIXED. Leave HM LOCATION,
+     KEY ITEM LOCATION, BADGE LOCATION, and HIDDEN ITEMS VANILLA.
+  EXPECT: ordinary items and TMs share one deterministic pool. HMs, key items,
+          badges, and hidden checks remain locked in their vanilla categories.
+
+ITM-22 [P0] Ordinary shuffle fixed-point protection
+  1. Set NON-KEY LOCATION = SHUFFLED and create at least three different seeds.
+  2. Compare ten visible ordinary-item checks, including Mt. Moon's vanilla
+     Escape Rope, against their vanilla contents.
+  EXPECT: no check keeps its original item when the closed pool admits a
+          zero-fixed-point permutation. Duplicate-heavy or one-item pools use
+          the deterministic permutation with the fewest unavoidable matches.
+
+ITM-23 [P0] MIXED fixed-point protection with safety
+  1. Set NON-KEY LOCATION = MIXED and PROGRESSION SAFETY = ON.
+  2. Create at least three seeds and inspect Mt. Moon's vanilla Escape Rope.
+  EXPECT: the constrained mixed pool does not leave Escape Rope at that check
+          when another stage-valid item can occupy it.
+
+ITM-24 [P0] Safe MIXED excludes unreachable source checks
+  1. Set NON-KEY LOCATION = MIXED and PROGRESSION SAFETY = ON.
+  2. Export the spoiler and inspect ordinary checks before the Elite Four as
+     well as postgame Cerulean Cave checks.
+  EXPECT: reachable checks are randomized. Postgame or unknown checks stay
+          vanilla and do not cause the entire mixed pool to fall back.
+
 
 --------------------------------------------------------------------------------
 15. TRAINERS
@@ -1753,7 +1780,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.43.0.
+          compatibility block, and the archive file name all read 0.43.6.
 
 REL-05 [P1] Unsupported mod API
   1. Install on an engine without mod API 2 if one is available.

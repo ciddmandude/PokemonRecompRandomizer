@@ -9,10 +9,12 @@ end
 
 local Constants = loadFactory("src/constants.lua")
 local StableSort = loadFactory("src/stable_sort.lua")
+local ItemFilter = loadFactory("src/item_filter.lua")
 local StaticCatalog = loadFactory("src/static_gift_catalog.lua")
 local TradeCatalog = loadFactory("src/trade_prize_catalog.lua")
 local Browser = loadFactory(
-  "src/spoiler_browser.lua", StableSort, StaticCatalog, TradeCatalog)
+  "src/spoiler_browser.lua", StableSort, StaticCatalog, TradeCatalog,
+  ItemFilter)
 local BrowserScreen = loadFactory(
   "src/spoiler_browser_screen.lua", Constants, Browser)
 assert(BrowserScreen.searchFooter == "SEARCH:SELECT")
@@ -135,6 +137,11 @@ local sources = {
     POKE_BALL = { id = "POKE_BALL", name = "Poke Ball", price = 200 },
     TM_BIDE = { id = "TM_BIDE", name = "TM34", price = 2000,
       machine = { kind = "TM" } },
+    FLOOR_1F = { id = "FLOOR_1F", name = "1F" },
+    FLOOR_B2F = { id = "FLOOR_B2F", name = "B2F" },
+    FLOOR_ROOF = { id = "FLOOR_ROOF", name = "ROOF" },
+    UNUSED_ITEM_1 = { id = "UNUSED_ITEM_1", name = "?????" },
+    UNUSED_ITEM_2 = { id = "UNUSED_ITEM_2", label = "?????" },
   },
   species = {
     PIDGEY = { dex = 16, name = "Pidgey" },
@@ -220,6 +227,12 @@ local sources = {
 }
 
 local index = Browser.build(run, sources)
+for _, item in ipairs(index.items) do
+  assert(item.id ~= "FLOOR_1F" and item.id ~= "FLOOR_B2F"
+      and item.id ~= "FLOOR_ROOF" and item.id ~= "UNUSED_ITEM_1"
+      and item.id ~= "UNUSED_ITEM_2",
+    "spoiler item index excludes non-item registry entries")
+end
 assert(#index.species == 5)
 assert(index.species[1].id == "PIDGEY")
 assert(index.species[4].id == "SNORLAX")

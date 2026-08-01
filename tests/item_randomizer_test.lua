@@ -6,13 +6,15 @@ local function loadFactory(path, ...)
 end
 
 local StableSort = loadFactory("src/stable_sort.lua")
+local ItemFilter = loadFactory("src/item_filter.lua")
 local Progression = {
   STAGES = { START = 1, CERULEAN = 3, VERMILION = 4,
     LAVENDER_CELADON = 5, FUCHSIA = 6, SAFFRON = 7,
     SURF = 8, VICTORY_ROAD = 9, POSTGAME = 10 },
   access = function() return { available = true, stage = 1 } end,
 }
-local ItemCategory = loadFactory("src/item_category.lua", StableSort, Progression)
+local ItemCategory = loadFactory(
+  "src/item_category.lua", StableSort, Progression, ItemFilter)
 local ItemRuntime = loadFactory("src/item_runtime.lua")
 
 local sources = {

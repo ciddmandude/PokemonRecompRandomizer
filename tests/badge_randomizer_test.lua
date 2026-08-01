@@ -6,8 +6,10 @@ local function loadFactory(path, ...)
 end
 
 local StableSort = loadFactory("src/stable_sort.lua")
+local ItemFilter = loadFactory("src/item_filter.lua")
 local Progression = loadFactory("src/progression.lua", StableSort)
-local Category = loadFactory("src/item_category.lua", StableSort, Progression)
+local Category = loadFactory(
+  "src/item_category.lua", StableSort, Progression, ItemFilter)
 
 local BADGES = {
   { "brock", "PEWTER_GYM", "BOULDERBADGE" },

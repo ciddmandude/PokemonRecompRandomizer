@@ -76,7 +76,7 @@ equal(defaults.hidden_items, "vanilla", "hidden-item default")
 equal(defaults.ensure_beatable, "on", "beatability default")
 equal(defaults.shops, "vanilla", "shop default")
 equal(defaults.shop_prices, "vanilla", "shop-price default")
-local strengthRow, tmLocationRow, hmLocationRow, hiddenItemsRow
+local strengthRow, nonKeyRow, tmLocationRow, hmLocationRow, hiddenItemsRow
 for _, row in ipairs(defined) do
   if row.key == "similar_strength" then strengthRow = row break end
 end
@@ -86,10 +86,13 @@ assert(strengthRow and strengthRow.choices[4][2] == "bst_50"
   "similar strength exposes BST ranges and SAME STAGE")
 for _, row in ipairs(defined) do
   if row.key == "tms" then tmLocationRow = row end
+  if row.key == "non_key_items" then nonKeyRow = row end
   if row.key == "hms" then hmLocationRow = row end
   if row.key == "hidden_items" then hiddenItemsRow = row end
 end
 equal(tmLocationRow and tmLocationRow.label, "TM LOCATION", "TM display label")
+equal(nonKeyRow and nonKeyRow.choices[3][2], "mixed",
+  "non-key items expose mixed locations")
 equal(hmLocationRow and hmLocationRow.label, "HM LOCATION", "HM display label")
 equal(hiddenItemsRow and hiddenItemsRow.label, "HIDDEN ITEMS",
   "hidden item display label")

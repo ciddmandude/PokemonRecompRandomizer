@@ -6,15 +6,20 @@ local function loadFactory(path, ...)
 end
 
 local StableSort = loadFactory("src/stable_sort.lua")
+local ItemFilter = loadFactory("src/item_filter.lua")
 local Progression = {
   STAGES = { START = 1, CERULEAN = 3, VERMILION = 4,
     LAVENDER_CELADON = 5, FUCHSIA = 6, SAFFRON = 7,
     SURF = 8, VICTORY_ROAD = 9, POSTGAME = 10 },
   access = function(mapId)
+    if mapId == "POST" then
+      return { available = false, stage = 10, postgame = true }
+    end
     return { available = true, stage = mapId == "EARLY" and 1 or 9 }
   end,
 }
-local Category = loadFactory("src/item_category.lua", StableSort, Progression)
+local Category = loadFactory(
+  "src/item_category.lua", StableSort, Progression, ItemFilter)
 
 local items = {
   POTION = { name = "POTION", price = 300 },
@@ -24,11 +29,21 @@ local items = {
   OAKS_PARCEL = { name = "OAK'S PARCEL", price = 0, keyItem = true },
   BOULDERBADGE = { name = "BOULDERBADGE", price = 0, keyItem = true },
   CASCADEBADGE = { name = "CASCADEBADGE", price = 0, keyItem = true },
+  FLOOR_1F = { name = "1F", price = 0 },
+  FLOOR_ROOF = { name = "ROOF", price = 0 },
+  UNUSED_ITEM_1 = { name = "?????", price = 0 },
+  UNUSED_ITEM_2 = { label = "?????", price = 0 },
 }
 assert(Category.category("HM_CUT", items) == "hm")
 assert(Category.category("TM_BIDE", items) == "tm")
 assert(Category.category("OAKS_PARCEL", items) == "key")
 assert(Category.category("POTION", items) == "non_key")
+assert(Category.category("FLOOR_1F", items) == nil
+    and Category.category("FLOOR_ROOF", items) == nil,
+  "elevator menu labels are not usable items")
+assert(Category.category("UNUSED_ITEM_1", items) == nil
+    and Category.category("UNUSED_ITEM_2", items) == nil,
+  "question-mark placeholders are not usable items")
 
 local rng = {
   next = 0,
@@ -118,6 +133,68 @@ end
 assert(sawHidden and sawVisible,
   "hidden mixed mode exchanges items with supported visible checks")
 
+local ordinaryAndTmMixed = Category.generate(sources, {
+  non_key_items = "mixed", tms = "mixed", hms = "vanilla",
+  key_items = "vanilla", badges = "vanilla", hidden_items = "vanilla",
+  ensure_beatable = "on", shops = "vanilla",
+}, rng)
+assert(#ordinaryAndTmMixed.placements == 2,
+  "safe non-key and TM mixed modes share only their supported checks")
+for _, row in ipairs(ordinaryAndTmMixed.placements) do
+  assert(row.item ~= row.original,
+    "safe mixed ordinary and TM items avoid original checks")
+end
+
+local retryRng = {
+  calls = 0,
+  shuffle = function(self, values)
+    self.calls = self.calls + 1
+    if self.calls == 1 then return { values[1], values[2] } end
+    return { values[2], values[1] }
+  end,
+}
+local retried = Category.generate({
+  items = items,
+  maps = { EARLY = { objects = {
+    { index = 1, item = "POTION" },
+    { index = 2, item = "ANTIDOTE" },
+  } } },
+  field = { hiddenItems = {} },
+}, {
+  non_key_items = "shuffled", tms = "vanilla", hms = "vanilla",
+  key_items = "vanilla", badges = "vanilla", hidden_items = "vanilla",
+  ensure_beatable = "on", shops = "vanilla",
+}, retryRng)
+assert(retryRng.calls == 2
+    and retried.placements[1].item == "ANTIDOTE"
+    and retried.placements[2].item == "POTION",
+  "ordinary shuffle retries an identity permutation")
+
+local safeMixedWithPostgame = Category.generate({
+  items = items,
+  maps = {
+    EARLY = { objects = {
+      { index = 1, item = "POTION" },
+      { index = 2, item = "ANTIDOTE" },
+    } },
+    POST = { objects = {
+      { index = 1, item = "POTION" },
+    } },
+  },
+  field = { hiddenItems = {} },
+}, {
+  non_key_items = "mixed", tms = "vanilla", hms = "vanilla",
+  key_items = "vanilla", badges = "vanilla", hidden_items = "vanilla",
+  ensure_beatable = "on", shops = "vanilla",
+}, rng)
+assert(#safeMixedWithPostgame.warnings == 0
+    and #safeMixedWithPostgame.placements == 2,
+  "unreachable source checks are locked instead of invalidating safe MIXED")
+for _, row in ipairs(safeMixedWithPostgame.placements) do
+  assert(row.mapId == "EARLY" and row.item ~= row.original,
+    "safe MIXED randomizes reachable checks and leaves postgame checks vanilla")
+end
+
 local shops = Category.generate(sources, { non_key_items = "off", tms = "on",
   hms = "full_random", key_items = "full_random", shops = "on",
   shop_prices = "random" }, rng)
@@ -126,6 +203,10 @@ for _, row in ipairs(shops.placements) do
   if row.kind == "shop" then
     sawShop = true
     assert(row.category ~= "hm", "shops must never stock HMs")
+    assert(row.item ~= "FLOOR_1F" and row.item ~= "FLOOR_ROOF",
+      "shops must not stock elevator labels")
+    assert(row.item ~= "UNUSED_ITEM_1" and row.item ~= "UNUSED_ITEM_2",
+      "shops must not stock question-mark placeholders")
     assert(row.price == 1700, "random price is seeded and bounded")
     sawTm = sawTm or row.category == "tm"
     sawKey = sawKey or row.category == "key"

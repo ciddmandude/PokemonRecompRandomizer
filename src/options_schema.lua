@@ -178,7 +178,7 @@ local groups = {
     name = "ITEMS",
     rows = {
       choice("non_key_items", "NON-KEY LOCATION", "vanilla",
-        VANILLA_SHUFFLED, "SHUFFLE ORDINARY ITEMS."),
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX ORDINARY ITEMS."),
       choice("tms", "TM LOCATION", "vanilla", VANILLA_SHUFFLED_MIXED,
         "SHUFFLE OR MIX TMS."),
       choice("hms", "HM LOCATION", "vanilla", VANILLA_SHUFFLED_MIXED,

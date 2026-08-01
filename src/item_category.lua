@@ -1,6 +1,6 @@
 -- Deterministic item-location and shop randomization. Location modes control
 -- pool scope; progression safety is an independent post-generation policy.
-return function(StableSort, Progression)
+return function(StableSort, Progression, ItemFilter)
   local ItemCategory = {}
 
   local BADGES = {
@@ -26,6 +26,7 @@ return function(StableSort, Progression)
     if BADGES[itemId] then return "badge" end
     local definition = type(items) == "table" and items[itemId]
     if type(definition) ~= "table" then return nil end
+    if ItemFilter and not ItemFilter.isUsable(itemId, definition) then return nil end
     local machine = definition.machine
     if type(machine) == "table" and machine.kind == "HM" then return "hm" end
     if type(machine) == "table" and machine.kind == "TM" then return "tm" end
@@ -148,13 +149,17 @@ return function(StableSort, Progression)
     end
     local output = {}
     for _, item in ipairs(pending) do
-      local choices = {}
+      local choices, nonmatching = {}, {}
       for index, destination in ipairs(available) do
         if not constrained or destination.stage <= item.required then
           choices[#choices + 1] = index
+          if destination.row.original ~= item.id then
+            nonmatching[#nonmatching + 1] = index
+          end
         end
       end
       if #choices == 0 then return nil end
+      if #nonmatching > 0 then choices = nonmatching end
       local selected = choices[rng:nextInt(1, #choices)]
       local destination = table.remove(available, selected)
       local row = copyRow(destination.row)
@@ -168,7 +173,20 @@ return function(StableSort, Progression)
     local items = {}
     for _, row in ipairs(rows) do items[#items + 1] = row.original end
     if not constrained then
-      items = rng:shuffle(items)
+      local best, bestFixed
+      local attempts = math.max(8, math.min(64, #rows * 2))
+      for _ = 1, attempts do
+        local candidate = rng:shuffle(items)
+        local fixed = 0
+        for index, source in ipairs(rows) do
+          if candidate[index] == source.original then fixed = fixed + 1 end
+        end
+        if bestFixed == nil or fixed < bestFixed then
+          best, bestFixed = candidate, fixed
+        end
+        if fixed == 0 then break end
+      end
+      items = best or items
       local output = {}
       for index, source in ipairs(rows) do
         local row = copyRow(source)
@@ -177,7 +195,22 @@ return function(StableSort, Progression)
       end
       return output
     end
-    return assignItems(items, rows, rng, version, constrained)
+    local best, bestFixed
+    local attempts = math.max(8, math.min(64, #rows * 2))
+    for _ = 1, attempts do
+      local candidate = assignItems(items, rows, rng, version, constrained)
+      if candidate then
+        local fixed = 0
+        for _, row in ipairs(candidate) do
+          if row.item == row.original then fixed = fixed + 1 end
+        end
+        if bestFixed == nil or fixed < bestFixed then
+          best, bestFixed = candidate, fixed
+        end
+        if fixed == 0 then break end
+      end
+    end
+    return best
   end
 
   local function supportedMixedDestination(row, version, constrained, hidden)
@@ -205,10 +238,10 @@ return function(StableSort, Progression)
       local key = rowKey(row)
       if not consumed[key]
           and not (row.kind == "scripted" and OPTIONAL_SOURCES[row.id])
+          and supportedMixedDestination(
+            row, version, constrained, hidden)
           and (sourceSet[key]
-            or row.category == "non_key"
-              and supportedMixedDestination(
-                row, version, constrained, hidden)) then
+            or row.category == "non_key") then
         pool[#pool + 1] = row
       end
     end

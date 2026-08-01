@@ -12,6 +12,7 @@ local UInt32 = loadFactory("src/uint32.lua")
 local Seed = loadFactory("src/seed.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
+local ItemFilter = loadFactory("src/item_filter.lua")
 local Progression = loadFactory("src/progression.lua", StableSort)
 local Matching = loadFactory("src/matching.lua", StableSort)
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
@@ -40,7 +41,7 @@ local TradePrizeCategory = loadFactory(
 local TrainerCategory = loadFactory(
   "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
 local ItemCategory = loadFactory(
-  "src/item_category.lua", StableSort, Progression)
+  "src/item_category.lua", StableSort, Progression, ItemFilter)
 local ValidationCategory = loadFactory(
   "src/validation_category.lua",
   StableSort, Canonical, Progression, TradePrizeCatalog)

@@ -184,15 +184,20 @@ Purchasing a randomized prize must show the correct species and level before pay
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
-| Non-key Location | `VANILLA`, `SHUFFLED` | `VANILLA` | Keeps ordinary-item checks unchanged or shuffles them as a closed multiset. Hidden checks participate only when Hidden Items permits it. |
+| Non-key Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps ordinary checks unchanged, shuffles them as a closed multiset, or joins them with every other category set to `MIXED`. Deterministic retries minimize original items remaining at their own checks in both unrestricted and Progression Safety-constrained pools, producing zero fixed points whenever a sampled valid permutation permits it. Hidden checks participate only when Hidden Items permits it. |
 | TM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps TMs unchanged, shuffles only TM checks, or joins TMs to the shared supported one-time-check pool. |
 | HM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps HMs unchanged, shuffles only HM checks, or joins HMs to the shared pool. HMs are never stocked by shops. |
 | Key Item Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps key items unchanged, shuffles only supported key-item checks, or joins them to the shared pool. |
 | Badge Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps badges with their Gym Leaders, permutes the eight badge checks, or joins badges to the shared one-time-check pool. Repeatable shops and mutually exclusive fossil choices are excluded. |
 | Hidden Items | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | `VANILLA` locks hidden checks out of all pools. `SHUFFLED` shuffles all hidden checks as one closed pool. `MIXED` lets hidden checks exchange items with supported visible, starting-PC, and scripted checks. |
-| Progression Safety | `OFF`, `ON` | `ON` | Independently constrains enabled badges, HMs, key items, and displaced progression items to locations available by their required stage. A pool that cannot be proven safe remains vanilla with an attributed diagnostic. `OFF` preserves unrestricted seeded placement and can produce an unbeatable run. |
+| Progression Safety | `OFF`, `ON` | `ON` | Independently constrains enabled badges, HMs, key items, and displaced progression items to locations available by their required stage. Postgame and unknown-map source checks are locked vanilla and excluded from the reachable mixed pool. A reachable pool that still cannot be proven safe remains vanilla with an attributed diagnostic. `OFF` preserves unrestricted seeded placement and can produce an unbeatable run. |
 | Shops | `VANILLA`, `RANDOMIZED` | `VANILLA` | Randomizes Poké Marts, Department Store counters, vending machines, and Game Corner TM prizes. It does not affect Game Corner Pokémon. |
 | Shop Prices | `VANILLA`, `RANDOM`, `CHEAP` | `VANILLA` | `VANILLA` preserves ordinary item prices and special-shop slot prices. `RANDOM` saves deterministic multiples of 100 from 100–5000. `CHEAP` uses 100. Ignored while Shops is vanilla. |
+
+The engine item registry also contains elevator menu labels such as `B2F`,
+`1F`, `11F`, and `ROOF`. These are not obtainable items and are excluded from
+spoilers, item pools, and randomized shop inventories. Unused placeholder item
+IDs displayed as `?????` are excluded by the same shared filter.
 
 The engine's merged map and field tables are captured after all mods load.
 New Game projects the saved placements into those live tables. Continue and

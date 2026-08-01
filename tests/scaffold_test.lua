@@ -54,13 +54,13 @@ Progression, ValidationCategory)
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
-assert(Constants.MOD_VERSION == "0.43.0")
+assert(Constants.MOD_VERSION == "0.43.6")
 assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
 assert(Constants.OPTIONS_SCREEN_ID == "PokemonRandomizerOptions")
 assert(Constants.REVIEW_SCREEN_ID == "PokemonRandomizerReview")
 assert(Generator.available == true)
 assert(Generator.foundationAvailable == true)
-assert(Generator.algorithmVersion == "1.12.0-dev")
+assert(Generator.algorithmVersion == "1.15.0-dev")
 assert(type(SaveState.validate) == "function")
 
 local request = {

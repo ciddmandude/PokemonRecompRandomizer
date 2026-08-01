@@ -1,5 +1,5 @@
 -- Pure read-only index for the in-game spoiler browser.
-return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
+return function(StableSort, StaticGiftCatalog, TradePrizeCatalog, ItemFilter)
   local Browser = {}
   local indexCache = { key = nil, value = nil, builds = 0, hits = 0 }
 
@@ -168,7 +168,12 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
   end
 
   local function addItemRow(index, mapId, row)
-    if type(row.item) ~= "string" or not index.sources.items[row.item] then return end
+    local definition = type(row.item) == "string"
+      and index.sources.items[row.item]
+    if not definition
+        or ItemFilter and not ItemFilter.isUsable(row.item, definition) then
+      return
+    end
     row.kind = "item"
     row.label = itemName(row.item, index.sources.items)
     row.location = mapName(mapId, index.sources.maps, index.townLocations)
@@ -567,7 +572,8 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
 
   local function buildItems(index)
     for id, record in pairs(index.sources.items or {}) do
-      if type(id) == "string" and type(record) == "table" then
+      if type(id) == "string" and type(record) == "table"
+          and (not ItemFilter or ItemFilter.isUsable(id, record)) then
         index.items[#index.items + 1] = {
           id = id, name = itemName(id, index.sources.items),
         }

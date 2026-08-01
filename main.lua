@@ -74,9 +74,10 @@ return function(mod)
   local TrainerCategory = loadModule(
     "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
   local TrainerRuntime = loadModule("src/trainer_runtime.lua")
+  local ItemFilter = loadModule("src/item_filter.lua")
   local ItemSourceCatalog = loadModule("src/item_source_catalog.lua")
   local ItemCategory = loadModule(
-    "src/item_category.lua", StableSort, Progression)
+    "src/item_category.lua", StableSort, Progression, ItemFilter)
   local ItemRuntime = loadModule("src/item_runtime.lua", ItemSourceCatalog)
   local ValidationCategory = loadModule(
     "src/validation_category.lua",
@@ -84,7 +85,7 @@ return function(mod)
   local SpoilerLog = loadModule("src/spoiler_log.lua")
   local SpoilerBrowser = loadModule(
     "src/spoiler_browser.lua",
-    StableSort, StaticGiftCatalog, TradePrizeCatalog)
+    StableSort, StaticGiftCatalog, TradePrizeCatalog, ItemFilter)
   local SpoilerBrowserScreen = loadModule(
     "src/spoiler_browser_screen.lua", Constants, SpoilerBrowser)
   local Generator = loadModule(
