@@ -6,7 +6,7 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local modRoot = arg[1] or "E:/PokemonRecompRandomizer"
 local engineVersion = arg[2] or "0.1.38"
-local modVersion = arg[3] or "0.46.0"
+local modVersion = arg[3] or "0.46.1"
 require("src.core.Version").engine = engineVersion
 local T = require("tests.modkit")
 local Runtime = require("src.mods.Runtime")
@@ -89,12 +89,73 @@ local save = {
     },
   },
   player = { id = 1234 },
+  options = { modOptions = {} },
   modData = {},
 }
-Runtime.emit("game.ready", { game = {} })
+if not hasGeneratedData then
+  -- The mandatory New Game chooser intentionally defers generation until
+  -- Oak's intro begins.  Give the ROM-free fixture a selectable preset that
+  -- keeps its synthetic species and area-slot encounter data in scope.
+  save.options.modOptions.pokemon_randomizer = {
+    saved_presets = {
+      {
+        name = "INTEGRATION",
+        settings = {
+          species_pool = "merged",
+          similar_strength = "100",
+          wild_pokemon = "area_slots",
+        },
+      },
+    },
+  }
+end
+
+local stack = { states = {} }
+function stack:push(value) self.states[#self.states + 1] = value end
+function stack:pop() return table.remove(self.states) end
+function stack:top() return self.states[#self.states] end
+
+local game = {
+  save = save,
+  data = Data,
+  mods = loaded.loader,
+  stack = stack,
+}
+Runtime.emit("game.ready", { game = game })
 Runtime.emit("save.created", { save = save })
+local steps = Runtime.call("intro.oak_speech.build",
+  function(value) return value end,
+  { { id = "oak_welcome", kind = "say" } },
+  { game = game })
+assert(type(steps) == "table"
+    and type(steps[1]) == "table"
+    and steps[1].id == "pokemon_randomizer:new_game_setup",
+  "New Game randomizer setup was not inserted before Oak's intro")
+local introContinued = false
+steps[1].run({}, function() introContinued = true end)
+local enableQuestion = assert(stack:top(),
+  "New Game randomizer enable question was not shown")
+assert(type(enableQuestion.choice) == "function",
+  "New Game randomizer enable question has no choice callback")
+enableQuestion.choice(true)
+local presetQuestion = assert(stack:top(),
+  "New Game randomizer preset question was not shown")
+assert(type(presetQuestion.choice) == "function",
+  "New Game randomizer preset question has no choice callback")
+presetQuestion.choice(true)
+local presetPicker = assert(stack:top(),
+  "New Game randomizer preset picker was not shown")
+local wantedPreset = hasGeneratedData and "standard" or "saved:INTEGRATION"
+local selectedPreset
+for _, item in ipairs(presetPicker.items or {}) do
+  if item.value == wantedPreset then selectedPreset = item break end
+end
+assert(selectedPreset,
+  "New Game randomizer preset picker omitted " .. wantedPreset)
+presetPicker.onChoose(selectedPreset)
+assert(introContinued, "New Game randomizer setup did not resume Oak's intro")
 local run = assert(save.modData.pokemon_randomizer,
-  "save.created did not create randomizer state")
+  "New Game setup did not create randomizer state")
 
 if not hasGeneratedData then
   local encounterDef = Data.encounters.FIX_ROUTE

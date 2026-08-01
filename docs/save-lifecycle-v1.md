@@ -11,12 +11,28 @@ The bootstrap registers these API-2 listeners:
 | Event | Behavior |
 |---|---|
 | `save.created` | Builds the species manifest, resolves an auto seed, snapshots current settings, invokes the pure generator, validates the complete result, stamps its checksum, and only then assigns `save.modData.pokemon_randomizer`. |
-| `save.loading` | Clears the prior session view. It does not mutate, evaluate, migrate, or activate raw randomizer data. |
-| `save.loaded` | Validates schema, seed hash, settings shape, compatibility shape, mapping buckets, mapped species, and checksum. It compares the current relevant mods with the New Game snapshot and reports differences without changing saved state. A valid enabled run is copied into session state. |
+| `save.loading` | Clears the prior session view. The lifecycle manager does not migrate or activate raw data; the runtime restores its baseline and may pre-apply mechanics only when the raw namespace already passes strict checksum validation. |
+| `save.loaded` | Validates schema, seed hash, settings shape, compatibility shape, mapping buckets, mapped species, and checksum. It compares the current relevant mods with the New Game snapshot and reports differences without changing saved state. A valid enabled run is copied into session state, then its mechanics are reapplied from the baseline. |
 | `save.writing` | Validates the existing checksum first, updates only operational engine-version metadata on a copy, validates and stamps that copy, then replaces the namespace atomically. The New Game relevant-mod snapshot is never refreshed. |
 
 An absent namespace is a vanilla save. Loading it never creates randomizer
 state.
+
+## Runtime mechanics compatibility
+
+Base stats, types, evolutions, movesets, TM/HM compatibility, and move data are
+saved as mappings and projected onto the active merged `game.data` tables. The
+runtime captures only their supported mutable fields once for each distinct
+`game.data` identity. Repeated `game.ready` events do not replace that pristine
+snapshot. Every apply restores the matching snapshot before projecting a valid
+enabled run; vanilla, disabled, invalid, quarantined, and mechanics-free saves
+therefore restore the merged values.
+
+The overlay never replaces an entire PokÃ©mon or move record and does not touch
+unsupported fields owned by the engine or another mod. Other mods that inspect
+the supported fields while a randomized save is active will see the active
+randomized values. Mods that require pristine values should capture them after
+registries merge and before save mechanics are applied.
 
 ## Auto-seed source
 
@@ -110,13 +126,27 @@ restored.
 
 ## Migration harness
 
-The mod registers an ordered migration at version `0.4.0`. Its first handler
-recognizes development `schemaVersion = 0` namespaces, converts a string seed
-to the v1 seed record, fills required v1 buckets, preserves unknown fields,
-validates the migrated copy, and commits it only after a checksum is produced.
+The mod registers ordered migrations at versions `0.4.0`, `0.6.0`, `0.40.0`,
+and `0.45.0`. The first recognizes development `schemaVersion = 0`
+namespaces, converts a string seed to the v1 seed record, fills required v1
+buckets, preserves unknown fields, validates the migrated copy, and commits it
+only after a checksum is produced. The later handlers perform these upgrades:
 
-Migrations never rerun category generation. Unknown fields survive migration
-and subsequent checksum stamping.
+- `0.6.0` recomputes the behavior-settings hash under the current exclusion
+  rules;
+- `0.40.0` adds the disabled legacy field-item setting and an empty
+  `fieldItems` mapping bucket; and
+- `0.45.0` adds every vanilla/default mechanics setting plus empty
+  `pokemonMechanics` and `moveData` mapping buckets.
+
+The field-item and mechanics handlers preserve every existing gameplay
+mapping, recompute `compatibility.settingsHash`, and stamp a valid checksum.
+They are idempotent and never rerun category generation. Because the settings
+hash is part of the run code, migration can change the displayed run code even
+though the mappings are byte-for-byte unchanged. Run-code comparison therefore
+also requires matching mod and saved algorithm versions; the algorithm version
+stored in the save remains authoritative. Unknown fields survive migration and
+subsequent checksum stamping.
 
 ## Exported inspection API
 

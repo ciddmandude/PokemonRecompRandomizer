@@ -1,13 +1,13 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.43.6
-Algorithm build ...... 1.15.0-dev
+Mod version .......... 0.46.1
+Algorithm build ...... 1.17.0-dev
 Engine compatibility . API 2  (0.1.45 required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
 Plan revision ........ 1
-Automated status ..... 24/24 Lua test files passing at time of writing
+Automated status ..... 30/30 Lua test files passing at time of writing
 
 
 --------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.43.6.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.46.1.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -392,6 +392,11 @@ OPT-00 [P0] Mandatory New Game chooser
           actions. Every actual setting plus SAVE PRESET, DELETE PRESET, and
           RESET DEFAULTS remains available. B asks START WITH THESE SETTINGS?;
           NO returns to editing and YES generates the run and resumes Oak.
+  4. Reopen OPTIONS > RANDOMIZER after selecting a preset in step 2, and after
+     confirming custom settings in step 3.
+  EXPECT: the chooser's preset or custom values became the global next-run
+          preferences. They are preselected for the next NEW GAME until
+          changed; this does not modify the settings snapshot of an active run.
 
 OPT-01 [P1] Options row appears and opens - PASSED
   1. Boot the engine with the mod enabled. Title screen > OPTIONS.
@@ -520,13 +525,15 @@ OPT-10 [P3] Accessibility
   EXPECT: every row is reachable and editable with each input method. No
           information is conveyed by colour alone.
 
-OPT-11 [P1] SAME STAGE ignores BST and preserves evolution stage
-  1. CFG-I. NEW GAME and export the spoiler log.
+OPT-11 [P1] SAME STAGE uses original lineage and ignores BST
+  1. CFG-I. Set EVOLUTIONS = FULL RANDOM, NEW GAME, and export the spoiler log.
   2. Compare at least ten wild mappings, five statics/gifts/prizes, five trade
      sides, and twenty trainer slots with their vanilla source species.
   3. Include at least one very large BST difference if the seed supplies one.
-  EXPECT: every randomized source/destination pair has the same derived stage:
-          BASIC maps to BASIC, MIDDLE to MIDDLE, and FINAL to FINAL.
+  EXPECT: every randomized source/destination pair has the same stage from its
+          original merged-data lineage: BASIC maps to BASIC, MIDDLE to MIDDLE,
+          and FINAL to FINAL. The current randomized evolution graph shown in
+          spoilers does not redefine that classification.
   EXPECT: large BST differences are allowed; no percentage band is enforced.
   EXPECT: no WIDEN_STRENGTH or DROP_STRENGTH diagnostic is produced.
   EXPECT: type, legendary, progression, and duplicate rules still apply.
@@ -576,7 +583,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.15.0-dev.
+  EXPECT: ALGORITHM reads 1.17.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -668,6 +675,17 @@ SEED-11 [P2] All categories OFF with the master ON
           content is vanilla.
   EXPECT: the exported spoiler shows every category as vanilla / no entries,
           and DIAGNOSTICS shows 0 warnings and 0 fallbacks.
+
+SEED-12 [P1] Migration may update run code without rerolling
+  1. In a pre-item or pre-mechanics mod build, create and save a randomized
+     run. Record its run code, saved algorithm version, and exported mappings.
+  2. Upgrade to the current mod, CONTINUE, and record the same information.
+  EXPECT: existing gameplay mappings and the saved algorithm version are
+          unchanged. The displayed run code MAY change because migration adds
+          behavior-setting defaults and recomputes the settings hash.
+  EXPECT: comparing run codes is meaningful only when mod version and saved
+          algorithm version also match. The migrated save validates and plays
+          normally without regeneration.
 
 
 --------------------------------------------------------------------------------
@@ -817,9 +835,13 @@ STR-05 [P1] Rival at every later branch
           TRAINERS.
 
 STR-06 [P1] BASIC ONLY is enforced - PASSED
-  1. CFG-A (STARTER STAGE = BASIC ONLY). NEW GAME across five different seeds.
-  EXPECT: none of the fifteen offered starters is an evolved form (nothing that
-          has a pre-evolution inside the eligible pool).
+  1. CFG-A (STARTER STAGE = BASIC ONLY). Set EVOLUTIONS = FULL RANDOM and
+     start NEW GAME across five different seeds.
+  EXPECT: none of the fifteen offered starters was evolved in its original
+          merged-data lineage (nothing had a pre-evolution when the manifest
+          was built). A current randomized evolution may give one of those
+          starters a new pre-evolution; that is intentional and is not a
+          BASIC ONLY failure.
 
 STR-07 [P1] ANY stage allows evolved forms - PASSED
   1. CFG-G (STARTER STAGE = ANY). NEW GAME across five seeds.
@@ -1667,6 +1689,9 @@ SPL-03 [P1] In-game browser
   EXPECT: tab cycling, scrolling, and paging work with keyboard and gamepad.
   EXPECT: B walks back one level at a time and eventually closes the screen.
   EXPECT: no crash on a category with zero entries (e.g. open it on CFG-D).
+  EXPECT: evolution rows describe the current generated graph. They are not
+          labels for the original-lineage stages used by BASIC ONLY, SAME
+          STAGE, or KEEP STAGES.
 
 SPL-04 [P1] Spoilers disabled
   1. Set ENABLE SPOILERS = OFF. NEW GAME. Try VIEW SPOILERS and EXPORT
@@ -1794,7 +1819,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.43.6.
+          compatibility block, and the archive file name all read 0.46.1.
 
 REL-05 [P1] Unsupported mod API
   1. Install on an engine without mod API 2 if one is available.

@@ -71,6 +71,11 @@ The hard `SAME STAGE` candidate rule advances the algorithm build to
 ignores BST, and never relaxes the stage requirement. Existing saved mappings
 remain authoritative.
 
+The saved manifest classification comes from the original merged-data lineage
+before evolution randomization. Starter Stage `BASIC ONLY`, Similar Strength
+`SAME STAGE`, and Evolution `KEEP STAGES` all use that same classification;
+the current randomized graph shown in spoilers does not redefine it.
+
 Absolute five-stat-total ranges `BST ±50` and `BST ±100` advance the algorithm
 build to `1.7.0-dev`. Unlike the existing percentage modes, these compare raw
 BST-point differences. Existing saved mappings remain authoritative.
@@ -222,6 +227,7 @@ another category.
 
 Locked v1 stream names are:
 
+<!-- stream-registry:start -->
 ```text
 wild.global
 wild.area
@@ -237,8 +243,21 @@ prizes
 trainers.species
 trainers.levels
 trainers.sizes
+trainers.rival
+items
+mechanics.base_stats
+mechanics.pokemon_types
+mechanics.movesets
+mechanics.tmhm
+mechanics.evolutions
+mechanics.trade_evolutions
+mechanics.move_types
+mechanics.move_power
+mechanics.move_accuracy
+mechanics.move_pp
 validation.swaps
 ```
+<!-- stream-registry:end -->
 
 ## 5. PRNG `xoshiro128ss-v1`
 

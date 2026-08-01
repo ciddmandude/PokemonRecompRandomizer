@@ -34,11 +34,13 @@ when starter randomization is active, ensuring the gift remains obtainable.
 
 ### Starter Stage
 
-- `BASIC ONLY` admits only manifest entries whose saved stage is `basic`.
+- `BASIC ONLY` admits only manifest entries whose original merged-data
+  lineage was classified as `basic` before evolution randomization.
 - `ANY` admits basic, middle, and final-stage species.
 
 This is a hard filter. It is never relaxed to satisfy uniqueness or a type
-triad.
+triad. A later generated evolution graph may give an originally basic starter
+a new pre-evolution; that does not violate this filter.
 
 ### Starter Level
 

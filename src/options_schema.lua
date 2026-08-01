@@ -69,7 +69,7 @@ local groups = {
         { "OFF", "off" }, { "+/-10%", "10" }, { "+/-20%", "20" },
         { "BST +/-50", "bst_50" }, { "BST +/-100", "bst_100" },
         { "SAME STAGE", "same_stage" },
-      }, "MATCH BST OR EVOLUTION STAGE."),
+      }, "MATCH BST OR ORIGINAL STAGE."),
       choice("legendaries", "LEGENDARIES", "match", {
         { "EXCLUDE", "exclude" }, { "MATCH", "match" },
         { "ALLOW", "allow" },
@@ -108,7 +108,7 @@ local groups = {
       }, "KEEP VANILLA OR PICK THREE UNIQUE."),
       choice("starter_stage", "STARTER STAGE", "basic_only", {
         { "ANY", "any" }, { "BASIC ONLY", "basic_only" },
-      }, "ANY FORM OR BASIC SPECIES ONLY."),
+      }, "ANY OR ORIGINALLY BASIC."),
       number("starter_level", "STARTER LEVEL", 5, 2, 20,
         "LEVEL OF EACH PLAYER STARTER."),
       choice("rival_counterpick", "RIVAL PICK", "type_advantage", {
@@ -266,7 +266,7 @@ local groups = {
         { "KEEP STAGES", "preserve_stages" },
         { "SIMILAR", "similar_strength" },
         { "FULL RANDOM", "full_random" },
-      }, "RANDOMIZE EVOLUTION TARGETS."),
+      }, "TARGETS USE ORIGINAL STAGE."),
       choice("evolution_repeats", "EVO REPEATS", "avoid", {
         { "AVOID", "avoid" }, { "ALLOW", "allow" },
       }, "CONTROL REPEATED DESTINATIONS."),

@@ -23,9 +23,36 @@ local setupPicker
 local saveBucket = {}
 local options = {}
 
+local function deepCopy(value, seen)
+  if type(value) ~= "table" then return value end
+  seen = seen or {}
+  if seen[value] then return seen[value] end
+  local copy = {}
+  seen[value] = copy
+  for key, child in pairs(value) do
+    copy[deepCopy(key, seen)] = deepCopy(child, seen)
+  end
+  return copy
+end
+
+local function deepEqual(left, right, seen)
+  if type(left) ~= type(right) then return false end
+  if type(left) ~= "table" then return left == right end
+  seen = seen or {}
+  if seen[left] == right then return true end
+  seen[left] = right
+  for key, value in pairs(left) do
+    if not deepEqual(value, right[key], seen) then return false end
+  end
+  for key in pairs(right) do
+    if left[key] == nil then return false end
+  end
+  return true
+end
+
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.46.0",
+  version = "0.46.1",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -451,7 +478,25 @@ local introStack = {
   push = function(self, value) self.values[#self.values + 1] = value end,
   pop = function(self) table.remove(self.values) end,
 }
-local introGame = { save = save, data = {}, stack = introStack }
+local introGame = {
+  save = save,
+  data = {
+    pokemon = {
+      BULBASAUR = {
+        baseStats = {
+          hp = 45, attack = 49, defense = 49, speed = 45, special = 65,
+        },
+        evolutions = {}, types = { "GRASS", "POISON" },
+        level1Moves = {}, learnset = {}, tmhm = {},
+      },
+    },
+    moves = {},
+  },
+  stack = introStack,
+}
+-- Recomp may repeat game.ready. The first event for this data identity captures
+-- the pristine merged mechanics tables.
+callbacks["game.ready"]({ game = introGame })
 local steps = hookCallbacks["intro.oak_speech.build"](
   function(value) return value end,
   { { id = "oak_welcome", kind = "say" } },
@@ -511,6 +556,12 @@ assert(#run.seed.canonical == 26)
 assert(type(mod.exports.runCode(run)) == "string")
 assert(optionRows[1].value() == "LOCKED",
   "an actual New Game must lock its generated run")
+
+introGame.data.pokemon.BULBASAUR.baseStats.hp = 222
+callbacks["game.ready"]({ game = introGame })
+callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
+assert(introGame.data.pokemon.BULBASAUR.baseStats.hp == 45,
+  "repeated game.ready promoted active mechanics into the baseline")
 
 local pauseGame = { data = {}, save = save }
 local startRows = hookCallbacks["ui.start_menu.items"](
@@ -609,7 +660,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.46.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.46.1", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
@@ -664,26 +715,89 @@ assert(legacy.compatibility.settingsHash == legacyHash)
 local migratedValid = mod.exports.save.validate(legacy, nil, true)
 assert(migratedValid)
 
-local preItems = mod.exports.save.activeRun() or run
-preItems = type(preItems) == "table" and preItems or legacy
-preItems = (function(value)
-  local function copy(input)
-    if type(input) ~= "table" then return input end
-    local output = {}
-    for key, child in pairs(input) do output[copy(key)] = copy(child) end
-    return output
+local function assertMigrationStamp(namespace, staleHash, label)
+  assert(namespace.compatibility.settingsHash ~= staleHash,
+    label .. " must recompute the settings hash")
+  assert(namespace.checksum.version == "fnv1a32x4-save-v1"
+      and type(namespace.checksum.value) == "string",
+    label .. " must stamp the checksum")
+  assert(namespace.checksum.value == mod.exports.save.checksum(namespace),
+    label .. " checksum must match migrated contents")
+  assert(mod.exports.save.validate(namespace, nil, true),
+    label .. " must produce a valid namespace")
+end
+
+local function assertMappingsPreserved(actual, expected, excluded, label)
+  for _, key in ipairs(mod.exports.contracts.mappingKeys()) do
+    if not excluded[key] then
+      assert(deepEqual(actual[key], expected[key]),
+        label .. " changed existing mapping bucket " .. key)
+    end
   end
-  return copy(value)
-end)(preItems)
+end
+
+local preItems = deepCopy(legacy)
 preItems.settings.field_items = nil
 preItems.mappings.fieldItems = nil
-preItems.compatibility.settingsHash =
-  mod.exports.save.checksum and preItems.compatibility.settingsHash
-preItems.checksum = nil
+preItems.mappings.wildGlobal.MIGRATION_SENTINEL = "BULBASAUR"
+local itemMappingsBefore = deepCopy(preItems.mappings)
+local staleItemHash = "STALE-FIELD-ITEM-HASH"
+preItems.compatibility.settingsHash = staleItemHash
+preItems.checksum = { version = "stale", value = "stale" }
 migrations[3].callback(preItems)
 assert(preItems.settings.field_items == "off")
 assert(type(preItems.mappings.fieldItems) == "table"
   and next(preItems.mappings.fieldItems) == nil)
-assert(mod.exports.save.validate(preItems, nil, true))
+assertMappingsPreserved(preItems.mappings, itemMappingsBefore,
+  { fieldItems = true }, "field-item migration")
+assert(preItems.futureField == "keep",
+  "field-item migration must preserve unknown fields")
+assertMigrationStamp(preItems, staleItemHash, "field-item migration")
+local onceItems = deepCopy(preItems)
+migrations[3].callback(preItems)
+assert(deepEqual(preItems, onceItems),
+  "field-item migration must be idempotent")
+
+local mechanicsDefaults = {
+  base_stats = "vanilla", stat_family_consistency = "on",
+  evolutions = "vanilla", evolution_repeats = "avoid",
+  evolution_trade_safety = "vanilla",
+  pokemon_types = "vanilla", type_family_consistency = "on",
+  pokemon_movesets = "vanilla", early_damage = "on",
+  learnset_levels = "vanilla", tmhm_compatibility = "vanilla",
+  move_types = "vanilla", move_data = "vanilla", move_safety = "on",
+}
+local preMechanics = deepCopy(preItems)
+for key in pairs(mechanicsDefaults) do preMechanics.settings[key] = nil end
+preMechanics.settings.MIGRATION_UNKNOWN = "keep"
+preMechanics.mappings.pokemonMechanics = nil
+preMechanics.mappings.moveData = nil
+local mechanicsMappingsBefore = deepCopy(preMechanics.mappings)
+local staleMechanicsHash = "STALE-MECHANICS-HASH"
+preMechanics.compatibility.settingsHash = staleMechanicsHash
+preMechanics.checksum = { version = "stale", value = "stale" }
+migrations[4].callback(preMechanics)
+for key, expected in pairs(mechanicsDefaults) do
+  assert(preMechanics.settings[key] == expected,
+    "mechanics migration default mismatch for " .. key)
+end
+assert(preMechanics.settings.MIGRATION_UNKNOWN == "keep",
+  "mechanics migration must preserve existing settings")
+assert(type(preMechanics.mappings.pokemonMechanics) == "table"
+    and next(preMechanics.mappings.pokemonMechanics) == nil,
+  "mechanics migration must add an empty Pokemon bucket")
+assert(type(preMechanics.mappings.moveData) == "table"
+    and next(preMechanics.mappings.moveData) == nil,
+  "mechanics migration must add an empty move bucket")
+assertMappingsPreserved(preMechanics.mappings, mechanicsMappingsBefore,
+  { pokemonMechanics = true, moveData = true }, "mechanics migration")
+assert(preMechanics.futureField == "keep",
+  "mechanics migration must preserve unknown fields")
+assertMigrationStamp(preMechanics, staleMechanicsHash,
+  "mechanics migration")
+local onceMechanics = deepCopy(preMechanics)
+migrations[4].callback(preMechanics)
+assert(deepEqual(preMechanics, onceMechanics),
+  "mechanics migration must be idempotent")
 
 io.write("bootstrap_test: ok\n")

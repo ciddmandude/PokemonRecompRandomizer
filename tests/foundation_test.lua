@@ -71,14 +71,85 @@ equalArray(starters.words, Vectors.streams.starters.words, "starter stream words
 equal(starters.hex, Vectors.streams.starters.hex, "starter stream hex")
 assert(wild.hex ~= starters.hex, "named streams must differ")
 
-local streamHashes = {}
-for _, name in ipairs(Constants.STREAM_NAMES) do
-  local streamHash = Hash128.derive(root, name).hex
-  assert(not streamHashes[streamHash],
-    ("stream collision between %s and %s"):format(
-      name, tostring(streamHashes[streamHash])))
-  streamHashes[streamHash] = name
+equal(#Constants.STREAM_NAMES, 27, "active stream count")
+local structuredNames = {}
+for _, group in pairs(Constants.STREAMS) do
+  for _, name in pairs(group) do
+    assert(not structuredNames[name], "duplicate structured stream " .. name)
+    structuredNames[name] = true
+  end
 end
+for _, name in ipairs(Constants.STREAM_NAMES) do
+  assert(name:match("^[a-z][a-z0-9._%-]*$") ~= nil,
+    "invalid active stream name " .. name)
+  assert(structuredNames[name], "dense stream missing from structure " .. name)
+  structuredNames[name] = nil
+end
+assert(next(structuredNames) == nil,
+  "structured stream missing from dense stream list")
+
+for _, seed in ipairs({ "MY SEED", "STREAM CHECK 2", "STREAM_CHECK-3" }) do
+  local streamHashes = {}
+  local seedRoot = Hash128.seed(seed)
+  for _, name in ipairs(Constants.STREAM_NAMES) do
+    local streamHash = Hash128.derive(seedRoot, name).hex
+    assert(not streamHashes[streamHash],
+      ("stream collision for %s between %s and %s"):format(
+        seed, name, tostring(streamHashes[streamHash])))
+    streamHashes[streamHash] = name
+  end
+end
+
+local function rejectsStreamDefinitions(definitions, fragment)
+  local ok, message = pcall(Constants.buildStreamRegistry, definitions)
+  assert(not ok, "invalid stream definitions were accepted")
+  assert(tostring(message):find(fragment, 1, true),
+    "unexpected stream validation error: " .. tostring(message))
+end
+
+rejectsStreamDefinitions({
+  { "test", "one", "valid.one" },
+  { "test", "two", "valid.one" },
+}, "duplicate stream name")
+rejectsStreamDefinitions({
+  { "test", "one", "Invalid stream" },
+}, "invalid name")
+rejectsStreamDefinitions({
+  { "test", "one", "valid.one" },
+  { "test", "one", "valid.two" },
+}, "duplicate stream key")
+
+local function readFile(path)
+  local file = assert(io.open(path, "rb"))
+  local contents = file:read("*a")
+  file:close()
+  return contents
+end
+
+local function documentedStreams(path)
+  local contents = readFile(path)
+  local block = contents:match(
+    "<!%-%- stream%-registry:start %-%->(.-)"
+      .. "<!%-%- stream%-registry:end %-%->")
+  assert(block, path .. " is missing stream registry markers")
+  local names = {}
+  for line in block:gmatch("[^\r\n]+") do
+    local name = line:match("^([a-z][a-z0-9._%-]*)$")
+    if name then names[#names + 1] = name end
+  end
+  return names
+end
+
+for _, path in ipairs({
+  "docs/determinism-v1.md", "docs/randomizer-spec.md",
+}) do
+  equalArray(documentedStreams(path), Constants.STREAM_NAMES,
+    path .. " stream registry")
+end
+
+local generatorSource = readFile("src/generator.lua")
+assert(not generatorSource:match('request%.seed%.canonical,%s*"[a-z]'),
+  "generator must use structured stream constants")
 
 -- xoshiro128** output and unbiased ranges.
 local rng = Rng.fromSeed("MY SEED", "wild.global")

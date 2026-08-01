@@ -740,6 +740,12 @@ return function(
     end)
     mod.events:on("save.loaded", function(event)
       lifecycle:onLoaded(event)
+      if activeGame then
+        -- save.loaded is authoritative after validation and migration. Reapply
+        -- from the pristine baseline so repeated loads and quarantined saves
+        -- cannot retain mechanics from the previously active run.
+        MechanicsRuntime.apply(activeGame, lifecycle:activeRun())
+      end
     end)
     mod.events:on("save.writing", function(event)
       lifecycle:onWriting(event)

@@ -154,7 +154,9 @@ return function(StableSort, EvolutionCategory)
     local mode = settings.base_stats
     if mode == nil or mode == "vanilla" then return {} end
     local result, familyState = {}, {}
-    for _, entry in ipairs(familyOrder(species, parents)) do
+    local ordered = settings.stat_family_consistency == "on"
+      and familyOrder(species, parents) or species
+    for _, entry in ipairs(ordered) do
       local family = settings.stat_family_consistency == "on"
         and familyRoot(entry.id, parents) or entry.id
       result[entry.id] = statsFor(entry, mode, rng, family, familyState)
@@ -186,7 +188,9 @@ return function(StableSort, EvolutionCategory)
       end
       return result
     end
-    for _, entry in ipairs(familyOrder(species, parents)) do
+    local ordered = settings.type_family_consistency == "on"
+      and familyOrder(species, parents) or species
+    for _, entry in ipairs(ordered) do
       local inherited = settings.type_family_consistency == "on"
         and parents[entry.id] and result[parents[entry.id]] or nil
       if inherited then
