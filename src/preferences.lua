@@ -3,6 +3,14 @@ return function(Constants, Schema, General, Seed)
   local Preferences = {}
   Preferences.__index = Preferences
 
+  local SAVED_PRESETS_KEY = "saved_presets"
+  local SAVED_PRESET_PREFIX = "saved:"
+  local MAX_SAVED_PRESETS = 8
+  local MAX_PRESET_NAME = 16
+  local RESERVED_NAMES = {
+    CUSTOM = true, CASUAL = true, STANDARD = true, CHAOS = true,
+  }
+
   local function copy(value)
     if type(value) ~= "table" then return value end
     local result = {}
@@ -27,6 +35,31 @@ return function(Constants, Schema, General, Seed)
       return type(value) == "string" and #value <= (row.maxLen or 32)
     end
     return false
+  end
+
+  local function normalizePresetName(value)
+    if type(value) ~= "string" then return nil, "invalid preset name" end
+    value = value:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+    value = value:upper()
+    if value == "" then return nil, "preset name is blank" end
+    if #value > MAX_PRESET_NAME then return nil, "preset name is too long" end
+    if value:find("[^A-Z0-9 _%-]") then
+      return nil, "preset name has invalid characters"
+    end
+    if RESERVED_NAMES[value] then return nil, "preset name is reserved" end
+    return value
+  end
+
+  local function savedToken(name)
+    return SAVED_PRESET_PREFIX .. name
+  end
+
+  local function savedName(value)
+    if type(value) ~= "string"
+        or value:sub(1, #SAVED_PRESET_PREFIX) ~= SAVED_PRESET_PREFIX then
+      return nil
+    end
+    return value:sub(#SAVED_PRESET_PREFIX + 1)
   end
 
   local function build()
@@ -84,6 +117,18 @@ return function(Constants, Schema, General, Seed)
       rows = {
         {
           kind = "action",
+          key = "save_preset",
+          label = "SAVE PRESET",
+          help = "NAME AND SAVE CURRENT OPTIONS.",
+        },
+        {
+          kind = "action",
+          key = "delete_preset",
+          label = "DELETE PRESET",
+          help = "DELETE A SAVED PRESET.",
+        },
+        {
+          kind = "action",
           key = "reset_defaults",
           label = "RESET DEFAULTS",
           help = "RESTORE STANDARD; CLEAR SEED TEXT.",
@@ -111,22 +156,87 @@ return function(Constants, Schema, General, Seed)
     return copy(self.rows)
   end
 
-  function Preferences:pages()
-    return copy(self.pageRows)
+  local function optionBucket(self, game)
+    local bucket = game and game.save and game.save.options
+      and game.save.options.modOptions
+      and game.save.options.modOptions[Constants.MOD_ID]
+    if bucket then return bucket end
+    local loader = game and game.mods and game.mods.modOptions
+      and game.mods.modOptions[Constants.MOD_ID]
+    if loader then return loader end
+    if self.mod and self.mod.options and self.mod.options.get then
+      local ok, result = pcall(
+        self.mod.options.get, self.mod.options, SAVED_PRESETS_KEY)
+      if ok and type(result) == "table" then
+        return { [SAVED_PRESETS_KEY] = result }
+      end
+    end
+    return nil
+  end
+
+  function Preferences:savedPresets(game)
+    local bucket = optionBucket(self, game)
+    local source = bucket and bucket[SAVED_PRESETS_KEY]
+    local result, seen = {}, {}
+    for _, entry in ipairs(type(source) == "table" and source or {}) do
+      local name = type(entry) == "table" and normalizePresetName(entry.name)
+      if name and not seen[name] and type(entry.settings) == "table" then
+        seen[name] = true
+        result[#result + 1] = {
+          name = name,
+          token = savedToken(name),
+          settings = copy(entry.settings),
+        }
+        if #result >= MAX_SAVED_PRESETS then break end
+      end
+    end
+    return result
+  end
+
+  function Preferences:findSavedPreset(value, game)
+    local name = savedName(value) or normalizePresetName(value)
+    if not name then return nil end
+    for _, entry in ipairs(self:savedPresets(game)) do
+      if entry.name == name then return entry end
+    end
+    return nil
+  end
+
+  function Preferences:presetChoices(game)
+    local choices = {
+      { "CUSTOM", "custom" }, { "CASUAL", "casual" },
+      { "STANDARD", "standard" }, { "CHAOS", "chaos" },
+    }
+    for _, entry in ipairs(self:savedPresets(game)) do
+      choices[#choices + 1] = { entry.name, entry.token }
+    end
+    return choices
+  end
+
+  function Preferences:pages(game)
+    local pages = copy(self.pageRows)
+    for _, page in ipairs(pages) do
+      for _, row in ipairs(page.rows) do
+        if row.key == "preset" then row.choices = self:presetChoices(game) end
+      end
+    end
+    return pages
   end
 
   function Preferences:get(key, game)
     local row = assert(self.byKey[key], "unknown option " .. tostring(key))
     local value
-    local bucket = game and game.save and game.save.options
-      and game.save.options.modOptions
-      and game.save.options.modOptions[Constants.MOD_ID]
+    local bucket = optionBucket(self, game)
     if bucket then value = bucket[key] end
     if value == nil then value = self.mod.options:get(key) end
     if key == "seed_text" and type(value) == "string" and value ~= "" then
       value = Seed.normalize(value)
     end
-    if not validValue(row, value) then value = row.default end
+    if key == "preset" and savedName(value) then
+      if not self:findSavedPreset(value, game) then value = "custom" end
+    elseif not validValue(row, value) then
+      value = row.default
+    end
     return copy(value)
   end
 
@@ -147,6 +257,41 @@ return function(Constants, Schema, General, Seed)
     if not deferWrite and game.writeOptions then game:writeOptions() end
   end
 
+  local function capturedRows(self)
+    local result = {}
+    for _, row in ipairs(self.rows) do
+      if row.key ~= "randomizer" and row.key ~= "preset" then
+        result[#result + 1] = row
+      end
+    end
+    return result
+  end
+
+  local function savedPresetMatches(self, entry, game)
+    for _, row in ipairs(capturedRows(self)) do
+      local expected = entry.settings[row.key]
+      if not validValue(row, expected) then expected = row.default end
+      if self:get(row.key, game) ~= expected then return false end
+    end
+    return true
+  end
+
+  local function detectedPreset(self, game, preferSaved)
+    if preferSaved then
+      for _, entry in ipairs(self:savedPresets(game)) do
+        if savedPresetMatches(self, entry, game) then return entry.token end
+      end
+    end
+    local builtIn = General.detectPreset(self:snapshot(game))
+    if builtIn ~= "custom" then return builtIn end
+    if not preferSaved then
+      for _, entry in ipairs(self:savedPresets(game)) do
+        if savedPresetMatches(self, entry, game) then return entry.token end
+      end
+    end
+    return "custom"
+  end
+
   function Preferences:set(key, value, game)
     local row = self.byKey[key]
     if not row then return nil, "unknown option" end
@@ -161,9 +306,22 @@ return function(Constants, Schema, General, Seed)
         value = canonical
       end
     end
-    if not validValue(row, value) then return nil, "invalid option value" end
     assert(type(game) == "table" and type(game.save) == "table",
       "setting an option requires a live game")
+    local saved = key == "preset" and self:findSavedPreset(value, game)
+    if saved then
+      for _, captured in ipairs(capturedRows(self)) do
+        local nextValue = saved.settings[captured.key]
+        if not validValue(captured, nextValue) then
+          nextValue = captured.default
+        end
+        persist(self, game, captured.key, nextValue, true)
+      end
+      persist(self, game, "preset", saved.token, true)
+      if game.writeOptions then game:writeOptions() end
+      return saved.token, nil
+    end
+    if not validValue(row, value) then return nil, "invalid option value" end
     if key == "preset" and value ~= "custom" then
       local expanded = General.applyPreset(self:snapshot(game), value)
       for _, presetKey in ipairs(General.presetKeys()) do
@@ -175,13 +333,77 @@ return function(Constants, Schema, General, Seed)
       return value, nil
     end
 
+    local previousPreset = self:get("preset", game)
     persist(self, game, key, value, true)
     if General.isPresetKey(key) then
-      local detected = General.detectPreset(self:snapshot(game))
+      local detected = detectedPreset(
+        self, game, savedName(previousPreset) ~= nil)
       persist(self, game, "preset", detected, true)
+    elseif savedName(previousPreset) and key ~= "randomizer"
+        and key ~= "preset" then
+      persist(self, game, "preset", detectedPreset(self, game, true), true)
     end
     if game.writeOptions then game:writeOptions() end
     return value, nil
+  end
+
+  function Preferences:normalizePresetName(value)
+    return normalizePresetName(value)
+  end
+
+  function Preferences:savePreset(value, game, overwrite)
+    assert(type(game) == "table" and type(game.save) == "table",
+      "saving a preset requires a live game")
+    local name, err = normalizePresetName(value)
+    if not name then return nil, err end
+    local entries = self:savedPresets(game)
+    local existing
+    for index, entry in ipairs(entries) do
+      if entry.name == name then existing = index break end
+    end
+    if existing and not overwrite then return nil, "preset exists" end
+    if not existing and #entries >= MAX_SAVED_PRESETS then
+      return nil, "preset limit reached"
+    end
+    local settings = {}
+    for _, row in ipairs(capturedRows(self)) do
+      settings[row.key] = self:get(row.key, game)
+    end
+    local record = { name = name, settings = settings }
+    if existing then
+      entries[existing] = record
+    else
+      entries[#entries + 1] = record
+    end
+    for _, entry in ipairs(entries) do entry.token = nil end
+    persist(self, game, SAVED_PRESETS_KEY, entries, true)
+    persist(self, game, "preset", savedToken(name), true)
+    if game.writeOptions then game:writeOptions() end
+    return savedToken(name), nil
+  end
+
+  function Preferences:deletePreset(value, game)
+    assert(type(game) == "table" and type(game.save) == "table",
+      "deleting a preset requires a live game")
+    local target = self:findSavedPreset(value, game)
+    if not target then return nil, "preset not found" end
+    local wasActive = self:get("preset", game) == target.token
+    local entries = {}
+    for _, entry in ipairs(self:savedPresets(game)) do
+      if entry.token ~= target.token then
+        entries[#entries + 1] = {
+          name = entry.name,
+          settings = copy(entry.settings),
+        }
+      end
+    end
+    persist(self, game, SAVED_PRESETS_KEY, entries, true)
+    if wasActive then
+      persist(self, game, "preset", General.detectPreset(self:snapshot(game)),
+        true)
+    end
+    if game.writeOptions then game:writeOptions() end
+    return target.name, nil
   end
 
   function Preferences:reset(game)
@@ -204,6 +426,10 @@ return function(Constants, Schema, General, Seed)
 
   function Preferences:display(row, game)
     local value = self:get(row.key, game)
+    if row.key == "preset" and savedName(value) then
+      local entry = self:findSavedPreset(value, game)
+      return entry and entry.name or "CUSTOM"
+    end
     if row.type == "choice" then
       for _, choice in ipairs(row.choices) do
         if choice[2] == value then return choice[1] end

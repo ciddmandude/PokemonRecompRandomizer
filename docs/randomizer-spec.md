@@ -105,7 +105,7 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
 | Randomizer | `OFF`, `ON` | `ON` | Master switch for the next New Game. `OFF` creates no randomized mappings and all categories behave as vanilla. It does not disable the mod or erase configuration already stored in a save. |
-| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS` | `STANDARD` | Applies a documented bundle of settings. Selecting `CASUAL`, `STANDARD`, or `CHAOS` also sets Enable Spoiler Log to `ON`. Editing any bundled setting changes the display to `CUSTOM`. `CASUAL` uses similar-strength choices and progression safeguards; `STANDARD` uses independent random choices with safeguards; `CHAOS` enables full-pool, independent choices and disables most safeguards except hard validity rules. |
+| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS`, saved names | `STANDARD` | Applies a documented built-in bundle or a player-saved preset. Built-ins enable spoilers but preserve Seed Mode and Seed Text. Up to eight player presets may be named and displayed in this same list; they restore Seed Mode, Seed Text, spoiler access, and every category/safeguard setting, but never change the Randomizer master switch. Editing a captured value changes an active saved preset to `CUSTOM`. |
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` generates a new 128-bit seed when New Game is confirmed. `MANUAL` uses Seed Text after normalization. Changing this setting never rerolls an existing save. |
 | Seed Text | text, 1–32 characters | blank | Used only in `MANUAL`. Accept uppercase letters, digits, space, hyphen, and underscore. Trim outer spaces, collapse repeated spaces, and uppercase before hashing. Reject an empty canonical seed. The original display text and canonical value are both saved. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | `VANILLA 151` excludes mod-added species. `MERGED DATA` includes every valid merged-registry species that has battle sprites, stats, growth data, and a learnset. Missing or invalid species are excluded with a logged reason. |
@@ -180,7 +180,20 @@ Blue and is not a player-accessible offer.
 
 Purchasing a randomized prize must show the correct species and level before payment, deduct the displayed cost once, and pass the resolved species through the normal gift flow.
 
-### 5.7 Trainer settings
+### 5.7 Field item settings
+
+| Option | Values | Default | Detailed behavior |
+|---|---|---:|---|
+| Field Items | `OFF`, `SHUFFLED` | `SHUFFLED` | `OFF` preserves every placement. `SHUFFLED` collects visible map-object item balls, hidden items, and the starting PC Potion whose merged item definition is not marked `keyItem`, shuffles that closed multiset with the `items.field` stream, and saves a row for every eligible location. The PC stack quantity is preserved and its result is applied once when the New Game save is created. Key items never move. Scripted item gifts, Gym victory rewards, shop inventories, the initial Bag inventory, and Game Corner TM prizes remain vanilla. |
+
+The engine's merged map and field tables are captured after all mods load.
+New Game projects the saved placements into those live tables. Continue and
+save switching first restore that merged baseline, then apply the selected
+save's placements before overworld construction. A normal save operation only
+persists the mapping and never requires an application restart. Existing saves
+migrate with Field Items `OFF` and an empty mapping; they are never rerolled.
+
+### 5.8 Trainer settings
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
@@ -194,7 +207,7 @@ Purchasing a randomized prize must show the correct species and level before pay
 
 Trainer randomization runs before the engine constructs battlers. Vanilla special boss-move overrides must only be applied when legal for the resolved species; otherwise the normal generated moveset remains. Explicit per-slot move lists from other mods remain authoritative unless a compatibility conflict is reported.
 
-### 5.8 Actions
+### 5.9 Actions
 
 | Action | Behavior |
 |---|---|
@@ -203,6 +216,8 @@ Trainer randomization runs before the engine constructs battlers. Vanilla specia
 | Copy Active Seed | Copies the active seed and run code to the system clipboard when clipboard support exists; otherwise displays both for transcription. |
 | View Spoiler Log | Opens an unrestricted Pokémon/map browser. Pokémon mode lists every merged species in Pokédex order, supports partial-name search, and indexes obtainable/encounter locations. Displayed location names longer than 16 characters are abbreviated without changing the indexed map identity. Wild locations display their method and one combined chance/level line for each distinct level directly in the location list and do not drill down. Static locations identify their encounter inline as `STATIC - <Pokémon>` and also do not drill down. Starter and gift locations display their source plus the current Pokémon and level inline and also do not drill down. Trade locations display the complete numbered offer with current `REQUESTED` and `RECEIVED` Pokémon inline and also do not drill down. Prize locations display the Game Corner version and slot, current Pokémon, level, and coin cost inline and also do not drill down. Selecting another location with exactly one result opens that result directly; only locations with multiple results show an intermediate chooser. Map mode uses the Kanto map, groups relevant floors/buildings, and presents only populated category tabs with offers, prizes, and complete trainer parties. Starter and gift tabs show each current Pokémon and level inline and do not open detail screens. Grass, surf, Old Rod, Good Rod, and Super Rod use separate tabs. Encounter tabs show each Pokémon followed by one combined chance line per distinct level and do not open a separate detail screen. Every rod tab includes its per-cast no-bite percentage so its outcomes total 100%. The Trades tab renders all numbered offers inline with `REQUESTED` and `RECEIVED` fields and does not open a detail screen. Browser rows show current results without original species or prices. The saved settings section is omitted. Available only when the active run saved Enable Spoiler Log as `ON`. |
 | Export Spoiler Log | Explicitly writes a complete readable plaintext report, including saved settings, without ROM bytes. Available only when the active run saved Enable Spoiler Log as `ON`. |
+| Save Preset | Opens a 16-character name editor and stores the current next-run options except Randomizer and the Preset label. Names are unique, normalized to uppercase, and restricted to letters, digits, spaces, hyphens, and underscores. Saving an occupied name requires confirmation. |
+| Delete Preset | Opens a list of player-saved presets and confirms deletion. Built-in presets cannot be deleted. Deleting the active preset does not alter its loaded option values. |
 
 ## 6. Determinism and generation algorithm
 
@@ -489,6 +504,8 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 `FR-02` A New Game shall snapshot global randomizer preferences into the new save before gameplay.
 
+`FR-02A` The player shall be able to persist, overwrite, load through the existing Preset row, and delete up to eight named setting presets. Each saved preset shall include both seed options and every editable next-run option except the Randomizer master switch.
+
 `FR-03` The canonical seed, algorithm version, settings, pool hash, and resolved mappings shall be serialized with player progress.
 
 `FR-04` Continue shall use only the run configuration stored in that save.
@@ -624,7 +641,8 @@ and cover:
 
 ## 14. Out of scope for version 1
 
-- moves, abilities, types, stats, learnsets, evolutions, items, TMs, field items, marts, maps, warps, palettes, or music;
+- moves, abilities, types, stats, learnsets, evolutions, scripted item gifts,
+  marts, maps, warps, palettes, or music;
 - changing Pokémon species already owned in an existing save;
 - randomizing during Continue when the save was originally vanilla;
 - network seed synchronization or an online seed server;

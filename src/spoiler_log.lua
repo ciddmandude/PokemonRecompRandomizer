@@ -35,6 +35,10 @@ return function()
       { "game_corner_pokemon", "prize_levels", "prize_prices" },
     },
     {
+      "ITEMS",
+      { "field_items" },
+    },
+    {
       "TRAINERS",
       {
         "trainer_pokemon", "trainer_levels", "boss_trainers",
@@ -49,6 +53,7 @@ return function()
     duplicate_policy = "Duplicate Policy",
     game_corner_pokemon = "Prize Pokemon",
     gift_pokemon = "Gift Pokemon",
+    field_items = "Field Items",
     in_game_trades = "In-game Trades",
     legendaries = "Legendaries",
     party_size = "Party Size",
@@ -487,6 +492,23 @@ return function()
     end
   end
 
+  local function formatFieldItems(lines, placements)
+    section(lines, "FIELD ITEMS")
+    if #placements == 0 then
+      add(lines, "  Field items are vanilla.")
+      return
+    end
+    for _, row in ipairs(placements) do
+      local position = row.kind == "hidden"
+        and ("hidden at " .. tostring(row.x) .. "," .. tostring(row.y))
+        or row.kind == "pc" and "starting PC storage"
+        or ("object " .. tostring(row.objectIndex or "?"))
+      add(lines, ("  [%s; %s] %s -> %s"):format(
+        locationText(row.mapId), position,
+        readableId(row.original), readableId(row.item)))
+    end
+  end
+
   local function formatDiagnostics(lines, diagnostics)
     section(lines, "DIAGNOSTICS")
     diagnostics = diagnostics or {}
@@ -575,6 +597,7 @@ return function()
     formatTrades(lines, mappings.trades or {})
     formatPrizes(lines, mappings.prizes or {})
     formatTrainers(lines, mappings.trainerParties or {})
+    formatFieldItems(lines, mappings.fieldItems or {})
     formatDiagnostics(lines, run.diagnostics or {})
     add(lines, "")
     add(lines, "END OF SPOILER LOG")

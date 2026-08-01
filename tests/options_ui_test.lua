@@ -32,8 +32,8 @@ local mod = {
 }
 local preferences = Preferences.new(mod)
 preferences:define()
-equal(#defined, 35, "complete preference row count")
-equal(#preferences:pages(), 13, "paged schema count")
+equal(#defined, 36, "complete preference row count")
+equal(#preferences:pages(), 14, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
   for _, row in ipairs(page.rows) do
@@ -102,6 +102,59 @@ equal(reset.randomizer, "on", "reset randomizer")
 equal(reset.seed_text, "", "reset clears manual seed")
 equal(reset.preset, "standard", "reset restores standard")
 
+preferences:set("randomizer", "off", game)
+preferences:set("seed_mode", "manual", game)
+preferences:set("seed_text", "SAVED SEED", game)
+preferences:set("generate_spoiler_log", "off", game)
+preferences:set("wild_pokemon", "area_slots", game)
+local savedPreset = assert(preferences:savePreset("my run", game, false))
+equal(savedPreset, "saved:MY RUN", "saved preset token")
+equal(preferences:get("preset", game), savedPreset,
+  "saving marks current named preset")
+equal(preferences:display({ key = "preset", type = "choice" }, game),
+  "MY RUN", "saved preset display name")
+equal(#preferences:savedPresets(game), 1, "saved preset persisted")
+local duplicate, duplicateError = preferences:savePreset("MY RUN", game, false)
+assert(not duplicate and duplicateError == "preset exists",
+  "duplicate preset requires overwrite")
+
+preferences:set("randomizer", "on", game)
+equal(preferences:get("preset", game), savedPreset,
+  "master switch is excluded from saved preset identity")
+preferences:set("seed_text", "OTHER SEED", game)
+equal(preferences:get("preset", game), "custom",
+  "saved seed edit changes marker to custom")
+preferences:set("preset", savedPreset, game)
+equal(preferences:get("seed_mode", game), "manual",
+  "loading saved preset restores seed mode")
+equal(preferences:get("seed_text", game), "SAVED SEED",
+  "loading saved preset restores seed text")
+equal(preferences:get("generate_spoiler_log", game), "off",
+  "loading saved preset restores spoiler option")
+equal(preferences:get("wild_pokemon", game), "area_slots",
+  "loading saved preset restores category option")
+equal(preferences:get("randomizer", game), "on",
+  "loading saved preset does not restore master switch")
+local presetPages = preferences:pages(game)
+local foundSavedChoice = false
+for _, page in ipairs(presetPages) do
+  for _, row in ipairs(page.rows) do
+    if row.key == "preset" then
+      for _, choice in ipairs(row.choices) do
+        if choice[1] == "MY RUN" and choice[2] == savedPreset then
+          foundSavedChoice = true
+        end
+      end
+    end
+  end
+end
+assert(foundSavedChoice, "saved preset appears in existing preset list")
+assert(preferences:deletePreset(savedPreset, game) == "MY RUN")
+equal(#preferences:savedPresets(game), 0, "saved preset deleted")
+equal(preferences:get("preset", game), "custom",
+  "deleting active preset redetects current settings")
+preferences:reset(game)
+
 local beforePreset = writes
 preferences:set("preset", "chaos", game)
 equal(writes, beforePreset + 1, "preset applies in one write")
@@ -140,6 +193,7 @@ game.stack = {
 local choiceCallback
 local namingOptions
 local quantityOptions
+local listMenu
 local ui = {
   ChoiceBox = {
     new = function(_, callback)
@@ -157,6 +211,15 @@ local ui = {
     new = function(_, options)
       quantityOptions = options
       return { kind = "quantity" }
+    end,
+  },
+  ListMenu = {
+    new = function(_, title, items, options)
+      listMenu = {
+        kind = "list", title = title, items = items,
+        onChoose = options.onChoose,
+      }
+      return listMenu
     end,
   },
 }
@@ -204,6 +267,24 @@ equal(preferences:get("seed_text", game), "",
 game.save.options.modOptions.pokemon_randomizer.seed_text = "OLD?"
 equal(preferences:get("seed_text", game), "",
   "invalid legacy seed reads as blank")
+
+screen:savePreset()
+assert(namingOptions and namingOptions.maxLen == 16,
+  "saved preset name editor uses readable limit")
+namingOptions.onDone("forest run")
+equal(preferences:get("preset", game), "saved:FOREST RUN",
+  "save action activates named preset")
+screen:deletePreset()
+assert(listMenu and listMenu.title == "DELETE PRESET"
+    and #listMenu.items == 1,
+  "delete action opens saved preset selector")
+listMenu.onChoose(listMenu.items[1])
+assert(screen.presetPrompt, "delete action requests confirmation")
+choiceCallback(true)
+equal(#preferences:savedPresets(game), 0,
+  "confirmed delete action removes preset")
+equal(screen.notice, "PRESET DELETED", "delete confirmation notice")
+game.stack.pops = 0
 
 screen.page, screen.row = 5, 3
 screen:edit(screen:currentRow())

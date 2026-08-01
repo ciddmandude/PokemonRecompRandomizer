@@ -16,17 +16,23 @@ fallback.
 
 ## Preset scope
 
-Presets control 28 category and safeguard fields. They do not change:
+The built-in Casual, Standard, and Chaos presets control their category and
+safeguard fields, enable spoiler access, and leave Randomizer, Seed Mode, and
+Seed Text unchanged. Selecting one applies its complete bundle in one options
+write. Editing a bundled field recalculates the preset marker.
 
-- Randomizer;
-- Seed Mode;
-- Seed Text;
-- Enable Spoiler Log.
+Players may also save up to eight named presets. Names are unique after
+trimming, whitespace collapsing, and uppercasing; they contain 1-16 letters,
+digits, spaces, hyphens, or underscores and cannot reuse a built-in name. A
+saved preset captures every next-run option except Randomizer and the Preset
+label itself. Seed Mode and Seed Text are therefore restored when that name is
+selected from the existing Preset row.
 
-Selecting a named preset applies its complete bundle in one options write.
-Editing a bundled field recalculates the preset marker. A configuration that
-matches Casual, Standard, or Chaos receives that name; every other combination
-is `CUSTOM`.
+Saving the current settings makes the saved name active. Editing any captured
+value changes an active saved preset to `CUSTOM`; changing Randomizer does not.
+Saving an existing name and deleting any saved name require confirmation.
+Deleting the active name leaves its current settings in place and redetects a
+built-in match or `CUSTOM`.
 
 `STANDARD` exactly matches all published defaults, so Reset Defaults restores
 Standard and clears Seed Text.
@@ -58,6 +64,7 @@ Standard and clears Seed Text.
 | Game Corner Pokémon | Randomized | Randomized | Randomized |
 | Prize Levels | Unchanged | Unchanged | Scaled |
 | Prize Prices | Unchanged | Unchanged | Random +/-25% |
+| Field Items | Shuffled | Shuffled | Shuffled |
 | Trainer Pokémon | Global Map | By Slot | By Slot |
 | Trainer Levels | Unchanged | Unchanged | +/-10% |
 | Boss Trainers | Vanilla | Themed | Include |
@@ -115,7 +122,7 @@ Later category generators consume these normalized rules.
 
 ## Settings identity
 
-The saved namespace retains the complete 33-field snapshot. The settings hash,
+The saved namespace retains the complete 36-field snapshot. The settings hash,
 however, includes only behavior-affecting fields. It excludes:
 
 - Preset, because it is a label for the expanded bundle;
@@ -147,10 +154,13 @@ visible separately.
 
 The Actions page now provides:
 
-- `REVIEW NEXT RUN`, a scrollable list of all 33 editable values, manual-seed
+- `REVIEW NEXT RUN`, a scrollable list of all 36 editable values, manual-seed
   warnings, eligible pool count, exclusion count, and manifest warnings;
 - `COPY ACTIVE SEED`, which displays the full active seed, run code, algorithm
   version, locked status, and category summary.
+- `SAVE PRESET`, which names and stores every current next-run value except the
+  Randomizer master switch;
+- `DELETE PRESET`, which selects and confirms removal of a saved name.
 
 When `love.system.setClipboardText` is available, Copy Active Seed copies the
 full seed and run code. Whether copying succeeds or not, the transcription

@@ -55,7 +55,7 @@ never the validated active-run copy.
 
 ## Persistence
 
-The mod registers 34 option rows with `mod.options:define`. Values are stored
+The mod registers 36 option rows with `mod.options:define`. Values are stored
 under:
 
 ```lua
@@ -75,6 +75,11 @@ Reads validate stored values against the registered row:
 Invalid stored values fall back to that row's default without being executed
 or copied into a new save.
 
+Player preset records are stored in the same namespace under `saved_presets`.
+They are defensive table data rather than registered option rows. Invalid
+names, malformed records, duplicates, and entries beyond the eight-preset
+limit are ignored when the dynamic Preset choices are built.
+
 ## Pages
 
 Rows are grouped and split into pages of at most four entries:
@@ -89,8 +94,8 @@ Rows are grouped and split into pages of at most four entries:
 - Actions.
 
 Large groups occupy consecutive pages with the same group name. The Actions
-page currently contains `RESET DEFAULTS`. Run review and spoiler actions remain
-assigned to their later milestones.
+pages contain review, seed, spoiler, save-preset, delete-preset, and reset
+actions.
 
 ## Milestone boundary
 

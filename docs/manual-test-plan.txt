@@ -1,8 +1,8 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.38.0
-Algorithm build ...... 1.8.0-dev
+Mod version .......... 0.40.3
+Algorithm build ...... 1.9.0-dev
 Engine compatibility . API 2  (0.1.45 required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.38.0.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.40.3.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -532,6 +532,25 @@ OPT-12 [P1] Absolute BST +/-50 and +/-100
           valid; 101 is invalid unless a relaxation is recorded.
   EXPECT: identical seeds and settings reproduce identical results.
 
+OPT-13 [P1] Named setting presets include seed options
+  1. Set RANDOMIZER = OFF, SEED MODE = MANUAL, SEED TEXT = PRESET SEED,
+     ENABLE SPOILERS = OFF, and change options on at least three other pages.
+  2. Choose SAVE PRESET, enter FOREST RUN, and confirm.
+  3. Confirm PRESET now reads FOREST RUN. Restart the application and confirm
+     FOREST RUN remains in the existing PRESET list.
+  4. Set RANDOMIZER = ON and change Seed Text plus the other recorded options.
+  5. Select FOREST RUN from PRESET.
+  EXPECT: Seed Mode, Seed Text, spoiler access, and every recorded category
+          value are restored. RANDOMIZER remains ON because it is excluded.
+  6. Save FOREST RUN again. Choose NO at the overwrite prompt, repeat, then
+     choose YES.
+  EXPECT: NO preserves the old record; YES replaces it.
+  7. Choose DELETE PRESET, select FOREST RUN, choose NO, then repeat with YES.
+  EXPECT: deletion defaults to NO. NO preserves the name; YES removes it from
+          the PRESET list without changing the currently loaded values.
+  8. Save eight unique names, then attempt a ninth.
+  EXPECT: the first eight remain usable and the ninth reports PRESET LIMIT: 8.
+
 
 --------------------------------------------------------------------------------
 6. NEW GAME, SEEDS, AND RUN IDENTITY
@@ -544,7 +563,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.8.0-dev.
+  EXPECT: ALGORITHM reads 1.9.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -1301,7 +1320,54 @@ PRZ-11 [P2] Ordinary Poke Marts untouched
 
 
 --------------------------------------------------------------------------------
-14. TRAINERS
+14. FIELD ITEMS
+--------------------------------------------------------------------------------
+
+ITM-01 [P0] Key items never move
+  1. Start CFG-A with FIELD ITEMS = SHUFFLED.
+  2. Confirm story key-item locations, including CARD KEY and LIFT KEY.
+  EXPECT: every item whose merged definition is marked keyItem remains at its
+          vanilla location. It does not appear in any shuffled field location.
+
+ITM-02 [P0] Visible and hidden placements match the save
+  1. Export the spoiler and open the in-game map browser ITEMS tab.
+  2. Collect ten visible item balls and ten hidden items from listed maps.
+  EXPECT: every pickup equals the current item shown for that location.
+  EXPECT: item balls say ITEM BALL and hidden entries say HIDDEN in-game.
+
+ITM-03 [P0] Continue needs no reboot
+  1. Record three uncollected item locations, save, and return to the title.
+  2. Continue without closing the application and collect them.
+  EXPECT: all three match the saved mapping; nothing rerolls.
+
+ITM-04 [P0] Save switching restores the baseline
+  1. Load two saves made with different seeds without restarting the app.
+  2. Check the same uncollected location in each save.
+  EXPECT: each save uses its own spoiler result. No placement leaks from the
+          previously loaded save.
+
+ITM-05 [P1] OFF and old-save migration
+  1. Start a New Game with FIELD ITEMS = OFF and verify several pickups.
+  2. Load a valid 0.39.0 save after installing 0.40.3.
+  EXPECT: the new OFF run is vanilla. The old save loads without quarantine,
+          reports FIELD ITEMS = OFF, and retains vanilla item placements.
+
+ITM-06 [P1] Closed multiset and exclusions
+  1. Compare every FIELD ITEMS spoiler row with the imported vanilla data.
+  EXPECT: the multiset of eligible non-key source items exactly equals the
+          multiset of destinations. Scripted gifts, Gym rewards, marts,
+          initial Bag inventory and Game Corner TM prizes remain vanilla.
+
+ITM-07 [P0] Starting PC Potion participates
+  1. Start a New Game with FIELD ITEMS = SHUFFLED.
+  2. Check the ITEMS tab for Red's House 2F, then open the bedroom PC.
+  EXPECT: the PC contains one of the shuffled non-key items shown as
+          PC STORAGE; its quantity remains one and it is not necessarily a
+          Potion. With FIELD ITEMS = OFF, the PC contains the vanilla Potion.
+
+
+--------------------------------------------------------------------------------
+15. TRAINERS
 --------------------------------------------------------------------------------
 
 TRN-01 [P0] BY SLOT independence
@@ -1444,7 +1510,7 @@ TRN-20 [P2] Battle performance
 
 
 --------------------------------------------------------------------------------
-15. SPOILER LOG, BROWSER, AND EXPORT
+16. SPOILER LOG, BROWSER, AND EXPORT
 --------------------------------------------------------------------------------
 
 SPL-01 [P0] Export writes a readable log
@@ -1508,7 +1574,7 @@ SPL-08 [P2] COPY ACTIVE SEED
 
 
 --------------------------------------------------------------------------------
-16. POKEMON YELLOW VERSION
+17. POKEMON YELLOW VERSION
 --------------------------------------------------------------------------------
 
 YEL-01 [P0] Vanilla Yellow starters when disabled
@@ -1576,7 +1642,7 @@ YEL-09 [P0] Version isolation
 
 
 --------------------------------------------------------------------------------
-17. CROSS-CUTTING AND RELEASE CHECKS
+18. CROSS-CUTTING AND RELEASE CHECKS
 --------------------------------------------------------------------------------
 
 REL-01 [P0] Archive installs on a clean machine
@@ -1601,7 +1667,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.38.0.
+          compatibility block, and the archive file name all read 0.40.3.
 
 REL-05 [P1] Unsupported mod API
   1. Install on an engine without mod API 2 if one is available.
@@ -1633,7 +1699,7 @@ REL-09 [P3] Generation performance
 
 
 --------------------------------------------------------------------------------
-18. RESULT RECORDING
+19. RESULT RECORDING
 --------------------------------------------------------------------------------
 
 Record one row per test ID:
@@ -1654,7 +1720,7 @@ Attach both every time.
 
 
 --------------------------------------------------------------------------------
-19. MINIMUM RELEASE GATE
+20. MINIMUM RELEASE GATE
 --------------------------------------------------------------------------------
 
 Do not ship unless all of the following pass:
@@ -1667,6 +1733,7 @@ Do not ship unless all of the following pass:
   [ ] GFT-02(d), GFT-04, GFT-06(8), PRZ-04 pass   (award-before-payment)
   [ ] SEED-01, SEED-02, SAVE-01, SAVE-02 pass     (determinism and locking)
   [ ] SAVE-05 and SAVE-06 pass                    (quarantine and fallback)
+  [ ] ITM-01, ITM-02, ITM-03, and ITM-04 pass     (field-item safety/lifecycle)
   [ ] CFG-D and CFG-E produce verifiably vanilla gameplay
   [ ] A full CFG-A playthrough reaches the Hall of Fame without a soft-lock
   [ ] YEL-01, YEL-02, YEL-03, YEL-04, and YEL-09 pass on Recomp 0.1.45+

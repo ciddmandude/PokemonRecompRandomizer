@@ -39,6 +39,7 @@ local TradePrizeCategory = loadFactory(
   StableSort, SpeciesFilters, TradePrizeCatalog, Matching, Progression)
 local TrainerCategory = loadFactory(
   "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
+local ItemCategory = loadFactory("src/item_category.lua", StableSort)
 local ValidationCategory = loadFactory(
   "src/validation_category.lua",
   StableSort, Canonical, Progression, TradePrizeCatalog)
@@ -53,7 +54,8 @@ local Generator = loadFactory(
   }, {
     Filters = SpeciesFilters,
   }, WildCategory, StarterCategory, StaticGiftCategory,
-  TradePrizeCategory, TrainerCategory, Progression, ValidationCategory)
+  TradePrizeCategory, TrainerCategory, ItemCategory,
+  Progression, ValidationCategory)
 
 local Harness = {
   Constants = Constants,

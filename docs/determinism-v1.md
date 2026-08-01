@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.8.0-dev`
+Algorithm build: `1.9.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -75,7 +75,8 @@ Absolute five-stat-total ranges `BST ±50` and `BST ±100` advance the algorithm
 build to `1.7.0-dev`. Unlike the existing percentage modes, these compare raw
 BST-point differences. Existing saved mappings remain authoritative.
 
-Yellow version support advances the algorithm build to `1.8.0-dev`. Yellow
+Yellow version support advanced the algorithm build to `1.8.0-dev`. Non-key
+field-item shuffling advances it to `1.9.0-dev`. Yellow
 uses a one-player/one-rival starter mapping, three additional gift locations,
 its ROM-specific nine-trade table, and stable Yellow Game Corner IDs. Red and
 Blue golden mappings remain byte-for-byte unchanged. Existing saved runs keep

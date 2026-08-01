@@ -18,7 +18,7 @@ vanilla run without deleting saved preferences.
 | Setting | Values | Default | Effect |
 |---|---|---|---|
 | Randomizer | `OFF`, `ON` | `ON` | Master switch for the next New Game. |
-| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS` | `STANDARD` | Applies a settings bundle. Selecting any named preset enables spoiler access. Editing a bundled value changes this to `CUSTOM`. |
+| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS`, saved names | `STANDARD` | Applies a built-in bundle or a player-saved preset. Saved presets include Seed Mode, Seed Text, spoiler access, and every category option, but never change the master Randomizer switch. Editing a value captured by an active saved preset changes this to `CUSTOM`. |
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` creates a new 128-bit seed; `MANUAL` uses Seed Text. |
 | Seed Text | 1–32 characters | blank | Manual seed using letters, digits, spaces, hyphens, or underscores. It is trimmed, uppercased, and saved in canonical form. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | Uses only the original 151, or all valid species contributed through the merged registry. |
@@ -85,6 +85,12 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 | Prize Levels | `UNCHANGED`, `FIXED 15`, `SCALED` | `UNCHANGED` | Preserves the slot level, fixes it at 15, or compensates for source/destination strength. |
 | Prize Prices | `UNCHANGED`, `BY STRENGTH`, `RANDOM ±25%` | `UNCHANGED` | Preserves coin cost, scales it by base-stat total, or applies a saved ±25% modifier. |
 
+### Field items
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Field Items | `OFF`, `SHUFFLED` | `SHUFFLED` | Shuffles visible item balls, hidden items, and the starting PC Potion among their existing locations. Items marked as key items by the merged item registry never enter the pool. The complete placement mapping is saved and restored before the map loads. Scripted gifts, Gym rewards, shops, and Game Corner TM prizes are unchanged. |
+
 ### Trainers
 
 | Setting | Values | Default | Effect |
@@ -106,6 +112,8 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 | Copy Active Seed | Copies the active seed and run code, or displays them when clipboard access is unavailable. |
 | View Spoiler Log | Opens an unrestricted Pokémon/map browser. Pokémon mode lists every merged-registry species in Pokédex order, supports partial-name search, and shows obtainable/encounter locations. Displayed location names longer than 16 characters are abbreviated without changing their internal map identity. Wild locations display their method and one combined `PCT`/level line for every distinct level directly in the location list and do not drill down. Static locations identify the encounter inline as `STATIC - <Pokémon>` and also do not drill down. Starter and gift locations display their source plus the current Pokémon and level inline, also without drill-down. Trade locations replace the generic category with the complete numbered offer and current `REQUESTED`/`RECEIVED` Pokémon, also without drill-down. Prize locations replace the generic category with the Game Corner version and slot, current Pokémon, level, and coin cost, also without drill-down. Other locations with one result open it directly; locations with multiple results retain a chooser. Map mode uses the Kanto map, groups relevant buildings and floors, and offers populated categories from `GRASS`, `SURF`, `OLD ROD`, `GOOD ROD`, `SUPER ROD`, `TRAINERS`, `STARTERS`, `STATICS`, `GIFTS`, `TRADES`, and `PRIZES`; empty tabs are omitted per map. Starter and gift tabs show each current Pokémon and level inline and do not open detail screens. Encounter tabs show each Pokémon followed by one combined `PCT` line for every distinct level and do not open a separate detail screen. Each rod has its own tab and per-cast `NO BITE` percentage. The Trades tab displays every numbered offer inline with its requested and received Pokémon and has no detail screen. Trainer rows still open complete parties with levels. Browser entries show only the Pokémon, levels, prices, and offers currently present; original Pokémon and prices are omitted. Bottom control legends are hidden except for `SEARCH:SELECT` on the Pokémon list. Settings are omitted. Available only when that run saved Spoiler Log as `ON`. |
 | Export Spoiler Log | Manually writes the same active-run spoiler information without ROM bytes. Available only when that run saved Spoiler Log as `ON`; starting a game never creates the file. Saved at `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. |
+| Save Preset | Names and saves the current next-run options. Up to eight presets with unique 1–16 character names may be stored. Saving an existing name asks before overwriting it. |
+| Delete Preset | Selects a saved preset and asks for confirmation before deleting it. Built-in presets cannot be deleted. |
 
 For exact formulas, fallback order, supported encounter IDs, presets, and
 validation rules, see the linked design documents above or the
@@ -115,9 +123,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-- randomizer mod version: `0.38.0`
+- randomizer mod version: `0.40.3`
 - generator contract: `1`
-- algorithm build: `1.8.0-dev`
+- algorithm build: `1.9.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)
@@ -175,6 +183,12 @@ belong in the project’s release-artifact storage.
 - Seed, hash, PRNG, sorting, and shuffle behavior is independent of platform
   bit libraries and table iteration order.
 - Every randomizer category can receive a separately derived named stream.
+- Non-key visible and hidden field items plus the starting PC Potion are
+  shuffled as a closed multiset;
+  key items, scripted gifts, Gym rewards, and marts remain unchanged.
+- Loading or switching saves restores the merged baseline before applying that
+  save's item placements, so saving and continuing require no application
+  restart.
 - Twenty-four real combined-generator vectors lock every mapping bucket,
   diagnostics, and complete input identity across Casual, Standard, Chaos,
   and targeted custom runs.

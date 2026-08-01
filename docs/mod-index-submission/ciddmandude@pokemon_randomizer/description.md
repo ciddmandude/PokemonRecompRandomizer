@@ -24,12 +24,16 @@ existing save.
 - Both sides of supported in-game trades.
 - Pokemon prizes, levels, and optional prices at the Celadon Game Corner Prize
   Exchange. TM prizes are not changed.
+- Non-key visible item balls and hidden items. Key items, scripted gifts, Gym
+  rewards, and shop inventories remain unchanged.
 
 ## Settings and safeguards
 
 The Randomizer menu is available from the game's Options menu. Casual,
 Standard, and Chaos presets provide quick starting points, while Custom mode
-allows each category to be configured individually.
+allows each category to be configured individually. Players can save up to
+eight named presets directly in the game; saved presets include both seed
+options and every next-run setting except the Randomizer master switch.
 
 Options include the species pool, legendary handling, duplicate policy,
 similar-strength or same-evolution-stage matching, level adjustment, boss and

@@ -168,6 +168,14 @@ local groups = {
     },
   },
   {
+    name = "ITEMS",
+    rows = {
+      choice("field_items", "FIELD ITEMS", "shuffled", {
+        { "OFF", "off" }, { "SHUFFLED", "shuffled" },
+      }, "SHUFFLE NON-KEY FIELD ITEMS."),
+    },
+  },
+  {
     name = "TRAINERS",
     rows = {
       choice("trainer_pokemon", "TRAINER POKEMON", "by_slot", {

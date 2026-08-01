@@ -14,12 +14,14 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
   local TABS = {
     "grass", "surf", "old_rod", "good_rod", "super_rod", "trainers",
     "starters", "statics", "gifts", "trades", "prizes",
+    "items",
   }
   local TAB_LABELS = {
     grass = "GRASS", surf = "SURF", old_rod = "OLD ROD",
     good_rod = "GOOD ROD", super_rod = "SUPER ROD",
     trainers = "TRAINERS", starters = "STARTERS", statics = "STATICS",
     gifts = "GIFTS", trades = "TRADES", prizes = "PRIZES",
+    items = "ITEMS",
   }
   local STARTERS = {
     { id = "LEFT", source = "CHARMANDER" },
@@ -434,6 +436,24 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
     end
   end
 
+  local function addFieldItems(index)
+    local placements = type(index.run.mappings) == "table"
+      and index.run.mappings.fieldItems or {}
+    local itemRecords = index.sources.items or {}
+    for _, placement in ipairs(type(placements) == "table"
+        and placements or {}) do
+      local definition = itemRecords[placement.item]
+      local label = type(definition) == "table"
+        and (definition.name or definition.label) or words(placement.item)
+      addMapRow(index, placement.mapId, "items", {
+        kind = "item", label = label,
+        item = placement.item, hidden = placement.kind == "hidden",
+        storage = placement.kind == "pc",
+        x = placement.x, y = placement.y,
+      })
+    end
+  end
+
   local function trainerParty(index, classId, partyIndex)
     local sourceClass = index.sources.trainers[classId]
     local sourceParty = type(sourceClass) == "table"
@@ -636,6 +656,7 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
     addStarters(index)
     addStaticGifts(index)
     addTradesPrizes(index)
+    addFieldItems(index)
     addTrainers(index)
     finalizeSpecies(index)
     buildAreas(index)
@@ -659,6 +680,7 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
         identityPart(sources.trainers),
         identityPart(sources.maps),
         identityPart(sources.field),
+        identityPart(sources.items),
       }, "|")
     return table.concat({
       "spoiler-index-v1",

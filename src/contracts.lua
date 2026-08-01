@@ -25,6 +25,7 @@ return function(Constants)
     "trades",
     "prizes",
     "trainerParties",
+    "fieldItems",
   }
 
   local function addError(errors, path, code, message)

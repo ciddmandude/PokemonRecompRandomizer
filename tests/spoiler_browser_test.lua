@@ -110,10 +110,19 @@ local run = {
         },
       },
     },
+    fieldItems = {
+      {
+        kind = "visible", mapId = "ROUTE_1", objectIndex = 2,
+        original = "POTION", item = "ANTIDOTE",
+      },
+    },
   },
 }
 
 local sources = {
+  items = {
+    ANTIDOTE = { id = "ANTIDOTE", name = "Antidote" },
+  },
   species = {
     PIDGEY = { dex = 16, name = "Pidgey" },
     SNORLAX = { dex = 143, name = "Snorlax" },
@@ -227,12 +236,13 @@ end
 assert(routeArea and #routeArea.maps == 1,
   "area lists retain only buildings/maps with spoiler content")
 local routeTabs = BrowserScreen.availableTabs(index, index.maps.ROUTE_1)
-assert(#routeTabs == 5
+assert(#routeTabs == 6
   and routeTabs[1] == "grass"
   and routeTabs[2] == "old_rod"
   and routeTabs[3] == "good_rod"
   and routeTabs[4] == "super_rod"
-  and routeTabs[5] == "trainers",
+  and routeTabs[5] == "trainers"
+  and routeTabs[6] == "items",
   "map tab carousel omits every empty category")
 local routeFishing = index.maps.ROUTE_1.tabs.super_rod
 local fishingTotal, noBite = 0, nil
@@ -272,6 +282,11 @@ assert(#lolaLines == 5
   "trade tabs expose complete inline offers without a repeated Trade prefix")
 assert(BrowserScreen.isInlineTab("trades"),
   "trade rows do not open a separate detail screen")
+local itemRow = index.maps.ROUTE_1.tabs.items[1]
+assert(itemRow.label == "Antidote"
+  and BrowserScreen.rowSecondary(starterPreview, itemRow) == "ITEM BALL"
+  and BrowserScreen.isInlineTab("items"),
+  "field items appear inline on their map without drill-down")
 
 local pressed = {}
 local stack = {

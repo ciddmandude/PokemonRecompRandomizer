@@ -31,11 +31,12 @@ return function(Constants)
       ui = ui,
       saveStatus = saveStatus,
       actions = actions or {},
-      pages = preferences:pages(),
+      pages = preferences:pages(game),
       page = 1,
       row = 1,
       notice = nil,
       resetPrompt = false,
+      presetPrompt = false,
     }, Screen)
     return self
   end
@@ -46,6 +47,13 @@ return function(Constants)
 
   function Screen:currentRow()
     return self:currentPage().rows[self.row]
+  end
+
+  function Screen:refreshPages()
+    self.pages = self.preferences:pages(self.game)
+    self.page = math.max(1, math.min(self.page, #self.pages))
+    self.row = math.max(1,
+      math.min(self.row, #self:currentPage().rows))
   end
 
   function Screen:move(direction)
@@ -83,9 +91,100 @@ return function(Constants)
     self.game.stack:push(box)
   end
 
+  function Screen:finishSavePreset(name, overwrite)
+    local saved, err = self.preferences:savePreset(
+      name, self.game, overwrite)
+    if saved then
+      self.notice = "PRESET SAVED"
+      self:refreshPages()
+    elseif err == "preset limit reached" then
+      self.notice = "PRESET LIMIT: 8"
+    else
+      self.notice = "INVALID NAME"
+    end
+  end
+
+  function Screen:savePreset()
+    if self.presetPrompt then return end
+    local current = self.preferences:get("preset", self.game)
+    local entry = self.preferences:findSavedPreset(current, self.game)
+    local editor = self.ui.NamingScreen.new(self.game, {
+      title = "PRESET NAME?",
+      maxLen = 16,
+      default = entry and entry.name or "",
+      onDone = function(value)
+        if value == nil then return end
+        local name = self.preferences:normalizePresetName(value)
+        if not name then
+          self.notice = "INVALID NAME"
+          return
+        end
+        local existing = self.preferences:findSavedPreset(name, self.game)
+        if not existing then
+          self:finishSavePreset(name, false)
+          return
+        end
+        self.presetPrompt = true
+        self.notice = "OVERWRITE " .. name .. "?"
+        local box = self.ui.ChoiceBox.new(self.game, function(confirmed)
+          self.presetPrompt = false
+          if confirmed then
+            self:finishSavePreset(name, true)
+          else
+            self.notice = "SAVE CANCELLED"
+          end
+        end, { defaultNo = true })
+        self.game.stack:push(box)
+      end,
+    })
+    self.game.stack:push(editor)
+  end
+
+  function Screen:deletePreset()
+    if self.presetPrompt then return end
+    local presets = self.preferences:savedPresets(self.game)
+    if #presets == 0 then
+      self.notice = "NO SAVED PRESETS"
+      return
+    end
+    local items = {}
+    for _, entry in ipairs(presets) do
+      items[#items + 1] = { label = entry.name, value = entry.token }
+    end
+    local list
+    list = self.ui.ListMenu.new(self.game, "DELETE PRESET", items, {
+      onChoose = function(item)
+        self.game.stack:pop()
+        local entry = self.preferences:findSavedPreset(item.value, self.game)
+        if not entry then
+          self.notice = "PRESET NOT FOUND"
+          return
+        end
+        self.presetPrompt = true
+        self.notice = "DELETE " .. entry.name .. "?"
+        local box = self.ui.ChoiceBox.new(self.game, function(confirmed)
+          self.presetPrompt = false
+          if confirmed then
+            self.preferences:deletePreset(entry.token, self.game)
+            self.notice = "PRESET DELETED"
+            self:refreshPages()
+          else
+            self.notice = "DELETE CANCELLED"
+          end
+        end, { defaultNo = true })
+        self.game.stack:push(box)
+      end,
+    })
+    self.game.stack:push(list)
+  end
+
   function Screen:edit(row)
     if row.kind == "action" and row.key == "reset_defaults" then
       self:confirmReset()
+    elseif row.kind == "action" and row.key == "save_preset" then
+      self:savePreset()
+    elseif row.kind == "action" and row.key == "delete_preset" then
+      self:deletePreset()
     elseif row.kind == "action" then
       local action = self.actions[row.key]
       if action then
@@ -137,6 +236,7 @@ return function(Constants)
       if row.type == "choice" or row.type == "number" then
         self.preferences:step(
           row, pressed(input, "left") and -1 or 1, self.game)
+        if row.key == "preset" then self:refreshPages() end
       end
     elseif pressed(input, "a") then
       self:edit(self:currentRow())

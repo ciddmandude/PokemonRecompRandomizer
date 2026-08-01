@@ -3,7 +3,7 @@
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
+    StaticGiftCompat, TradePrizeCompat, TrainerRuntime, ItemRuntime,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
     PublicFacade)
   local Bootstrap = {}
@@ -105,12 +105,34 @@ return function(
       return records
     end
 
+
+    local function mergedMapRecords()
+      local registry = mod.content.maps
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
+    local function mergedItemRecords()
+      local registry = mod.content.items
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
     local function mergedFieldRecords(save)
       local registry = mod.content.field
       local fishing = registry:get("fishing")
       local records = {
         fishing = fishing,
         trades = registry:get("trades"),
+        hiddenItems = registry:get("hiddenItems"),
       }
       for _, definition in pairs(fishing or {}) do
         if type(definition) == "table"
@@ -184,6 +206,9 @@ return function(
         return {
           encounters = mergedEncounterRecords(),
           trainers = mergedTrainerRecords(),
+          maps = mergedMapRecords(),
+          items = mergedItemRecords(),
+          startingPcItems = type(save) == "table" and save.pcItems or {},
           field = field,
           gameVersion = version,
           typeEffectiveness = mergedTypeEffectiveness(),
@@ -234,6 +259,7 @@ return function(
           trainers = trainers,
           maps = maps,
           field = field,
+          items = type(data.items) == "table" and data.items or {},
           gameVersion = type(save) == "table"
               and save.version or generatedVersion,
           saveIdentity = table.concat({
@@ -458,6 +484,33 @@ return function(
         for key, value in pairs(stamped) do namespace[key] = value end
       end)
 
+    mod.migrations:add(
+      Constants.FIELD_ITEM_MIGRATION_VERSION, function(namespace)
+        if type(namespace) ~= "table"
+            or namespace.schemaVersion ~= Constants.SAVE_SCHEMA_VERSION
+            or type(namespace.settings) ~= "table"
+            or type(namespace.compatibility) ~= "table"
+            or type(namespace.mappings) ~= "table" then
+          return
+        end
+        local migrated = SaveState.clone(namespace)
+        if migrated.settings.field_items == nil then
+          migrated.settings.field_items = "off"
+        end
+        if type(migrated.mappings.fieldItems) ~= "table" then
+          migrated.mappings.fieldItems = {}
+        end
+        migrated.compatibility.settingsHash =
+          SaveState.hashBehaviorSettings(migrated.settings)
+        local stamped, errors = SaveState.stamp(migrated)
+        if not stamped then
+          error(("field-item migration failed validation (%d issue%s)")
+            :format(#errors, #errors == 1 and "" or "s"))
+        end
+        for key in pairs(namespace) do namespace[key] = nil end
+        for key, value in pairs(stamped) do namespace[key] = value end
+      end)
+
     -- Recomp constructs a disposable New Game-shaped save during boot so
     -- title-screen systems have options and player defaults available.  It
     -- emits save.created for that skeleton before game.ready, then emits a
@@ -465,9 +518,12 @@ return function(
     -- Generating on the boot event made the title-screen options report
     -- LOCKED after every application restart, even when nothing was saved.
     local gameReady = false
+    local activeGame
     local bootSuppressionLogged = false
-    mod.events:on("game.ready", function()
+    mod.events:on("game.ready", function(event)
       gameReady = true
+      activeGame = type(event) == "table" and event.game or activeGame
+      if activeGame then ItemRuntime.capture(activeGame) end
     end)
     mod.events:on("save.created", function(event)
       if not gameReady then
@@ -481,15 +537,31 @@ return function(
         return
       end
       lifecycle:onCreated(event)
+      local run = lifecycle:activeRun()
+      ItemRuntime.initializeSave(event.save, run)
+      if activeGame then ItemRuntime.apply(activeGame, run) end
     end)
     mod.events:on("save.loading", function(event)
       lifecycle:onLoading(event)
+      local namespace = type(event) == "table" and type(event.raw) == "table"
+        and event.raw.modData and event.raw.modData[Constants.MOD_ID]
+      if activeGame then
+        local valid = type(namespace) == "table"
+          and SaveState.validate(namespace, nil, true)
+        ItemRuntime.apply(activeGame,
+          valid and namespace.enabled and namespace or nil)
+      end
     end)
     mod.events:on("save.loaded", function(event)
       lifecycle:onLoaded(event)
     end)
     mod.events:on("save.writing", function(event)
       lifecycle:onWriting(event)
+    end)
+    mod.events:on("battle.ended", function()
+      if not activeGame then return end
+      local run = lifecycle:activeRun()
+      ItemRuntime.afterBattle(activeGame, run, mod.world)
     end)
 
     mod.events:once("mods.loaded", function()

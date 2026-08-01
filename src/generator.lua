@@ -1,7 +1,7 @@
 -- Public, pure generator boundary.
 return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory, TradePrizeCategory, TrainerCategory,
+    StaticGiftCategory, TradePrizeCategory, TrainerCategory, ItemCategory,
     Progression, ValidationCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
@@ -237,6 +237,23 @@ return function(
             code = "TRAINER_GENERATION_FAILED",
             message = "trainer generation failed; trainers are vanilla",
           }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 1
+      end
+    end
+
+    if request.settings.field_items == "shuffled" then
+      local ok, category = pcall(ItemCategory.generate,
+        request.sources or {}, request.settings,
+        Foundation.Rng.fromSeed(request.seed.canonical, "items.field"))
+      if ok then
+        result.mappings.fieldItems = category.placements
+      else
+        result.mappings.fieldItems = {}
+        result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
+          code = "FIELD_ITEM_GENERATION_FAILED",
+          message = "field-item generation failed; items are vanilla",
+        }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 1
       end

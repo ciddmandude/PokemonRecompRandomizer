@@ -83,7 +83,7 @@ return function(Constants, Browser)
 
   local function isInlineTab(tab)
     return isEncounterTab(tab) or tab == "trades"
-      or tab == "starters" or tab == "gifts"
+      or tab == "starters" or tab == "gifts" or tab == "items"
   end
 
   local function pressed(input, action)
@@ -218,6 +218,8 @@ return function(Constants, Browser)
       return row.label
     elseif row.kind == "trade" then
       return nameOf(self, row.received)
+    elseif row.kind == "item" then
+      return row.label
     end
     return row.label or nameOf(self, row.species)
   end
@@ -239,6 +241,9 @@ return function(Constants, Browser)
     elseif row.kind == "starter" or row.kind == "gift" then
       return nameOf(self, row.species)
         .. " LV. " .. tostring(row.level or "?")
+    elseif row.kind == "item" then
+      return row.storage and "PC STORAGE"
+        or row.hidden and "HIDDEN" or "ITEM BALL"
     elseif row.species then
       return nameOf(self, row.species)
     end

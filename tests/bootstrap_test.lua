@@ -22,7 +22,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.38.0",
+  version = "0.40.3",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -238,7 +238,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.8.0-dev")
+assert(mod.exports.algorithmVersion == "1.9.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -272,7 +272,7 @@ assert(type(mod.exports.preferences.snapshot) == "function")
 assert(type(mod.exports.spoilers.canAccess) == "function")
 assert(type(mod.exports.spoilers.format) == "function")
 assert(type(mod.exports.spoilers.export) == "function")
-assert(#mod.exports.preferences.schema() == 35)
+assert(#mod.exports.preferences.schema() == 36)
 local exportedSchema = mod.exports.preferences.schema()
 exportedSchema[1].label = "MUTATED"
 assert(mod.exports.preferences.schema()[1].label ~= "MUTATED")
@@ -282,7 +282,7 @@ assert(mod.exports.preferences.pages()[1].rows[1].key ~= "mutated")
 local exportedSettings = mod.exports.preferences.snapshot()
 exportedSettings.randomizer = "MUTATED"
 assert(mod.exports.preferences.snapshot().randomizer ~= "MUTATED")
-assert(#optionSchema == 35)
+assert(#optionSchema == 36)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(screens.PokemonRandomizerSpoilerBrowser.new) == "function")
@@ -310,9 +310,11 @@ assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
 assert(type(callbacks["save.loaded"]) == "function")
 assert(type(callbacks["save.writing"]) == "function")
-assert(#migrations == 2)
+assert(type(callbacks["battle.ended"]) == "function")
+assert(#migrations == 3)
 assert(migrations[1].since == "0.4.0")
 assert(migrations[2].since == "0.6.0")
+assert(migrations[3].since == "0.40.0")
 
 mod.exports.registerSpeciesMeta("TESTMON", { legendary = true })
 mod.exports.registerSpeciesMeta("TESTMON", {
@@ -506,7 +508,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.38.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.40.3", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
@@ -560,5 +562,27 @@ assert(type(legacy.compatibility.settingsHash) == "string")
 assert(legacy.compatibility.settingsHash == legacyHash)
 local migratedValid = mod.exports.save.validate(legacy, nil, true)
 assert(migratedValid)
+
+local preItems = mod.exports.save.activeRun() or run
+preItems = type(preItems) == "table" and preItems or legacy
+preItems = (function(value)
+  local function copy(input)
+    if type(input) ~= "table" then return input end
+    local output = {}
+    for key, child in pairs(input) do output[copy(key)] = copy(child) end
+    return output
+  end
+  return copy(value)
+end)(preItems)
+preItems.settings.field_items = nil
+preItems.mappings.fieldItems = nil
+preItems.compatibility.settingsHash =
+  mod.exports.save.checksum and preItems.compatibility.settingsHash
+preItems.checksum = nil
+migrations[3].callback(preItems)
+assert(preItems.settings.field_items == "off")
+assert(type(preItems.mappings.fieldItems) == "table"
+  and next(preItems.mappings.fieldItems) == nil)
+assert(mod.exports.save.validate(preItems, nil, true))
 
 io.write("bootstrap_test: ok\n")

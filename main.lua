@@ -74,6 +74,8 @@ return function(mod)
   local TrainerCategory = loadModule(
     "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
   local TrainerRuntime = loadModule("src/trainer_runtime.lua")
+  local ItemCategory = loadModule("src/item_category.lua", StableSort)
+  local ItemRuntime = loadModule("src/item_runtime.lua")
   local ValidationCategory = loadModule(
     "src/validation_category.lua",
     StableSort, Canonical, Progression, TradePrizeCatalog)
@@ -86,7 +88,7 @@ return function(mod)
   local Generator = loadModule(
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory, TradePrizeCategory, TrainerCategory,
+    StaticGiftCategory, TradePrizeCategory, TrainerCategory, ItemCategory,
     Progression, ValidationCategory)
   local SaveState = loadModule(
     "src/save_state.lua",
@@ -114,7 +116,7 @@ return function(mod)
     "src/bootstrap.lua",
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
+    StaticGiftCompat, TradePrizeCompat, TrainerRuntime, ItemRuntime,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
     PublicFacade)
 
