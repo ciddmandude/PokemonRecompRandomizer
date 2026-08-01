@@ -8,7 +8,9 @@ local UInt32 = loadFactory("src/uint32.lua")
 local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
 local StableSort = loadFactory("src/stable_sort.lua")
 local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
-local Mechanics = loadFactory("src/mechanics_category.lua", StableSort)
+local Evolution = loadFactory("src/evolution_category.lua", StableSort)
+local Mechanics = loadFactory(
+  "src/mechanics_category.lua", StableSort, Evolution)
 local Runtime = loadFactory("src/mechanics_runtime.lua")
 
 local function streams(seed)
@@ -17,6 +19,8 @@ local function streams(seed)
     pokemonTypes = Rng.fromSeed(seed, "mechanics.pokemon_types"),
     movesets = Rng.fromSeed(seed, "mechanics.movesets"),
     compatibility = Rng.fromSeed(seed, "mechanics.tmhm"),
+    evolutions = Rng.fromSeed(seed, "mechanics.evolutions"),
+    tradeEvolutions = Rng.fromSeed(seed, "mechanics.trade_evolutions"),
     moveData = {
       types = Rng.fromSeed(seed, "mechanics.move_types"),
       power = Rng.fromSeed(seed, "mechanics.move_power"),
@@ -32,14 +36,15 @@ local species = {
     stats = { hp = 70, attack = 80, defense = 70, speed = 60, special = 70 },
     types = { "GRASS", "POISON" }, level1Moves = { "TACKLE" },
     learnset = { { level = 7, move = "GROWL" } },
-    tmhm = { "CUT", "MEGA_DRAIN" }, evolutions = {},
+    tmhm = { "CUT", "MEGA_DRAIN" }, stage = "middle",
+    evolutions = { { species = "SOLO", method = "TRADE" } },
   },
   {
     id = "Z_ROOT", bst = 250,
     stats = { hp = 45, attack = 49, defense = 49, speed = 45, special = 62 },
     types = { "GRASS", "POISON" }, level1Moves = { "GROWL" },
     learnset = { { level = 7, move = "LEECH_SEED" } },
-    tmhm = { "CUT" },
+    tmhm = { "CUT" }, stage = "basic",
     evolutions = { { species = "A_CHILD", method = "level", level = 16 } },
   },
   {
@@ -47,7 +52,7 @@ local species = {
     stats = { hp = 60, attack = 60, defense = 60, speed = 60, special = 60 },
     types = { "WATER" }, level1Moves = {},
     learnset = { { level = 10, move = "GROWL" } },
-    tmhm = { "MEGA_DRAIN" }, evolutions = {},
+    tmhm = { "MEGA_DRAIN" }, stage = "final", evolutions = {},
   },
 }
 local moves = {
@@ -66,6 +71,8 @@ local moves = {
 }
 local settings = {
   base_stats = "redistributed", stat_family_consistency = "on",
+  evolutions = "full_random", evolution_repeats = "avoid",
+  evolution_trade_safety = "random_30_40",
   pokemon_types = "randomized", type_family_consistency = "on",
   pokemon_movesets = "type_aware", early_damage = "on",
   learnset_levels = "shuffled", tmhm_compatibility = "shuffled",
@@ -98,8 +105,40 @@ for _, entry in ipairs(species) do
   assert(total == entry.bst, "redistribution must preserve BST")
 end
 assert(first.pokemonMechanics.A_CHILD.types[1]
-  == first.pokemonMechanics.Z_ROOT.types[1],
-  "family types must inherit primary type even when child sorts first")
+  ~= nil, "randomized family types must be generated")
+
+local adjacency, edgeCount = {}, 0
+for _, entry in ipairs(species) do
+  local final = assert(first.pokemonMechanics[entry.id].evolutions)
+  assert(#final == #(entry.evolutions or {}),
+    "evolution branch count must be preserved")
+  adjacency[entry.id] = {}
+  for _, evolution in ipairs(final) do
+    assert(evolution.species ~= entry.id, "self evolution is forbidden")
+    adjacency[entry.id][#adjacency[entry.id] + 1] = evolution.species
+    assert(first.pokemonMechanics[entry.id].types[1]
+      == first.pokemonMechanics[evolution.species].types[1],
+      "type families must follow the randomized evolution graph")
+    edgeCount = edgeCount + 1
+    if entry.id == "A_CHILD" then
+      assert(string.lower(evolution.method) == "level")
+      assert(evolution.level >= 30 and evolution.level <= 40)
+    end
+  end
+end
+assert(edgeCount == 2)
+local function cyclic(id, stack, done)
+  if stack[id] then return true end
+  if done[id] then return false end
+  stack[id] = true
+  for _, child in ipairs(adjacency[id] or {}) do
+    if cyclic(child, stack, done) then return true end
+  end
+  stack[id], done[id] = nil, true
+  return false
+end
+local done = {}
+for id in pairs(adjacency) do assert(not cyclic(id, {}, done)) end
 
 for _, entry in ipairs(species) do
   local row = first.pokemonMechanics[entry.id]
@@ -134,7 +173,7 @@ assert(compatibilityCount("MEGA_DRAIN") == 2)
 local game = { data = { pokemon = {}, moves = {} } }
 for _, entry in ipairs(species) do
   game.data.pokemon[entry.id] = {
-    baseStats = entry.stats, types = entry.types,
+    baseStats = entry.stats, evolutions = entry.evolutions, types = entry.types,
     level1Moves = entry.level1Moves, learnset = entry.learnset, tmhm = entry.tmhm,
   }
 end
@@ -143,9 +182,13 @@ Runtime.capture(game)
 Runtime.apply(game, { mappings = first })
 assert(game.data.pokemon.Z_ROOT.baseStats.hp
   == first.pokemonMechanics.Z_ROOT.baseStats.hp)
+assert(game.data.pokemon.Z_ROOT.evolutions[1].species
+  == first.pokemonMechanics.Z_ROOT.evolutions[1].species)
 assert(game.data.moves.TACKLE.type == first.moveData.TACKLE.type)
 Runtime.apply(game, nil)
 assert(game.data.pokemon.Z_ROOT.baseStats.hp == species[2].stats.hp)
+assert(game.data.pokemon.Z_ROOT.evolutions[1].species
+  == species[2].evolutions[1].species)
 assert(game.data.moves.TACKLE.type == moves.TACKLE.type)
 
 local full = Mechanics.generate({ entries = species }, source, {

@@ -42,8 +42,10 @@ local TrainerCategory = loadFactory(
   "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
 local ItemCategory = loadFactory(
   "src/item_category.lua", StableSort, Progression, ItemFilter)
+local EvolutionCategory = loadFactory(
+  "src/evolution_category.lua", StableSort)
 local MechanicsCategory = loadFactory(
-  "src/mechanics_category.lua", StableSort)
+  "src/mechanics_category.lua", StableSort, EvolutionCategory)
 local ValidationCategory = loadFactory(
   "src/validation_category.lua",
   StableSort, Canonical, Progression, TradePrizeCatalog)

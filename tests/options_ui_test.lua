@@ -32,8 +32,8 @@ local mod = {
 }
 local preferences = Preferences.new(mod)
 preferences:define()
-equal(#defined, 55, "complete preference row count")
-equal(#preferences:pages(), 19, "paged schema count")
+equal(#defined, 58, "complete preference row count")
+equal(#preferences:pages(), 20, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
   for _, row in ipairs(page.rows) do

@@ -44,7 +44,7 @@ return function()
     local data = type(game) == "table" and game.data or {}
     baseline = {
       pokemon = captureFields(data.pokemon, {
-        "baseStats", "types", "level1Moves", "learnset", "tmhm",
+        "baseStats", "evolutions", "types", "level1Moves", "learnset", "tmhm",
       }),
       moves = captureFields(data.moves, { "type", "power", "accuracy", "pp" }),
     }
@@ -55,7 +55,7 @@ return function()
     if not baseline then Runtime.capture(game) end
     local data = type(game) == "table" and game.data or {}
     local pokemon = project(data.pokemon, baseline and baseline.pokemon, {
-      "baseStats", "types", "level1Moves", "learnset", "tmhm",
+      "baseStats", "evolutions", "types", "level1Moves", "learnset", "tmhm",
     })
     local moves = project(data.moves, baseline and baseline.moves, {
       "type", "power", "accuracy", "pp",
@@ -68,7 +68,7 @@ return function()
     local data = type(game) == "table" and game.data or {}
     local mappings = type(run) == "table" and run.mappings or {}
     local pokemon = project(data.pokemon, mappings.pokemonMechanics, {
-      "baseStats", "types", "level1Moves", "learnset", "tmhm",
+      "baseStats", "evolutions", "types", "level1Moves", "learnset", "tmhm",
     })
     local moves = project(data.moves, mappings.moveData, {
       "type", "power", "accuracy", "pp",

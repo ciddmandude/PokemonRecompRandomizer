@@ -261,6 +261,24 @@ local groups = {
     },
   },
   {
+    name = "EVOLUTIONS",
+    rows = {
+      choice("evolutions", "EVOLUTIONS", "vanilla", {
+        { "VANILLA", "vanilla" },
+        { "KEEP STAGES", "preserve_stages" },
+        { "SIMILAR", "similar_strength" },
+        { "FULL RANDOM", "full_random" },
+      }, "RANDOMIZE EVOLUTION TARGETS."),
+      choice("evolution_repeats", "EVO REPEATS", "avoid", {
+        { "AVOID", "avoid" }, { "ALLOW", "allow" },
+      }, "CONTROL REPEATED DESTINATIONS."),
+      choice("evolution_trade_safety", "TRADE EVOS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "LEVEL 37", "fixed_37" },
+        { "RANDOM 30-40", "random_30_40" },
+      }, "KEEP OR CONVERT TRADE EVOS."),
+    },
+  },
+  {
     name = "MOVE DATA",
     rows = {
       choice("move_types", "MOVE TYPES", "vanilla", {

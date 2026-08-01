@@ -79,8 +79,10 @@ return function(mod)
   local ItemCategory = loadModule(
     "src/item_category.lua", StableSort, Progression, ItemFilter)
   local ItemRuntime = loadModule("src/item_runtime.lua", ItemSourceCatalog)
+  local EvolutionCategory = loadModule(
+    "src/evolution_category.lua", StableSort)
   local MechanicsCategory = loadModule(
-    "src/mechanics_category.lua", StableSort)
+    "src/mechanics_category.lua", StableSort, EvolutionCategory)
   local MechanicsRuntime = loadModule("src/mechanics_runtime.lua")
   local ValidationCategory = loadModule(
     "src/validation_category.lua",

@@ -1,6 +1,6 @@
 -- Deterministic, data-only generation for per-save Pokemon and move mechanics.
 -- Effects, evolution records, and every unlisted source field remain immutable.
-return function(StableSort)
+return function(StableSort, EvolutionCategory)
   local Mechanics = {}
   local STAT_KEYS = { "hp", "attack", "defense", "speed", "special" }
 
@@ -50,11 +50,13 @@ return function(StableSort)
     return StableSort.keys(seen)
   end
 
-  local function parentMap(species)
+  local function parentMap(species, evolutionMapping)
     local available, candidates = {}, {}
     for _, row in ipairs(species) do available[row.id] = true end
     for _, row in ipairs(species) do
-      for _, evolution in ipairs(row.evolutions or {}) do
+      local evolutions = type(evolutionMapping) == "table"
+        and evolutionMapping[row.id] or row.evolutions
+      for _, evolution in ipairs(evolutions or {}) do
         local target = type(evolution) == "table" and evolution.species
         if available[target] and target ~= row.id then
           candidates[target] = candidates[target] or {}
@@ -392,7 +394,17 @@ return function(StableSort)
     local species = sortedSpecies(manifest.entries)
     local moves = sortedMoves(sources.moves or {})
     local types = uniqueTypes(species, moves, sources.typeIds)
-    local parents = parentMap(species)
+    local evolutionResult
+    if (settings.evolutions ~= nil and settings.evolutions ~= "vanilla")
+        or (settings.evolution_trade_safety ~= nil
+          and settings.evolution_trade_safety ~= "vanilla") then
+      evolutionResult = EvolutionCategory.generate(species, settings, {
+        evolutions = rngs.evolutions,
+        trades = rngs.tradeEvolutions,
+      })
+    end
+    local finalEvolutions = evolutionResult and evolutionResult.evolutions or nil
+    local parents = parentMap(species, finalEvolutions)
     local stats = generateStats(species, settings, rngs.stats, parents)
     local pokemonTypes = generateTypes(
       species, types, settings, rngs.pokemonTypes, parents)
@@ -406,6 +418,9 @@ return function(StableSort)
     for _, entry in ipairs(species) do
       local row = {}
       if stats[entry.id] then row.baseStats = stats[entry.id] end
+      if finalEvolutions and finalEvolutions[entry.id] ~= nil then
+        row.evolutions = finalEvolutions[entry.id]
+      end
       if pokemonTypes[entry.id] then row.types = pokemonTypes[entry.id] end
       if movesets[entry.id] then
         row.level1Moves = movesets[entry.id].level1Moves
@@ -417,7 +432,8 @@ return function(StableSort)
     return {
       pokemonMechanics = pokemon,
       moveData = movesData,
-      warnings = {}, fallbackCount = 0,
+      warnings = evolutionResult and evolutionResult.warnings or {},
+      fallbackCount = evolutionResult and evolutionResult.fallbackCount or 0,
     }
   end
 

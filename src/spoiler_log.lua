@@ -57,6 +57,10 @@ return function()
       },
     },
     {
+      "EVOLUTIONS",
+      { "evolutions", "evolution_repeats", "evolution_trade_safety" },
+    },
+    {
       "MOVE DATA",
       { "move_types", "move_data", "move_safety" },
     },
@@ -108,6 +112,9 @@ return function()
     move_types = "Move Types",
     move_data = "Move Data",
     move_safety = "Move Safety",
+    evolutions = "Evolutions",
+    evolution_repeats = "Evolution Repeats",
+    evolution_trade_safety = "Trade Evolution Safety",
   }
 
   local SPECIAL_NAMES = {
@@ -567,6 +574,21 @@ return function()
         local names = {}
         for index, typeId in ipairs(row.types) do names[index] = readableId(typeId) end
         add(lines, "    Types: " .. table.concat(names, " / "))
+      end
+      if type(row.evolutions) == "table" then
+        if #row.evolutions == 0 then
+          add(lines, "    Evolves: none")
+        else
+          for _, evolution in ipairs(row.evolutions) do
+            local detail = readableId(evolution.method or "unknown")
+            if evolution.level then detail = detail .. " " .. evolution.level end
+            if evolution.item then
+              detail = detail .. " " .. readableId(evolution.item)
+            end
+            add(lines, ("    Evolves to %s (%s)"):format(
+              speciesName(evolution.species), detail))
+          end
+        end
       end
       if type(row.level1Moves) == "table" then
         local names = {}

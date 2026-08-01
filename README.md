@@ -135,6 +135,20 @@ stored with that save and restored when a different save is loaded.
 | Learn Levels | `VANILLA`, `SHUFFLED` | `VANILLA` | Keeps the original learning levels or shuffles those levels within each species and sorts the final learnset. |
 | TM/HM Compatibility | `VANILLA`, `SHUFFLED` | `VANILLA` | Shuffles each machine's compatibility column across the species pool, preserving how many species can learn each TM or HM. TM and HM item locations remain separate settings. |
 
+### Evolutions
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Evolutions | `VANILLA`, `KEEP STAGES`, `SIMILAR`, `FULL RANDOM` | `VANILLA` | Keeps vanilla destinations, replaces each destination with a species at the original destination's evolutionary stage, follows the global Similar Strength rule, or uses any eligible species. Every mode preserves which species evolve, branch counts, and the original trigger until Trade Evolutions converts it. |
+| Evolution Repeats | `AVOID`, `ALLOW` | `AVOID` | Avoids reusing a destination across the generated graph until the pool is exhausted. Separate branches from one species are always distinct. |
+| Trade Evolutions | `VANILLA`, `LEVEL 37`, `RANDOM 30-40` | `VANILLA` | Keeps trade triggers or converts them to level evolutions. This works independently, so vanilla evolution families can be retained while making trade evolutions obtainable without trading. |
+
+Randomized graphs cannot contain self-evolutions or directed cycles. Hard graph
+rules are never relaxed. If a complete graph cannot satisfy destination
+uniqueness or the selected stage/strength preference, uniqueness is relaxed
+first, followed by the soft preference. A graph that still cannot be completed
+falls back atomically to vanilla and records a diagnostic.
+
 ### Move data
 
 Move effects and special behavior are always preserved. The mod changes only
@@ -166,9 +180,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-- randomizer mod version: `0.44.0`
+- randomizer mod version: `0.45.0`
 - generator contract: `1`
-- algorithm build: `1.16.0-dev`
+- algorithm build: `1.17.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)

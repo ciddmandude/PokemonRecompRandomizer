@@ -276,6 +276,9 @@ return function(
 
     local function mechanicsEnabled(settings)
       return settings.base_stats ~= nil and settings.base_stats ~= "vanilla"
+        or settings.evolutions ~= nil and settings.evolutions ~= "vanilla"
+        or settings.evolution_trade_safety ~= nil
+          and settings.evolution_trade_safety ~= "vanilla"
         or settings.pokemon_types ~= nil
           and settings.pokemon_types ~= "vanilla"
         or settings.pokemon_movesets ~= nil
@@ -296,6 +299,10 @@ return function(
             request.seed.canonical, "mechanics.movesets"),
           compatibility = Foundation.Rng.fromSeed(
             request.seed.canonical, "mechanics.tmhm"),
+          evolutions = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.evolutions"),
+          tradeEvolutions = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.trade_evolutions"),
           moveData = {
             types = Foundation.Rng.fromSeed(
               request.seed.canonical, "mechanics.move_types"),

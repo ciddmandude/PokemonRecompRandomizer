@@ -43,6 +43,9 @@ for _, vector in ipairs(Vectors) do
   request.settings.shops = nil
   request.settings.shop_prices = nil
   request.settings.base_stats = nil
+  request.settings.evolutions = nil
+  request.settings.evolution_repeats = nil
+  request.settings.evolution_trade_safety = nil
   request.settings.stat_family_consistency = nil
   request.settings.pokemon_types = nil
   request.settings.type_family_consistency = nil

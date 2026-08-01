@@ -585,6 +585,8 @@ return function(
         local migrated = SaveState.clone(namespace)
         local defaults = {
           base_stats = "vanilla", stat_family_consistency = "on",
+          evolutions = "vanilla", evolution_repeats = "avoid",
+          evolution_trade_safety = "vanilla",
           pokemon_types = "vanilla", type_family_consistency = "on",
           pokemon_movesets = "vanilla", early_damage = "on",
           learnset_levels = "vanilla", tmhm_compatibility = "vanilla",
