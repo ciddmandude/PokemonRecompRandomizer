@@ -2,11 +2,11 @@
 local Harness = assert(loadfile("tests/generator_harness.lua"))()
 local Vectors = assert(loadfile("tests/generator_golden_vectors.lua"))()
 local Expected = assert(loadfile("tests/generator_golden_expected.lua"))()
+local GoldenRequest = assert(loadfile("tests/generator_golden_request.lua"))()
 
-local MAPPING_KEYS = {
-  "wildGlobal", "wildAreaSlots", "fishing", "starters", "starterFlags",
-  "staticEncounters", "gifts", "trades", "prizes", "trainerParties",
-}
+local MAPPING_KEYS = Harness.Contracts.mappingKeys()
+local MAPPING_KEY_SET = {}
+for _, key in ipairs(MAPPING_KEYS) do MAPPING_KEY_SET[key] = true end
 
 local function equal(actual, expected, label)
   assert(actual == expected,
@@ -23,58 +23,39 @@ local function equalArray(actual, expected, label)
 end
 
 assert(#Vectors >= 20, "at least 20 combined vectors are required")
-local participated = {}
+local participated, participationCount = {}, {}
+local manifestHash = Harness.hash(Harness.species)
+local sourceHashes = {}
 local start = os.clock()
 for _, vector in ipairs(Vectors) do
   local expected = assert(Expected[vector.id],
     "missing expectation for " .. vector.id)
-  local request = Harness.request(
-    vector.seed, vector.profile, vector.overrides, vector.sourceOverrides)
-  -- These vectors predate field-item randomization and remain locked to the
-  -- original ten-category algorithm. Item vectors live in item_randomizer_test.
-  request.settings.field_items = nil
-  request.settings.non_key_items = nil
-  request.settings.tms = nil
-  request.settings.hms = nil
-  request.settings.key_items = nil
-  request.settings.badges = nil
-  request.settings.hidden_items = nil
-  request.settings.ensure_beatable = nil
-  request.settings.shops = nil
-  request.settings.shop_prices = nil
-  request.settings.base_stats = nil
-  request.settings.evolutions = nil
-  request.settings.evolution_repeats = nil
-  request.settings.evolution_trade_safety = nil
-  request.settings.stat_family_consistency = nil
-  request.settings.pokemon_types = nil
-  request.settings.type_family_consistency = nil
-  request.settings.pokemon_movesets = nil
-  request.settings.early_damage = nil
-  request.settings.learnset_levels = nil
-  request.settings.tmhm_compatibility = nil
-  request.settings.move_types = nil
-  request.settings.move_data = nil
-  request.settings.move_safety = nil
+  local request = GoldenRequest(Harness, vector)
   equal(Harness.hash(request), expected.input, vector.id .. " input")
-  equal(Harness.hash(request.species),
-    expected.manifest, vector.id .. " manifest")
-  equal(Harness.hash(request.sources),
-    expected.sources, vector.id .. " sources")
+  equal(manifestHash, expected.manifest, vector.id .. " manifest")
+  local sourceVariant = Harness.hash(vector.sourceOverrides or {})
+  if not sourceHashes[sourceVariant] then
+    sourceHashes[sourceVariant] = Harness.hash(request.sources)
+  end
+  equal(sourceHashes[sourceVariant], expected.sources,
+    vector.id .. " sources")
 
   local result, generationError = Harness.Generator.generate(request)
   assert(result, generationError and generationError.message)
   assert(Harness.Contracts.validateGenerationResult(result))
-  for index, key in ipairs(MAPPING_KEYS) do
-    equal(Harness.hash(result.mappings[key]),
-      expected.mappings[index], vector.id .. " " .. key)
-    if next(result.mappings[key]) ~= nil then participated[key] = true end
-  end
-  local legacyMappings = {}
   for _, key in ipairs(MAPPING_KEYS) do
-    legacyMappings[key] = result.mappings[key]
+    equal(Harness.hash(result.mappings[key]),
+      expected.mappings[key], vector.id .. " " .. key)
+    if next(result.mappings[key]) ~= nil then
+      participated[key] = true
+      participationCount[key] = (participationCount[key] or 0) + 1
+    end
   end
-  equal(Harness.hash(legacyMappings),
+  for key in pairs(expected.mappings) do
+    assert(MAPPING_KEY_SET[key],
+      vector.id .. " expectation has unknown mapping key " .. tostring(key))
+  end
+  equal(Harness.hash(result.mappings),
     expected.combined, vector.id .. " combined mappings")
   equalArray(Harness.warningCodes(result),
     expected.warnings, vector.id .. " warnings")
@@ -84,13 +65,31 @@ for _, vector in ipairs(Vectors) do
   equalArray({
     validation.repairSwaps,
     validation.reachableSpecies,
-    validation.mappingEntries - 6,
-    #Harness.Canonical.encode(legacyMappings),
+    validation.mappingEntries,
+    #Harness.Canonical.encode(result.mappings),
   }, expected.validation, vector.id .. " validation")
+  if vector.id == "R3_ALL_ENABLED" then
+    for _, key in ipairs(MAPPING_KEYS) do
+      local mutuallyExclusiveWildBucket =
+        key == "wildAreaSlots"
+          and request.settings.wild_pokemon ~= "area_slots"
+        or key == "wildGlobalMap"
+          and request.settings.wild_pokemon ~= "global_map"
+      if not mutuallyExclusiveWildBucket then
+        assert(next(result.mappings[key]) ~= nil,
+          "R3_ALL_ENABLED has no data in " .. key)
+      end
+    end
+  end
+  collectgarbage("collect")
 end
 
 for _, key in ipairs(MAPPING_KEYS) do
   assert(participated[key], key .. " never participates in a golden vector")
+end
+for _, key in ipairs({ "fieldItems", "pokemonMechanics", "moveData" }) do
+  assert((participationCount[key] or 0) >= 2,
+    key .. " must participate in multiple golden vectors")
 end
 
 -- Insertion-order changes in every nested input map must not change output.

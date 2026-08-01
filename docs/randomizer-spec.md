@@ -68,6 +68,13 @@ The design follows these platform rules:
    into the new save.
 6. Oak's intro and normal gameplay continue using that stored configuration.
 
+Selecting a built-in or player-saved preset in the chooser also writes it to
+global next-run preferences. Confirming the custom flow persists those custom
+values and marks the preset as `CUSTOM`. The chosen configuration is therefore
+the starting point for future New Games until the player changes it. This
+global preference side effect does not alter the per-save snapshot created in
+step 5.
+
 If generation cannot produce a valid run, New Game must show a clear error and fall back to vanilla content for that new save. It must never produce a partially randomized save.
 
 ### 4.2 Continuing a run
@@ -88,6 +95,7 @@ Two players using the same:
 
 - canonical seed;
 - settings snapshot;
+- randomizer mod version;
 - randomizer algorithm version;
 - game version;
 - eligible species manifest;
@@ -99,7 +107,13 @@ The Randomizer screen must provide a compact run code:
 
 `R1-<seed-hash>-<settings-hash>-<pool-hash>`
 
-The full seed remains visible separately. The run code detects mismatched settings or species pools; it is not a substitute for the saved seed.
+The full seed remains visible separately. The run code detects mismatched
+settings or species pools only when the randomizer mod version and saved
+algorithm version also match; it is not a substitute for the saved seed. A
+migration that adds behavior-setting defaults recomputes the settings hash and
+can therefore change an existing save's displayed run code without changing or
+rerolling any gameplay mapping. The algorithm version stored in the save remains
+the authoritative record of which generator produced those mappings.
 
 ## 5. Options menu specification
 
@@ -120,7 +134,7 @@ belong to the preceding chooser or require an active run.
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` generates a new 128-bit seed when New Game is confirmed. `MANUAL` uses Seed Text after normalization. Changing this setting never rerolls an existing save. |
 | Seed Text | text, 1–32 characters | blank | Used only in `MANUAL`. Accept uppercase letters, digits, space, hyphen, and underscore. Trim outer spaces, collapse repeated spaces, and uppercase before hashing. Reject an empty canonical seed. The original display text and canonical value are both saved. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | `VANILLA 151` excludes mod-added species. `MERGED DATA` includes every valid merged-registry species that has battle sprites, stats, growth data, and a learnset. Missing or invalid species are excluded with a logged reason. |
-| Similar Strength | `OFF`, `±10%`, `±20%`, `BST ±50`, `BST ±100`, `SAME STAGE` | `±20%` | Percentage modes restrict candidate BST relative to the source and widen in 5-percentage-point increments if empty. `BST ±50` and `BST ±100` use an inclusive absolute difference between the source and destination five-stat totals; an empty absolute band widens in 25-BST increments before being dropped. `SAME STAGE` ignores BST and requires the same derived `BASIC`, `MIDDLE`, or `FINAL` stage. Stage never relaxes. Legendary filtering and other hard rules still apply. |
+| Similar Strength | `OFF`, `±10%`, `±20%`, `BST ±50`, `BST ±100`, `SAME STAGE` | `±20%` | Percentage modes restrict candidate BST relative to the source and widen in 5-percentage-point increments if empty. `BST ±50` and `BST ±100` use an inclusive absolute difference between the source and destination five-stat totals; an empty absolute band widens in 25-BST increments before being dropped. `SAME STAGE` ignores BST and requires the same `BASIC`, `MIDDLE`, or `FINAL` classification from each species' original merged-data lineage, captured before evolution randomization. Stage never relaxes. Legendary filtering and other hard rules still apply. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | `EXCLUDE` removes legendary/mythical species from destinations. `MATCH` lets legendary sources map only to legendary destinations and non-legendaries only to non-legendaries. `ALLOW` treats them like any species. The built-in classification is Articuno, Zapdos, Moltres, Mewtwo, and Mew; merged species may declare randomizer metadata through the mod's exported API. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | `ALLOW` samples with replacement. `ONE-TO-ONE` uses a deterministic shuffled destination pool, maximizing variety and preventing duplicate destinations until the eligible pool is exhausted. Category-specific uniqueness rules take precedence for starters. |
 | Enable Spoiler Log | `OFF`, `ON` | `ON` | Saved per run. `ON` permits the in-game spoiler viewer and explicit plaintext export. `OFF` blocks both. New Game never writes a file automatically. This setting does not affect the seed, behavior-settings hash, or mappings. |
@@ -146,7 +160,7 @@ Wild encounter rate and the ten-slot probability buckets remain vanilla. Repel c
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
 | Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | In Red/Blue, `OFF` keeps Bulbasaur, Charmander, and Squirtle; enabled modes choose three unique eligible species. In Yellow, `OFF` keeps Pikachu and Eevee; enabled modes replace Pikachu with one saved eligible player starter and resolve one distinct saved rival starter in place of Eevee. `TYPE TRIAD` uses the triad candidate pool when one exists, then resolves the Yellow pair from that pool; otherwise it records a warning and falls back to `RANDOM`. |
-| Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | `BASIC ONLY` permits species with no pre-evolution in the eligible pool. `ANY` permits evolved forms. This filter applies only to the three player choices, not the rival's later randomized parties. |
+| Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | `BASIC ONLY` permits species with no pre-evolution in their original merged-data lineage. `ANY` permits originally evolved forms. Evolution randomization does not reclassify candidates for this rule. This filter applies only to the three player choices, not the rival's later randomized parties. |
 | Starter Level | number 2–20 | `5` | Sets the received starter's level and the level shown in the starter preview. The first rival battle remains governed by Trainer Levels, but cannot be more than three levels above the chosen starter when Trainer Safety is on. |
 | Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | `BALL ORDER` preserves the vanilla positional counterpick. `TYPE ADVANTAGE` gives the rival whichever unchosen starter has the strongest type matchup against the player's choice, with deterministic ties. `RANDOM OTHER` selects either unchosen starter from the saved seed. This choice controls starter flags and every vanilla rival-party branch that depends on them. |
 
@@ -217,6 +231,15 @@ save's placements before overworld construction. A normal save operation only
 persists the mapping and never requires an application restart. These settings
 do not migrate an already-generated run; they apply to the next New Game.
 
+PokÃ©mon and move mechanics are reversible overlays on the active merged
+`game.data` tables. A pristine post-merge snapshot of only the supported
+mutable fields is captured once per distinct `game.data` identity. Every apply
+restores that identity's snapshot first, then writes the active save's overlay.
+Vanilla, disabled, invalid, quarantined, and mechanics-free saves leave the
+baseline restored. Whole PokÃ©mon or move records and unsupported fields are
+never replaced. Other mods reading the supported active fields while a
+randomized save is active observe the randomized values.
+
 ### 5.8 Trainer settings
 
 | Option | Values | Default | Detailed behavior |
@@ -231,14 +254,51 @@ do not migrate an already-generated run; they apply to the next New Game.
 
 Trainer randomization runs before the engine constructs battlers. Vanilla special boss-move overrides must only be applied when legal for the resolved species; otherwise the normal generated moveset remains. Explicit per-slot move lists from other mods remain authoritative unless a compatibility conflict is reported.
 
-### 5.9 Actions
+### 5.9 Pokémon data and learned-move settings
+
+| Option | Values | Default | Detailed behavior |
+|---|---|---:|---|
+| Base Stats | `VANILLA`, `SHUFFLED`, `REDISTRIBUTE`, `FULL RANDOM` | `VANILLA` | `SHUFFLED` permutes each species' five existing stats. `REDISTRIBUTE` creates a new 1–255 spread with the same five-stat total. `FULL RANDOM` rolls all five stats independently from 1–255. |
+| Family Stats | `OFF`, `ON` | `ON` | Reuses a deterministic stat shape or permutation through each original evolution family. Full Random still rolls every included stat independently. |
+| Pokémon Types | `VANILLA`, `SHUFFLED`, `RANDOMIZED` | `VANILLA` | Keeps types, applies one global type permutation, or generates one or two eligible merged-registry types per species. |
+| Family Types | `OFF`, `ON` | `ON` | Members of an original evolution family retain the generated primary type. An evolution may gain or replace a secondary type. |
+| Movesets | `VANILLA`, `RANDOMIZED`, `TYPE-AWARE`, `FULL RANDOM` | `VANILLA` | Replaces move IDs while preserving starting-move and learnset entry counts. The modes draw from source learnsets, prefer the species' final generated type, or use every eligible move, respectively. |
+| Early Damage | `OFF`, `ON` | `ON` | Guarantees an ordinary damaging move by level 5 when the merged move pool contains one. OHKO, fixed-damage, conditional, and self-KO moves do not satisfy this guard. |
+| Learn Levels | `VANILLA`, `SHUFFLED` | `VANILLA` | Keeps original learning levels or shuffles them within each species before sorting the final learnset. |
+| TM/HM Compatibility | `VANILLA`, `SHUFFLED` | `VANILLA` | Shuffles each machine's compatibility column across eligible species, preserving the number of compatible species per TM or HM. |
+
+### 5.10 Evolution settings
+
+| Option | Values | Default | Detailed behavior |
+|---|---|---:|---|
+| Evolutions | `VANILLA`, `KEEP STAGES`, `SIMILAR`, `FULL RANDOM` | `VANILLA` | Keeps destinations, replaces each destination with one at the same stage in its original merged-data lineage, follows Similar Strength, or permits any eligible species. `KEEP STAGES` and `SIMILAR` with global `SAME STAGE` both use the pre-randomization classification. Every mode preserves source evolution slots, branch counts, and triggers until Trade Evolutions converts them. |
+| Evolution Repeats | `AVOID`, `ALLOW` | `AVOID` | Avoids reusing destinations across the graph until the pool is exhausted. Sibling branches from one species remain distinct. |
+| Trade Evolutions | `VANILLA`, `LEVEL 37`, `RANDOM 30-40` | `VANILLA` | Keeps trade triggers or converts them to deterministic level evolutions. This can be enabled while destinations remain vanilla. |
+
+Randomized graphs prohibit self-evolution and directed cycles. Original
+lineage is classification input, not a claim about the resulting graph: an
+originally basic species may receive a new pre-evolution under `SIMILAR` or
+`FULL RANDOM`. The in-game spoiler viewer displays the current generated graph.
+
+### 5.11 Move-data settings
+
+Move effects and special behavior are immutable. Only type, ordinary power,
+ordinary accuracy, and PP can change.
+
+| Option | Values | Default | Detailed behavior |
+|---|---|---:|---|
+| Move Types | `VANILLA`, `SHUFFLED`, `RANDOMIZED` | `VANILLA` | Keeps types, applies a global type permutation, or independently assigns an eligible type. |
+| Move Data | `VANILLA`, `SHUFFLED`, `BALANCED`, `FULL RANDOM` | `VANILLA` | Shuffles compatible numeric fields, generates bounded values, or rolls ordinary power 1–255, accuracy 1–100, and PP 1–64. Status moves remain non-damaging. |
+| Move Safety | `OFF`, `ON` | `ON` | Protects effect-defined and special-damage behavior and limits extreme high-power combinations. Effects, fixed damage, multi-hit behavior, priority, critical flags, charge behavior, and animations are never randomized. |
+
+### 5.12 Actions
 
 | Action | Behavior |
 |---|---|
 | Review Next Run | Opens a scrollable summary of all editable settings and validation warnings. |
 | Reset Defaults | Confirms, then restores the `STANDARD` preset and clears manual Seed Text. |
 | Copy Active Seed | Copies the active seed and run code to the system clipboard when clipboard support exists; otherwise displays both for transcription. |
-| View Spoiler Log | Opens an unrestricted Pokémon/items/map browser. Eligible runs also add `SPOILER` immediately before `MODS` in the Start menu, and B returns there after viewing. Pokémon mode lists every merged species in Pokédex order, supports partial-name search, shows current evolutions before obtainable locations, and indexes those locations. Items mode lists every merged item alphabetically, supports partial-name search, and shows all current field, hidden, PC, scripted, Gym, mart, vending, and Game Corner TM-prize locations with source type and applicable price. Item locations have no further drill-down. Map mode groups relevant floors/buildings and presents only populated tabs, including `ITEMS`. Encounter methods use separate tabs with per-level chances and rod no-bite odds. Trades show complete offers inline; trainer rows open complete parties. Browser rows show current results without original randomized values. The saved settings section is omitted. Available only when the active run saved Enable Spoiler Log as `ON`. |
+| View Spoiler Log | Opens an unrestricted Pokémon/items/map browser. Eligible runs also add `SPOILER` immediately before `MODS` in the Start menu, and B returns there after viewing. Pokémon mode lists every merged species in Pokédex order, supports partial-name search, shows current evolutions before obtainable locations, and indexes those locations. These current evolution rows reflect the randomized graph and do not redefine the original-stage classification used by stage-sensitive settings. Items mode lists every merged item alphabetically, supports partial-name search, and shows all current field, hidden, PC, scripted, Gym, mart, vending, and Game Corner TM-prize locations with source type and applicable price. Item locations have no further drill-down. Map mode groups relevant floors/buildings and presents only populated tabs, including `ITEMS`. Encounter methods use separate tabs with per-level chances and rod no-bite odds. Trades show complete offers inline; trainer rows open complete parties. Browser rows show current results without original randomized values. The saved settings section is omitted. Available only when the active run saved Enable Spoiler Log as `ON`. |
 | Export Spoiler Log | Explicitly writes a complete readable plaintext report, including saved settings, without ROM bytes. Available only when the active run saved Enable Spoiler Log as `ON`. |
 | Save Preset | Opens a 16-character name editor and stores the current next-run options except Randomizer and the Preset label. Names are unique, normalized to uppercase, and restricted to letters, digits, spaces, hyphens, and underscores. Saving an occupied name requires confirmation. |
 | Delete Preset | Opens a list of player-saved presets and confirms deletion. Built-in presets cannot be deleted. Deleting the active preset does not alter its loaded option values. |
@@ -262,22 +322,37 @@ Trainer randomization runs before the engine constructs battlers. Vanilla specia
 
 Required stream names:
 
-- `wild.global`;
-- `wild.area`;
-- `wild.levels`;
-- `starters`;
-- `rival.counterpick`;
-- `trainers.rival`;
-- `static.encounters`;
-- `static.levels`;
-- `gifts`;
-- `gift.levels`;
-- `trades`;
-- `prizes`;
-- `trainers.species`;
-- `trainers.levels`;
-- `trainers.sizes`;
-- `validation.swaps`.
+<!-- stream-registry:start -->
+```text
+wild.global
+wild.area
+wild.levels
+starters
+rival.counterpick
+static.encounters
+static.levels
+gifts
+gift.levels
+trades
+prizes
+trainers.species
+trainers.levels
+trainers.sizes
+trainers.rival
+items
+mechanics.base_stats
+mechanics.pokemon_types
+mechanics.movesets
+mechanics.tmhm
+mechanics.evolutions
+mechanics.trade_evolutions
+mechanics.move_types
+mechanics.move_power
+mechanics.move_accuracy
+mechanics.move_pp
+validation.swaps
+```
+<!-- stream-registry:end -->
 
 Adding RNG calls to one category must not change another category. Do not use the process-wide `math.random` or `love.math.random` for generation.
 
@@ -389,7 +464,13 @@ Requirements:
 - `save.writing` validates the namespace and stamps a deterministic checksum over configuration and mappings.
 - `save.loading` must not execute save content.
 - `save.loaded` validates schema, checksum, mapped species IDs, and settings before hooks use the data.
-- Mod migrations upgrade older namespace shapes in semver order. An algorithm upgrade must not regenerate an existing run.
+- Mod migrations upgrade older namespace shapes in semver order. Field-item
+  migration adds its disabled setting and empty mapping bucket. Mechanics
+  migration adds vanilla/default mechanics settings and empty Pokémon/move
+  mapping buckets. Both preserve every existing gameplay mapping, recompute
+  the behavior-settings hash, and stamp a valid checksum. Consequently a
+  migration may change the displayed run code without rerolling mappings. An
+  algorithm upgrade must not regenerate an existing run.
 - Unknown future fields are preserved.
 - If the namespace is absent, the save is vanilla and remains vanilla; loading it must not auto-randomize.
 - If the namespace is malformed or fails checksum validation, disable randomization for that session, show a load report, and retain the original data for recovery.
@@ -590,7 +671,7 @@ editable next-run option.
 
 `NFR-03 Save size` Randomizer state should add no more than 256 KiB for vanilla data with all categories enabled. Compact repeated strings or derive global mappings where possible without sacrificing stability.
 
-`NFR-04 Safety` No randomizer code may parse executable save data, mutate frozen merged content at runtime, or use unvalidated species IDs.
+`NFR-04 Safety` No randomizer code may parse executable save data, mutate immutable content registries, or use unvalidated species IDs. The documented reversible mechanics overlay may mutate only supported fields on active `game.data` PokÃ©mon and move records after restoring the pristine per-data baseline; it must never replace whole records or promote an active overlay into that baseline.
 
 `NFR-05 Isolation` Errors must be logged against `pokemon_randomizer` and degrade to vanilla for the affected call or session.
 
@@ -673,8 +754,8 @@ and cover:
 
 ## 14. Out of scope for version 1
 
-- moves, abilities, types, stats, learnsets, evolutions, scripted item gifts,
-  marts, maps, warps, palettes, or music;
+- abilities, maps, warps, palettes, music, and scripted rewards not exposed by
+  the supported field-item or `give_item` integration;
 - changing Pokémon species already owned in an existing save;
 - randomizing during Continue when the save was originally vanilla;
 - network seed synchronization or an online seed server;

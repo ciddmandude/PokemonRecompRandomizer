@@ -1,288 +1,367 @@
-# Code review round 2 — pokemon_randomizer 0.27.21
+# Code review round 3 — pokemon_randomizer 0.46.0
 
-Previous review covered 0.15.1. This round re-verifies every prior finding against the
-current tree and reviews the new code: `matching.lua`, `progression.lua`,
-`public_facade.lua`, `spoiler_browser.lua`, `spoiler_browser_screen.lua`,
-`spoiler_controller.lua`, the rewritten `static_gift_compat.lua` / `trainer_category.lua`,
-nine new test files, `.github/workflows/package-validation.yml`, and the packaging tools.
+Round 1 covered 0.15.1, round 2 covered 0.27.21. This round reviews the growth from
+0.34.4 to **0.46.0** (algorithm `1.4.0-dev` → `1.17.0-dev`): nine new modules
+(`item_category`, `item_filter`, `item_runtime`, `item_source_catalog`,
+`mechanics_category`, `mechanics_runtime`, `evolution_category`, `new_game_setup`,
+plus supporting changes), seven new test files, Yellow support, an in-game New Game
+chooser, and two new save migrations.
 
-**Test status:** 22/22 Lua test files pass on stock Lua 5.1.5, including
-`generator_golden_test` (24 vectors, 17.7s) and `generator_property_test`
-(23 real generations, 2.9s).
+Codebase is now ~15,300 lines of Lua across 52 modules.
 
-**Packaging verified by build:** ran `tools/package.ps1` and inspected the archive —
-48 entries, **0 backslash entries**, `src/bootstrap.lua` style paths throughout.
+**Test status:** 30/30 test files pass on stock Lua 5.1.5, including
+`generator_golden_test` (24 vectors, 17.4s), `generator_property_test`
+(25 real generations, 3.1s), and `evolution_randomizer_test` (100 randomized graphs).
 
 ---
 
 ## Verdict
 
-This is a large, disciplined remediation pass, and the parts that were weakest last time are
-now the parts I'd point at as exemplary. Three things stand out.
+The engineering standard set in round 2 is holding in the parts that were already
+built. Migrations are correct, the spoiler log grew to cover the new categories, Yellow
+support is threaded properly through starters/prizes/progression/browser, and the
+mechanics runtime's save-switch path is genuinely well designed.
 
-The **generator test infrastructure** is no longer nominal. `generator_golden_test.lua`
-locks 24 combined vectors, hashing the request, manifest, sources, each of the ten mapping
-buckets individually, the combined mappings, the warning codes, the fallback count, and the
-validation summary — then asserts every mapping key participates in at least one vector and
-that reversing every nested input map's insertion order produces an identical result.
-`generator_property_test.lua` runs the real generator and checks the invariants spec §12.4
-actually asks for: species existence, legendary `exclude`/`match` enforcement, level bounds,
-party size 1–6, one-to-one uniqueness before exhaustion, trade reachability, safe
-termination, serialization round-trip, and cross-category isolation. Both carry CI time
-budgets. This is the fix I'd have prioritized above all others, and it was done properly.
+The problem is that the safety net built in round 2 did not grow with the code. About
+1,700 lines of new generation logic and eleven new RNG streams landed **outside** the
+combined-generator harness that exists specifically to lock determinism and category
+isolation. That harness is the reason round 2 was trustworthy. Right now it is
+protecting the old two-thirds of the generator and silently ignoring the new third.
 
-The **static/gift scripts** went from ~50 absolute numeric jump targets to zero — every jump
-is a named label, and `static_gift_safety_m10_test.lua` implements a small interpreter that
-validates label definitions, rejects any numeric jump, and simulates execution paths. The
-divergent mapped/unmapped branches were collapsed, so `CMD.give` now precedes
-`give_money`/`set_flag` behind a `jump_if_false "full"` guard on every path.
+Separately, `mechanics_runtime` takes the codebase somewhere it has explicitly promised
+not to go — in-place mutation of merged registry records. The mitigation is thoughtful
+and mostly correct, but the promise in NFR-04 is now false as written, and one
+unguarded path can poison it for a whole session.
 
-**Removing Race Mode was the right call.** It retired four findings at once instead of
-papering over them, and the removal is clean — no dead crypto modules, spec §16 updated,
-and old saves with retired race metadata still load.
-
-Everything below is either a small defect in the new code or a loose end. Nothing here is a
-release blocker.
-
-### Corrections to my previous review
-
-Your remediation spec marks four items disproven against Recomp 0.1.38. Reviewing them again:
-
-- **"Public run exports expose live saved tables" was wrong.** `Spoiler.publicRun` receives
-  the output of `lifecycle:activeRun()`, which is already a `SaveState.clone`. A shallow copy
-  of a fresh deep copy leaks nothing. I should have traced the call site before writing it up.
-- `PSYCHIC_TYPE`, the type-chart `/10` conversion, and the boot-skeleton `save.created`
-  ordering I raised as *unverified assumptions* rather than defects. You verified them
-  against the engine, which is the correct resolution; I have no basis to re-raise them.
+Nothing here is a data-loss or corruption risk. The two High items are both
+"the tests can no longer see this", which is exactly the condition that let the round-1
+bugs exist.
 
 ---
 
-## Prior findings — status
+## High
 
-| # | Finding | Status |
-|---|---|---|
-| 1 | Auto seeds not from OS/LÖVE entropy | **Open** (impact much reduced) — see below |
-| 2 | `NO DOWNGRADE` bypasses `Legendaries = EXCLUDE` | **Fixed** — the `"allow"` override is gone; property test asserts the invariant |
-| 3 | Backslash ZIP entry names | **Fixed and verified** — `ZipFile`/`ZipArchive` with explicit separator normalization, plus a two-OS CI job that packages, validates, and extracts |
-| 4 | One bad species killed the whole trainer category | **Fixed** — per-slot `TRAINER_SOURCE_UNAVAILABLE` / `TRAINER_NO_CANDIDATE` warnings and a `fallbackSlot` marker the runtime resolves back to the prior hook's slot |
-| 5 | `CREDITS` == `HALL OF FAME` | **Retired** with Race Mode |
-| 6 | Self-service passphrase verifier | **Retired** with Race Mode |
-| 7 | KDF not memory-hard | **Retired** with Race Mode |
-| 8 | `relevantMods` rewritten on every save | **Fixed** — `onWriting` no longer touches it; `onLoaded` compares and reports `COMPATIBILITY_CHANGED` with added/removed/changed counts |
-| 9 | 256 KiB vs 1 MiB budget | **Fixed** — `SAVE_SIZE_BUDGET_BYTES = 262144`, message and docs agree |
-| 10 | No end-to-end vectors, vacuous fuzz | **Fixed** — see verdict |
-| 11 | `ONE-TO-ONE` was greedy, not shuffle-based | **Fixed** — `matching.lua` does augmenting-path maximum bipartite matching over a shuffled preference order, and only opens a new pool when it has *proven* the unit cannot join |
-| 12 | `save.created` guard fails silently | **Verified as correct** against 0.1.38; one ergonomic nit below |
-| — | Sparse-settings UI crash | **Fixed** — `General.activeRunSummary` fills `UNAVAILABLE`/`UNKNOWN` defaults |
-| — | Mutable generator export | **Partially fixed** — see M2 below |
-| — | Metadata registration conflicts | **Fixed** — deterministic field policy plus `SPECIES_METADATA_CONFLICT_RESOLVED` diagnostics instead of a hard error |
-| — | Coarse Catchability Guard | **Fixed** — real stage/gate model with a `PROGRESSION_MAP_UNKNOWN` diagnostic per unmodelled map |
-| — | Oversized payload, committed archives, no CI | **Fixed** — 79 files → 48, `dist/` untracked and gitignored, two-OS workflow |
+### H1 — The golden vectors and property test cover none of the new categories
 
----
+`tests/generator_golden_vectors.lua`, `tests/generator_property_test.lua`,
+`src/general_settings.lua`
 
-## New findings
+Round 1 finding #10 was "no end-to-end generator coverage". Round 2 fixed it properly:
+24 vectors hashing every mapping bucket, plus real property invariants. That fix does
+not extend to anything added since.
 
-### M1 — `progression.lua` requirement sort is a double no-op
-
-`src/progression.lua:352-354`
+Every new setting defaults to `"vanilla"` **in all three presets, including CHAOS**:
 
 ```lua
-StableSort.sort(requirements, function(value)
-    return value
+-- src/general_settings.lua, CHAOS preset
+non_key_items = "vanilla",   key_items = "vanilla",
+badges = "vanilla",          hidden_items = "vanilla",
+base_stats = "vanilla",      evolutions = "vanilla",
+pokemon_types = "vanilla",   pokemon_movesets = "vanilla",
+tmhm_compatibility = "vanilla",
+move_types = "vanilla",      move_data = "vanilla",
+```
+
+All 24 golden vectors run one of `standard` (13), `chaos` (6) or `casual` (5), and none
+of them passes an override for any new key. So in every vector:
+
+- `mappings.fieldItems` is `{}`
+- `mappings.pokemonMechanics` is `{}`
+- `mappings.moveData` is `{}`
+
+The combined-mappings hash therefore locks in *empty* for all three, which is not
+coverage — it only proves the categories stay off when they are off.
+
+`generator_property_test.lua` is the same story: grepping it for any of
+`field_items`, `non_key_items`, `key_items`, `hidden_items`, `badges`, `base_stats`,
+`evolutions`, `pokemon_types`, `pokemon_movesets`, `tmhm_compatibility`, `move_types`,
+`move_data` returns nothing. Its `isolated()` stream-isolation helper — the thing that
+verifies FR-06 — is only ever called with old-category overrides.
+
+Consequences:
+
+- **FR-05** (identical inputs produce byte-equivalent mappings) is unverified for three
+  mapping buckets.
+- **FR-06** (a disabled category consumes no other category's stream) is unverified for
+  eleven new streams. This one matters most: the new categories run *last* in
+  `Generator.generate`, so a stream mistake there would be invisible until someone
+  compared two runs by hand.
+- The `evolution_category` backtracking search — the most algorithmically delicate code
+  in the project — has no locked vectors at all. `evolution_randomizer_test` runs 100
+  graphs, but as invariants, not as frozen expected output.
+
+The per-category unit tests (`item_randomizer_test`, `mechanics_randomizer_test`,
+`evolution_randomizer_test`, `badge_randomizer_test`) are real and worth having. They
+are not a substitute for the combined harness, because every bug round 2 was designed to
+catch was a *cross-category* bug.
+
+Fix: add overrides to the vector set that enable each new category — several vectors per
+category, plus at least one with everything on at once — and regenerate
+`generator_golden_expected.lua`. Then extend `isolated()` in the property test to cover
+the new streams.
+
+### H2 — The golden test's mapping-key list is stale
+
+`tests/generator_golden_test.lua:6-9`
+
+```lua
+local MAPPING_KEYS = {
+  "wildGlobal", "wildAreaSlots", "fishing", "starters", "starterFlags",
+  "staticEncounters", "gifts", "trades", "prizes", "trainerParties",
+}
+```
+
+`src/contracts.lua` and `src/save_state.lua` both list **thirteen** keys — the three new
+ones are `fieldItems`, `pokemonMechanics`, `moveData`. The golden test still knows about
+ten.
+
+Two things break quietly:
+
+1. The per-bucket assertion loop never hashes the three new buckets, so when H1 is fixed
+   a regression in them will only surface as a mismatch in the aggregate `combined` hash,
+   with no indication of which category moved.
+2. `assert(participated[key], key .. " never participates in a golden vector")` — the
+   guard specifically written to stop a category from silently dropping out of coverage —
+   does not know the new keys exist, so it cannot fire for them. That guard is the reason
+   H1 should have been caught automatically.
+
+Derive this list from `Contracts.mappingKeys()` instead of duplicating it, and the class
+of bug disappears permanently.
+
+---
+
+## Medium
+
+### M1 — `Constants.STREAM_NAMES` is missing every mechanics stream
+
+`src/constants.lua:26-44`
+
+The generator draws from **27** distinct named streams. `STREAM_NAMES` declares **17**.
+Missing, all ten:
+
+```
+mechanics.base_stats     mechanics.pokemon_types   mechanics.movesets
+mechanics.tmhm           mechanics.evolutions      mechanics.trade_evolutions
+mechanics.move_types     mechanics.move_power      mechanics.move_accuracy
+mechanics.move_pp
+```
+
+`STREAM_NAMES` has exactly one consumer: `tests/foundation_test.lua:75`, which derives
+every declared stream and asserts no two collide. So ten of twenty-seven streams are
+outside the only test guarding stream separation.
+
+I checked for an actual collision across all 27 used streams over four seeds — **none**,
+and all 27 satisfy `Hash128.derive`'s identifier rule. So this is a coverage gap rather
+than a live defect. But the failure it guards against is severe (two categories sharing
+an identical PRNG sequence) and silent, and the gap arrived precisely because the list is
+maintained by hand in a different file from the code that uses the names.
+
+Consider deriving the names from a single table that `generator.lua` also reads, so the
+test cannot drift from reality.
+
+### M2 — `mechanics_runtime` mutates merged registry records in place
+
+`src/mechanics_runtime.lua:30-40, 43-78`
+
+```lua
+local function project(records, mappings, fields)
+  ...
+      for _, field in ipairs(fields) do
+        if overlay[field] ~= nil then target[field] = copy(overlay[field]) end
+      end
+```
+
+`target` is a live record in `game.data.pokemon` / `game.data.moves`. This writes
+randomized `baseStats`, `types`, `evolutions`, `level1Moves`, `learnset`, `tmhm`, and
+move `type`/`power`/`accuracy`/`pp` directly into the merged content the engine and every
+other mod read.
+
+That contradicts a promise the project has made since round 1:
+
+> `NFR-04 Safety` No randomizer code may parse executable save data, **mutate frozen
+> merged content at runtime**, or use unvalidated species IDs.
+
+The mitigation is real and I want to give it credit. `Runtime.apply` calls
+`Runtime.restore` first, so applying is idempotent and cannot accumulate. And the
+save-switch path is handled correctly — `bootstrap.lua:728-739` calls
+`MechanicsRuntime.apply(activeGame, run)` on `save.loading` with `run = nil` for a
+vanilla or invalid save, which restores the baseline before the new save is adopted.
+Loading a vanilla save after a randomized one does *not* leak randomized stats. That is
+the case I expected to be broken and it isn't.
+
+Two problems remain.
+
+**The baseline capture is unguarded against re-entry.** `bootstrap.lua:659-666`:
+
+```lua
+mod.events:on("game.ready", function(event)
+  gameReady = true
+  activeGame = ...
+  if activeGame then
+    ItemRuntime.capture(activeGame)
+    MechanicsRuntime.capture(activeGame)
+  end
 end)
 ```
 
-Two independent bugs in three lines:
+`Runtime.capture` unconditionally overwrites `baseline` from whatever is currently in
+`game.data`. If `game.ready` ever fires a second time in one process while mechanics are
+applied — returning to the title screen and starting again, for instance — the
+*randomized* values become the new baseline, and `restore` can never undo them for the
+rest of the session. Every subsequent save, vanilla ones included, would inherit that
+run's stats.
 
-1. `StableSort.sort` is **not in-place** — it copies into a new array and returns it
-   (`stable_sort.lua:42-45`). The return value is discarded, so `requirements` is untouched.
-2. The comparator has the wrong arity and semantics. `sort` calls `less(a, b)` expecting
-   `a < b`; this takes one argument and returns a string, which is always truthy. If the
-   return value *were* used, the merge would take the right element every time.
-
-Demonstrated against the real module:
-
-```
-ROCK_TUNNEL_1F     surf  -> HM05_FLASH, HM03_SURF, SOUL_BADGE
-POKEMON_TOWER_3F   surf  -> SILPH_SCOPE, HM03_SURF, SOUL_BADGE
-ROUTE_3            surf  -> BOULDER_BADGE, HM03_SURF, SOUL_BADGE
-
-  correct S.sort(a<b) on the first case: HM03_SURF, HM05_FLASH, SOUL_BADGE
-```
-
-`ROUTE_23` looks sorted only because its static `requirements` table happens to be in sorted
-order already, which is probably why this passed review.
-
-Output stays deterministic (the static tables and `appendUnique` order are fixed), so this is
-cosmetic — requirement lists reach the spoiler browser and diagnostics unsorted. Fix:
+This project already learned once that a documented-as-single lifecycle event fires more
+than expected: the whole `gameReady`/`bootSuppressionLogged` guard around `save.created`
+exists because of it. The same caution applies here. A one-line guard removes the risk
+entirely:
 
 ```lua
-requirements = StableSort.sort(requirements, function(a, b) return a < b end)
+if baseline then return true end
 ```
 
-Worth grepping for the same pattern elsewhere; a discarded `StableSort.sort` return is silent.
+...or capture only when no run is currently applied.
 
-### M2 — public API hardening covers two of six export sub-tables
+**Cross-mod visibility.** While a randomized run is loaded, any other mod reading
+`game.data.pokemon` sees randomized stats and types. For a mechanics randomizer that is
+arguably the point, but it is a behavioural contract change that NFR-04 currently denies,
+and `DRAMATIC_SHAPE` is loaded alongside this mod in at least one real install.
 
-`src/bootstrap.lua:151,172` wrap `generator` and `contracts` in `PublicFacade`, but
-`publicApi.species` (`:155-171`), `publicApi.save` (`:233-241`), `publicApi.preferences`
-(`:242-249`) and `publicApi.spoilers` (`:251-255`) are still plain tables copied into
-`mod.exports`. `mod.exports.save.validate = evil` and
-`mod.exports.species.candidates = evil` both still work.
+Whichever way you resolve it, the spec should stop claiming the mod never mutates merged
+content. Either scope NFR-04 to "content registries are never mutated except through the
+documented mechanics overlay, which is captured and restored at every save transition",
+or move the projection behind a hook that returns copies.
 
-This matches the letter of `API-01`/`API-02` (my original finding named the generator
-specifically), so it isn't a missed requirement — but `Facade.readonly` is already written and
-generic, and applying it to the other four is a four-line change.
+### M3 — Spec §14 still lists implemented features as out of scope
 
-Note also that `readonly` guards `__newindex`, not `rawset`, and `mod.exports.generator`
-itself can be replaced wholesale since `mod.exports` is engine-owned. The docstring at
-`public_facade.lua:1-2` scopes the claim to "ordinary assignment," which is accurate — just
-don't let that harden into a stronger assumption later.
+`docs/randomizer-spec.md`, section 14:
 
-### M3 — an unmatched trainer slot voids the whole party with no warning
+> - moves, abilities, types, stats, learnsets, evolutions, scripted item gifts,
+>   marts, maps, warps, palettes, or music;
 
-`src/trainer_category.lua:432-449`
+Moves, types, stats, learnsets, and evolutions are all implemented now —
+`mechanics_category.lua` randomizes base stats, Pokémon types, movesets, TM/HM
+compatibility, evolutions, trade evolutions, and move type/power/accuracy/PP. The section
+was clearly edited (items became "scripted item gifts", "Progression Guard" became
+"Trainer Safety"), so this is an oversight rather than a stale file, but it currently
+reads as a direct contradiction of five shipped features.
+
+### M4 — Both documented stream lists are stale
+
+- `docs/determinism-v1.md` — "Locked v1 stream names are:" lists **15**, missing
+  `trainers.rival`, `items`, and all ten `mechanics.*`. The same document opens with
+  "A conforming implementation must reproduce `tests/golden_vectors.lua` exactly", so a
+  reader would reasonably treat that list as the contract.
+- `docs/randomizer-spec.md` §6.1 "Required stream names" lists **16** (it gained
+  `trainers.rival`), missing `items` and all ten `mechanics.*`.
+
+Both should match the 27 in use, and ideally be generated from the same source as M1.
+
+### M5 — Randomized evolutions invalidate the stage classification other features rely on
+
+`src/species_manifest.lua:206-215`, `src/starter_category.lua`,
+`src/evolution_category.lua:78-97`
+
+`stage` (`basic` / `middle` / `final`) is derived from the **vanilla** evolution graph
+when the manifest is built, before generation runs. Several features reason about it:
+
+- `Starter Stage = BASIC ONLY` filters on `entry.stage == "basic"`
+- evolution mode `preserve_stages` compares `candidate.stage == original.stage`
+- evolution `similar` mode `same_stage` does the same
+
+`Generator.generate` runs mechanics/evolutions **last**, after starters
+(`generator.lua:291` vs `:75`). So with `evolutions` randomized, a species offered under
+BASIC ONLY may well have a pre-evolution in the graph the player actually plays, and
+`preserve_stages` preserves a stage relationship that no longer exists in-game.
+
+Everything stays deterministic, so this is a semantics problem rather than a
+reproducibility one. But "Basic Only never silently admits an evolved form" is a stated
+design guarantee in the README, and with randomized evolutions it is no longer true in
+the sense a player would read it. Either recompute stages from the randomized graph
+before the starter category runs, or document that stage rules always refer to vanilla
+lineage.
+
+---
+
+## Low
+
+### L1 — The New Game chooser writes global preferences as a side effect
+
+`src/new_game_setup.lua:41-42, 51`
 
 ```lua
-for _, item in ipairs(pending) do
-  local row = item.row
-  local species = matched.assignments[row.matchId]
-  row.matchId = nil
-  if species then
-    row.species = species
-    ...
-  end
-end
+local selected = item and preferences:set("preset", item.value, game)
+...
+preferences:set("preset", "custom", game)
 ```
 
-There is no `else`. If `matched.assignments[row.matchId]` is nil, the row keeps its `level`
-and `sourceSlot` but gets no `species` and no `fallback = true`. At runtime
-`TrainerRuntime.validParty` takes the `elseif type(slot.species) ~= "string"` branch and
-returns false, so **the entire party** reverts to vanilla — not just that slot — and no
-warning was recorded, because warnings are only emitted at add-time when `#candidates == 0`.
+Picking a preset in the mandatory New Game chooser persists it to
+`options.modOptions.pokemon_randomizer`, so it becomes the default for every future New
+Game too. That is arguably consistent with the "options are next-run templates" model,
+but the chooser reads as a per-run question, and a player who picks CHAOS once will find
+CHAOS preselected forever. Worth a line in the README at minimum.
 
-Currently unreachable: `Matching.newSession:add` only records `unmatched` when
-`stablePreferences` is empty, and `SpeciesFilters.candidates` always returns entries with
-string ids, so `#candidates > 0` implies a non-empty preference list. But this is precisely
-the path you just hardened for per-slot degradation, and the failure mode is the
-category-wide silent revert you set out to remove. Add the `else`:
+### L2 — Both new migrations recompute `settingsHash`
 
-```lua
-else
-  result.warnings[#result.warnings + 1] = fallbackWarning(
-    "TRAINER_NO_CANDIDATE", "...", item.classId, item.partyIndex,
-    item.slotIndex, item.sourceSlot.species, "UNMATCHED")
-  result.fallbackCount = result.fallbackCount + 1
-  item.row.fallback = true
-  item.row.species, item.row.level = nil, nil
-end
-```
+`src/bootstrap.lua:598-599, 638-639`
 
-### M4 — `Matching.assign` documents a precondition it doesn't enforce
+The field-item and mechanics migrations backfill defaults correctly and preserve mappings
+(I verified both add the missing mapping keys and stamp a fresh checksum — this part is
+right). But each recomputes `compatibility.settingsHash`, which shifts the **run code**
+of an existing save after a mod update.
 
-`src/matching.lua:1-4` states each unit must have "a stable, unique `id`", and both commit
-loops write through `pairs`:
+Two players on the same seed who update at different times will see different run codes
+while playing byte-identical mappings, which is the exact confusion the run code exists
+to prevent. The same pattern shipped in the 0.6.0 migration so it is an established
+convention here, not a new mistake — but it deserves a note in the README's run-code
+section, since "the run code detects mismatched settings" is now only true within a
+single mod version.
 
-```lua
-for matchedIndex, destination in pairs(assigned) do
-  assignments[units[matchedIndex].id] = destination
-end
-```
+### L3 — Minor observations
 
-With unique ids every write targets a distinct key, so `pairs` order cannot affect the result
-and determinism holds. With duplicate ids, last-write-wins — and which write is last depends
-on `pairs` traversal, i.e. on table internals. That is exactly the class of nondeterminism
-spec §6.2 forbids, reachable only through a caller mistake, with no assertion to catch it.
+- `evolution_category.randomizedMapping` allocates a full `rng:shuffle(rows)` **per
+  edge** (`:108`). With ~80 vanilla evolution edges over 151 species that is roughly
+  12,000 PRNG draws before the search even starts. Deterministic and bounded, but it is
+  the dominant cost in that module and a single shuffled order reused with an offset
+  would be far cheaper.
+- `createsCycle` and `assign` are both recursive over the species graph. Bounded for
+  vanilla, but a large `MERGED DATA` pool deepens both; the `budget` guard at `:114`
+  covers `assign` but not `createsCycle`'s own recursion depth.
+- `mechanics_runtime.capture` stores a deep copy of six fields for every species plus
+  four for every move on each call. Fine at current sizes, worth remembering if the
+  merged pool ever grows substantially.
 
-One line at the top of `assign` and `newSession:add` closes it:
+---
 
-```lua
-assert(not seenIds[unit.id], "matching unit ids must be unique")
-```
+## What's good
 
-Two smaller notes on the same module. `augment` recurses to a depth bounded by the current
-pool size, which is fine for a 151-species pool but grows with large `MERGED DATA` pools —
-worth a comment noting the bound. And `Matching.assign`'s reset path relies on the implicit
-invariant that a non-empty preference list always matches an empty pool; `newSession` asserts
-this at `:167`, `assign` doesn't, and if it were ever violated `assign` would spin forever
-because `poolStart = index` leaves the loop variable unchanged.
+Worth stating explicitly, because these were the risky parts and they landed well:
 
-### L1 — auto-seed entropy is still not what spec §6.1 requires
-
-`src/save_lifecycle.lua:14-23` is unchanged. The traceability table maps this to
-"Weak race-export entropy → milestones 6–8 (removed)", but those are two different code
-paths: the removed one was `race_controller.entropy` feeding salt/nonce; this one is
-`save_lifecycle.entropy` feeding `SaveState.makeAutoSeed`.
-
-Removing Race Mode removes the adversarial motivation, so I'd now call this low priority.
-But `docs/randomizer-spec.md:6.1(4)` still says "obtain 128 bits from the operating system or
-LÖVE entropy source," and the implementation derives them from `os.time()` (1-second
-resolution), `os.clock()`, a table address, and a per-process counter. Two players starting a
-New Game in the same second are more likely to collide than a 26-character Crockford Base32
-identity implies. Either seed from `love.math.random`/`love.timer.getTime` in addition to what
-is there, or amend §6.1(4) to describe what the mod actually does.
-
-### L2 — the spoiler browser rebuilds its entire index on every open
-
-`src/bootstrap.lua:213` calls `SpoilerBrowser.build(run, ...)` inside the model builder, which
-runs each time the screen is pushed. `build` walks every wild map/terrain/slot, all fishing
-rods, starters, statics, gifts, trades, prizes and every trainer party, then constructs
-species→location indexes (`spoiler_browser.lua:602-627`). `loadBackground`
-(`spoiler_browser_screen.lua:360-375`) additionally allocates one `Quad` per 8×8 tile of the
-town-map image — over a thousand for a 256×256 sheet — with no caching.
-
-Nothing is wrong, but none of it is memoized, and the engine targets handhelds like the
-Anbernic RG34XXSP. Caching the index against `run.seed.hash128` plus `run.checksum.value`,
-and caching the background globally, removes a visible hitch for a screen players will open
-repeatedly.
-
-### L3 — `loadBackground` assumes 8-pixel-aligned image dimensions
-
-`spoiler_browser_screen.lua:366-373`: `perRow = width / 8` and the loop bound
-`perRow * (height / 8) - 1` are only integers when both dimensions are multiples of 8. A
-mod-supplied town map of another size yields a fractional loop bound and fractional quad
-offsets. The `pcall` guards `newImage` but not the quad loop. A
-`width % 8 == 0 and height % 8 == 0` check before building quads makes this fail closed.
-
-### L4 — Fighting Dojo is over-gated in the progression model
-
-`src/progression.lua:122`:
-
-```lua
-FIGHTING_DOJO = { stage = 7, requirements = { "SILPH_CO_CLEARED" } },
-```
-
-The Dojo is in Saffron City, which opens once the player brings a vending-machine drink to the
-guards — Silph Co. does not have to be cleared, and the Dojo is normally fought well before
-it. Placing it at stage 7 makes the Dojo prizes look later than they are in the spoiler
-browser and makes the Catchability Guard more conservative than necessary. Stage 4 with a
-`SAFFRON_ACCESS`-style requirement matches the real gate. (`SILPH_CO_7F` at stage 7 is
-correct.)
-
-### L5 — `tools/test.ps1` still hand-maintains the test list
-
-22 files in `tests/`, 22 invocations in `test.ps1` — currently correct, but each new test
-needs a matching edit, and forgetting one means it silently never runs in CI. A glob over
-`tests/*_test.lua` with a deterministic sort would keep CI honest for free. (The suite has to
-stay in a fixed order for reproducibility, which `Sort-Object Name` gives you.)
-
-### L6 — style and ergonomics
-
-- `src/progression.lua` uses 4-space indentation; every other module in `src/` uses 2.
-- The `save.created` guard (`bootstrap.lua:450-457`) is correct for 0.1.38, but still returns
-  silently. A single `mod.log:debug`/`info` line when it suppresses an event would turn a
-  future engine-ordering change from "the randomizer did nothing and said nothing" into a
-  one-line diagnosis.
+- **Migrations are correct.** Both new ones backfill settings defaults *and* the new
+  mapping keys, recompute the hash, stamp, and fail loudly on validation error. An
+  0.34-era save loads without quarantine.
+- **The mechanics save-switch path is right.** Restore-then-apply on `save.loading`, with
+  `run = nil` for vanilla saves, is the correct design and handles the case I most
+  expected to be broken.
+- **Yellow support is threaded end to end** — `starter_category` (player/rival split),
+  `starter_compat` (the Eevee ball handler), `progression`, `save_state` validation, and
+  the spoiler browser all handle it, with a dedicated test.
+- **The spoiler log kept pace** with the new categories: `ITEM LOCATIONS AND SHOPS`,
+  `POKEMON MECHANICS`, and `MOVE DATA` sections plus four new settings groups. Given the
+  spoiler log is the primary manual-verification channel, this mattered.
+- **Round-2 findings all still fixed.** No regressions in the progression sort, the
+  trainer unmatched-slot path, matching's id assertions, or the entropy provider.
 
 ---
 
 ## Suggested order
 
-1. M1 — one-line fix, and grep for other discarded `StableSort.sort` returns.
-2. M3 and M4 — two defensive guards in the paths that just got hardened.
-3. L4 — progression-model accuracy.
-4. M2, L2, L3 — API surface and spoiler-browser polish.
-5. L1 — decide whether to implement §6.1(4) or amend it; don't leave the spec claiming
-   something the code doesn't do.
-6. L5, L6 — housekeeping.
+1. **H2** first — it is a two-line change (derive from `Contracts.mappingKeys()`), and it
+   turns H1 from something you have to remember into something the suite reports.
+2. **H1** — add vectors that actually enable items, badges, mechanics, evolutions and
+   move data, and extend the property test's `isolated()` to the new streams. This is the
+   bulk of the work and it is worth doing before the next feature.
+3. **M2's capture guard** — one line, removes a session-poisoning failure mode.
+4. **M1 and M4 together** — single source of truth for stream names, consumed by the
+   generator, the collision test, and both documents.
+5. **M3, M5, L1, L2** — documentation and semantics reconciliation.

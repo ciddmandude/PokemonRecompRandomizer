@@ -4,27 +4,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$luaCommand = Get-Command lua -ErrorAction SilentlyContinue
-$luacCommand = Get-Command luac -ErrorAction SilentlyContinue
-$luaPath = if ($luaCommand) { $luaCommand.Source } else { $null }
-$luacPath = if ($luacCommand) { $luacCommand.Source } else { $null }
-$fallback = if ($env:LOCALAPPDATA) {
-  Join-Path $env:LOCALAPPDATA 'Programs\Lua\5.1.5'
-} else {
-  $null
-}
-
-if (-not $luaPath -and $fallback `
-    -and (Test-Path -LiteralPath (Join-Path $fallback 'lua.exe'))) {
-  $luaPath = Join-Path $fallback 'lua.exe'
-}
-if (-not $luacPath -and $fallback `
-    -and (Test-Path -LiteralPath (Join-Path $fallback 'luac.exe'))) {
-  $luacPath = Join-Path $fallback 'luac.exe'
-}
-if (-not $luaPath -or -not $luacPath) {
-  throw 'Lua 5.1 and luac are required'
-}
+. (Join-Path $PSScriptRoot 'resolve-lua51.ps1')
+$luaPath = Resolve-Lua51Executable
+$luacPath = Resolve-Lua51Executable -Compiler
 
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
 . (Join-Path $PSScriptRoot 'test-discovery.ps1')
