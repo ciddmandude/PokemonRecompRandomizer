@@ -17,12 +17,13 @@ local commandRecords = {
 }
 local optionSchema
 local pushedScreen
+local pushedModel
 local saveBucket = {}
 local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.45.1",
+  version = "0.45.2",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -203,7 +204,19 @@ local mod = {
     get = function(_, key) return options[key] end,
   },
   ui = {
-    push = function(_, id) pushedScreen = id end,
+    push = function(_, id, model)
+      pushedScreen, pushedModel = id, model
+    end,
+    insertBefore = function(items, anchor, item)
+      for index, row in ipairs(items) do
+        if row.label == anchor then
+          table.insert(items, index, item)
+          return items
+        end
+      end
+      items[#items + 1] = item
+      return items
+    end,
   },
   migrations = {
     add = function(_, since, callback)
@@ -287,6 +300,7 @@ assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(screens.PokemonRandomizerSpoilerBrowser.new) == "function")
 assert(type(hookCallbacks["ui.options.rows"]) == "function")
+assert(type(hookCallbacks["ui.start_menu.items"]) == "function")
 assert(type(hookCallbacks["encounter.species"]) == "function")
 assert(type(hookCallbacks["encounter.roll"]) == "function")
 assert(type(hookCallbacks["encounter.fishing"]) == "function")
@@ -355,6 +369,13 @@ assert(optionRows[1].label == "RANDOMIZER")
 assert(optionRows[1].value() == "OPEN")
 optionRows[1].activate({})
 assert(pushedScreen == "PokemonRandomizerOptions")
+
+local unavailableStartRows = hookCallbacks["ui.start_menu.items"](
+  function(_, rows) return rows end, {}, {
+    { label = "OPTION" }, { label = "MODS" }, { label = "QUIT" },
+  })
+assert(#unavailableStartRows == 3,
+  "pause menu must hide SPOILER until an eligible run is active")
 
 local bootPlaceholder = {
   version = "red",
@@ -427,6 +448,22 @@ assert(#run.seed.canonical == 26)
 assert(type(mod.exports.runCode(run)) == "string")
 assert(optionRows[1].value() == "LOCKED",
   "an actual New Game must lock its generated run")
+
+local pauseGame = { data = {}, save = save }
+local startRows = hookCallbacks["ui.start_menu.items"](
+  function(_, rows) return rows end, pauseGame, {
+    { label = "OPTION" }, { label = "MODS" }, { label = "QUIT" },
+  })
+assert(#startRows == 4 and startRows[2].label == "SPOILER"
+    and startRows[3].label == "MODS",
+  "eligible runs add SPOILER immediately before MODS")
+startRows[2].onSelect()
+assert(pushedScreen == "PokemonRandomizerSpoilerBrowser"
+    and type(pushedModel.onCancel) == "function",
+  "pause-menu SPOILER opens the existing browser with return navigation")
+pushedModel.onCancel(pauseGame)
+assert(pushedScreen == "StartMenu",
+  "closing the pause-menu spoiler browser reopens the Start menu")
 
 local nextCalled = false
 local vanillaEncounter = { species = "BULBASAUR", level = 7, marker = true }
@@ -509,7 +546,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.45.1", api = 2 },
+  { id = "pokemon_randomizer", version = "0.45.2", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

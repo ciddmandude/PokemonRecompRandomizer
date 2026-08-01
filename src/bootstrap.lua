@@ -51,6 +51,7 @@ return function(
     assertFunction(mod.save, "set", "mod.save:set")
     assertFunction(mod.options, "define", "mod.options:define")
     assertFunction(mod.options, "get", "mod.options:get")
+    assertFunction(mod.ui, "insertBefore", "mod.ui.insertBefore")
     assertFunction(mod.migrations, "add", "mod.migrations:add")
     assertFunction(mod.content.screens, "register",
       "mod.content.screens:register")
@@ -334,6 +335,14 @@ return function(
     end
     local viewSpoilers = SpoilerController.viewAction(
       mod, lifecycle, spoilerBrowserModel)
+    local viewSpoilersFromStart = SpoilerController.viewAction(
+      mod, lifecycle, function(game, run)
+        local model = spoilerBrowserModel(game, run)
+        model.onCancel = function(activeGame)
+          mod.ui.push(activeGame or game, "StartMenu")
+        end
+        return model
+      end)
     local exportSpoilers = SpoilerController.exportAction(mod, lifecycle)
     publicApi.save = PublicFacade.save({
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
@@ -477,6 +486,27 @@ return function(
           mod.ui.push(activeGame, Constants.OPTIONS_SCREEN_ID)
         end,
       }
+      return output
+    end)
+
+    mod.hooks:wrap("ui.start_menu.items", function(nextFn, game, items)
+      local output = nextFn(game, items)
+      if type(output) ~= "table" then return output end
+      local allowed = SpoilerController.canAccess(lifecycle:activeRun())
+      if not allowed then return output end
+      local anchor = "QUIT"
+      for _, item in ipairs(output) do
+        if item.label == "MODS" then
+          anchor = "MODS"
+          break
+        end
+      end
+      mod.ui.insertBefore(output, anchor, {
+        label = "SPOILER",
+        onSelect = function()
+          return viewSpoilersFromStart(game)
+        end,
+      })
       return output
     end)
 

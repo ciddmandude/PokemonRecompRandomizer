@@ -361,6 +361,16 @@ assert(screen.mode == "root")
 assert(#screen.rows == 3 and screen.rows[1].label == "POKEMON"
   and screen.rows[2].label == "ITEMS" and screen.rows[3].label == "MAP",
   "spoiler root offers Pokemon, Items, and Map")
+local returnedToPause
+local pauseScreen = BrowserScreen.new(game, {
+  index = index,
+  onCancel = function(activeGame) returnedToPause = activeGame end,
+}, ui)
+local popsBeforePauseReturn = stack.pops
+pauseScreen:back()
+assert(stack.pops == popsBeforePauseReturn + 1
+    and returnedToPause == game,
+  "root-level B closes the spoiler browser and invokes its return action")
 local itemScreen = BrowserScreen.new(game, { index = index }, ui)
 itemScreen.selection = 2
 itemScreen:choose()

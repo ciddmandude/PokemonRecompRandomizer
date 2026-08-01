@@ -546,6 +546,7 @@ return function(Constants, Browser)
       search = "",
       itemSearch = "",
       blink = 0,
+      onCancel = model.onCancel,
       background = loadBackground(model.index),
     }, Screen)
   end
@@ -567,7 +568,10 @@ return function(Constants, Browser)
   function Screen:back()
     local previous = self.history[#self.history]
     if not previous then
+      local onCancel = self.onCancel
+      self.onCancel = nil
       self.game.stack:pop()
+      if type(onCancel) == "function" then onCancel(self.game) end
       return
     end
     self.history[#self.history] = nil
