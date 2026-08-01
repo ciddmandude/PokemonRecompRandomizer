@@ -176,6 +176,27 @@ return function(Constants, Browser)
     return row.level and ("LV." .. tostring(row.level)) or ""
   end
 
+  local EVOLUTION_ITEM_ABBREVIATIONS = {
+    FIRE_STONE = "FIRE ST.",
+    LEAF_STONE = "LEAF ST.",
+    MOON_STONE = "MOON ST.",
+    THUNDER_STONE = "THUNDER ST.",
+    WATER_STONE = "WATER ST.",
+  }
+
+  local function evolutionTrigger(evolution)
+    if evolution.level ~= nil then
+      return "LV." .. tostring(evolution.level)
+    end
+    if type(evolution.item) == "string" then
+      return EVOLUTION_ITEM_ABBREVIATIONS[evolution.item]
+        or Browser.words(evolution.item):upper()
+    end
+    local method = tostring(evolution.method or ""):upper()
+    if method == "" then return "UNKNOWN" end
+    return Browser.words(method):upper()
+  end
+
   local function wrap(lines)
     local output = {}
     for _, source in ipairs(lines or {}) do
@@ -329,6 +350,11 @@ return function(Constants, Browser)
 
   local function locationBlockHeight(self, location)
     return (#locationLines(self, location) + 1) * 8 + 8
+  end
+
+  local function pokemonRowHeight(self, row)
+    if row.section or row.evolution or row.empty then return 16 end
+    return locationBlockHeight(self, row.location or {})
   end
 
   local function tradeLines(self, row)
@@ -635,6 +661,7 @@ return function(Constants, Browser)
     local count = #self.rows
     if count == 0 then return end
     local amount = page and LIST_ROWS or 1
+    local previousSelection = self.selection
     self.selection = math.max(1,
       math.min(count, self.selection + delta * amount))
     local currentTab = self.mode == "tabs"
@@ -654,14 +681,24 @@ return function(Constants, Browser)
       return
     end
     if self.mode == "locations" then
+      local direction = delta < 0 and -1 or 1
+      local candidate = self.selection
+      while candidate >= 1 and candidate <= count
+          and not self.rows[candidate].location do
+        candidate = candidate + direction
+      end
+      if candidate >= 1 and candidate <= count then
+        self.selection = candidate
+      else
+        self.selection = previousSelection
+      end
       if self.selection <= self.scroll then
         self.scroll = self.selection - 1
       end
       while self.scroll < self.selection - 1 do
         local height = 0
         for index = self.scroll + 1, self.selection do
-          height = height
-            + locationBlockHeight(self, self.rows[index].location or {})
+          height = height + pokemonRowHeight(self, self.rows[index])
         end
         if height <= 104 then break end
         self.scroll = self.scroll + 1
@@ -710,19 +747,34 @@ return function(Constants, Browser)
     elseif self.mode == "pokemon" and row then
       self:saveState()
       local locations = self.index.locationsBySpecies[row.species.id] or {}
-      local rows = {}
+      local rows = { { label = "EVOLUTIONS", section = true } }
+      if #(row.species.evolutions or {}) == 0 then
+        rows[#rows + 1] = { label = "NONE", evolution = true }
+      else
+        for _, evolution in ipairs(row.species.evolutions) do
+          rows[#rows + 1] = {
+            label = nameOf(self, evolution.species),
+            right = evolutionTrigger(evolution),
+            evolution = evolution,
+          }
+        end
+      end
+      rows[#rows + 1] = { label = "LOCATIONS", section = true }
+      local firstLocation
       for _, location in ipairs(locations) do
         rows[#rows + 1] = {
           label = location.label,
           right = location.summary,
           location = location,
         }
+        firstLocation = firstLocation or #rows
       end
-      if #rows == 0 then
-        rows[1] = { label = "NOT FOUND", empty = true }
+      if not firstLocation then
+        rows[#rows + 1] = { label = "NOT FOUND", empty = true }
       end
       self.selectedSpecies = row.species
       self:setMode("locations", rows)
+      self.selection = firstLocation or #rows
     elseif self.mode == "items" and row then
       self:saveState()
       self.selectedItem = row.item
@@ -736,7 +788,7 @@ return function(Constants, Browser)
       end
       if #rows == 0 then rows[1] = { label = "NOT FOUND", empty = true } end
       self:setMode("item_locations", rows)
-    elseif self.mode == "locations" and row and not row.empty then
+    elseif self.mode == "locations" and row and row.location then
       self.selectedLocation = row.location
       local results = row.location.rows or {}
       local staticOnly, wildOnly, tradeOnly, prizeOnly, starterOnly, giftOnly =
@@ -885,14 +937,24 @@ return function(Constants, Browser)
     local y = 24
     for index = self.scroll + 1, #self.rows do
       local row = self.rows[index]
-      local location = row.location or {}
-      local lines = locationLines(self, location)
-      local height = (#lines + 1) * 8 + 8
+      local height = pokemonRowHeight(self, row)
       if y + height > 128 and index > self.scroll + 1 then break end
-      if index == self.selection then Font.drawCode(Theme.cursor, 8, y) end
-      Font.draw(abbreviateLocation(row.label), 20, y)
-      for lineIndex, line in ipairs(lines) do
-        Font.draw(clip(line, 17), 20, y + lineIndex * 8)
+      if row.section then
+        Font.draw(clip(row.label, 18), 8, y)
+      elseif row.evolution then
+        local line = row.label
+        if row.right and row.right ~= "" then line = line .. " " .. row.right end
+        Font.draw(clip(line, 18), 8, y)
+      elseif row.empty then
+        Font.draw(clip(row.label, 17), 20, y)
+      else
+        local location = row.location or {}
+        local lines = locationLines(self, location)
+        if index == self.selection then Font.drawCode(Theme.cursor, 8, y) end
+        Font.draw(abbreviateLocation(row.label), 20, y)
+        for lineIndex, line in ipairs(lines) do
+          Font.draw(clip(line, 17), 20, y + lineIndex * 8)
+        end
       end
       y = y + height
     end
@@ -1043,6 +1105,7 @@ return function(Constants, Browser)
   Screen.availableTabs = availableTabs
   Screen.encounterLines = encounterLines
   Screen.locationLines = locationLines
+  Screen.evolutionTrigger = evolutionTrigger
   Screen.isEncounterTab = isEncounterTab
   Screen.isInlineTab = isInlineTab
   Screen.tradeLines = tradeLines

@@ -167,7 +167,7 @@ type, ordinary power, ordinary accuracy, and PP.
 | Review Next Run | Shows every editable setting and any validation warnings before starting. |
 | Reset Defaults | Restores the `STANDARD` preset and clears manual Seed Text after confirmation. |
 | Copy Active Seed | Copies the active seed and run code, or displays them when clipboard access is unavailable. |
-| View Spoiler Log | Opens an unrestricted Pokémon/items/map browser. Pokémon mode lists every merged-registry species in Pokédex order and shows obtainable locations. Items mode alphabetically lists every merged item, supports partial-name search, and shows every current item ball, hidden pickup, PC item, scripted or Gym reward, mart slot, vending slot, and Game Corner TM prize with its source type and applicable price. Item locations are inline and have no additional drill-down. Map mode uses the Kanto map and omits empty tabs; its `ITEMS` tab uses the same complete current placement index. Encounter methods use separate tabs with combined `PCT`/level lines and rod `NO BITE` odds. Trades render complete offers inline; trainer rows open complete parties. Browser entries show only current results, never original randomized values. Bottom legends are hidden except for `SEARCH:SELECT` on the Pokémon and item lists. Settings are omitted. Available only when the run saved Spoiler Log as `ON`. |
+| View Spoiler Log | Opens an unrestricted Pokémon/items/map browser. Pokémon mode lists every merged-registry species in Pokédex order, then shows that species' current evolutions and triggers before its obtainable locations. Species without an evolution show `NONE`. Items mode alphabetically lists every merged item, supports partial-name search, and shows every current item ball, hidden pickup, PC item, scripted or Gym reward, mart slot, vending slot, and Game Corner TM prize with its source type and applicable price. Item locations are inline and have no additional drill-down. Map mode uses the Kanto map and omits empty tabs; its `ITEMS` tab uses the same complete current placement index. Encounter methods use separate tabs with combined `PCT`/level lines and rod `NO BITE` odds. Trades render complete offers inline; trainer rows open complete parties. Browser entries show only current results, never original randomized values. Bottom legends are hidden except for `SEARCH:SELECT` on the Pokémon and item lists. Settings are omitted. Available only when the run saved Spoiler Log as `ON`. |
 | Export Spoiler Log | Manually writes the same active-run spoiler information without ROM bytes. Available only when that run saved Spoiler Log as `ON`; starting a game never creates the file. Saved at `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. |
 | Save Preset | Names and saves the current next-run options. Up to eight presets with unique 1–16 character names may be stored. Saving an existing name asks before overwriting it. |
 | Delete Preset | Selects a saved preset and asks for confirmation before deleting it. Built-in presets cannot be deleted. |
@@ -180,7 +180,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-- randomizer mod version: `0.45.0`
+- randomizer mod version: `0.45.1`
 - generator contract: `1`
 - algorithm build: `1.17.0-dev`
 - hash: `fnv1a32x4-v1`

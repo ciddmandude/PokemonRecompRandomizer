@@ -679,10 +679,29 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog, ItemFilter)
   local function buildSpecies(index)
     for id, record in pairs(index.sources.species or {}) do
       if type(id) == "string" and type(record) == "table" then
+        local mechanics = type(index.run.mappings) == "table"
+          and type(index.run.mappings.pokemonMechanics) == "table"
+          and index.run.mappings.pokemonMechanics[id]
+        local finalized = type(mechanics) == "table"
+          and mechanics.evolutions or record.evolutions
+        local evolutions = {}
+        for _, evolution in ipairs(type(finalized) == "table"
+            and finalized or {}) do
+          if type(evolution) == "table"
+              and type(evolution.species) == "string" then
+            evolutions[#evolutions + 1] = {
+              species = evolution.species,
+              method = evolution.method,
+              level = evolution.level,
+              item = evolution.item,
+            }
+          end
+        end
         index.species[#index.species + 1] = {
           id = id,
           name = speciesName(id, index.sources.species),
           dex = tonumber(record.dex),
+          evolutions = evolutions,
         }
         index.names[id] = speciesName(id, index.sources.species)
       end

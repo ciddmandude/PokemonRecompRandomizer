@@ -112,6 +112,13 @@ local run = {
         },
       },
     },
+    pokemonMechanics = {
+      SNORLAX = {
+        evolutions = {
+          { species = "PIKACHU", method = "LEVEL", level = 35 },
+        },
+      },
+    },
     fieldItems = {
       {
         kind = "visible", mapId = "ROUTE_1", objectIndex = 2,
@@ -238,6 +245,9 @@ assert(index.species[1].id == "PIDGEY")
 assert(index.species[4].id == "SNORLAX")
 assert(index.species[5].id == "MODMON",
   "species without a dex number sort alphabetically after numbered species")
+assert(index.species[4].evolutions[1].species == "PIKACHU"
+  and index.species[4].evolutions[1].level == 35,
+  "Pokemon index uses the finalized randomized evolution data")
 
 local routeWild = index.maps.ROUTE_1.tabs.grass
 assert(#routeWild == 1,
@@ -423,6 +433,19 @@ pressed.a = true
 screen:update()
 pressed = {}
 assert(screen.mode == "locations" and #screen.rows >= 5)
+assert(screen.rows[1].section and screen.rows[1].label == "EVOLUTIONS"
+  and screen.rows[2].label == "Pikachu"
+  and screen.rows[2].right == "LV.35"
+  and screen.rows[3].section and screen.rows[3].label == "LOCATIONS",
+  "Pokemon details show finalized evolutions before locations")
+local firstLocationSelection = screen.selection
+screen:move(-1)
+assert(screen.selection == firstLocationSelection,
+  "Pokemon location cursor skips non-interactive evolution rows")
+assert(BrowserScreen.evolutionTrigger({ item = "THUNDER_STONE" })
+    == "THUNDER ST."
+  and BrowserScreen.evolutionTrigger({ method = "TRADE" }) == "TRADE",
+  "evolution triggers are readable within the in-game screen width")
 local routeLocationIndex
 for indexValue, row in ipairs(screen.rows) do
   if row.location and row.location.mapId == "ROUTE_1" then
