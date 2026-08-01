@@ -121,9 +121,9 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Wild Pokémon | `OFF`, `GLOBAL MAP`, `AREA SLOTS` | `GLOBAL MAP` | `OFF` leaves all walking, surfing, and fishing encounters vanilla. `GLOBAL MAP` replaces a source species consistently everywhere using one saved source-to-destination table. `AREA SLOTS` saves a replacement for each map, terrain, and encounter slot, allowing the same source species to differ by location. |
 | Fishing | `VANILLA`, `RANDOMIZED` | `RANDOMIZED` | Controls Old/Good/Super Rod candidates independently. When randomized, it follows the selected Wild mode and uses saved fishing mappings. Gifted Magikarp is not a fishing encounter. |
 | Wild Levels | `UNCHANGED`, `±2`, `SCALED` | `UNCHANGED` | `UNCHANGED` preserves each original slot level. `±2` deterministically adjusts each slot from -2 to +2, clamped to 2–100. `SCALED` preserves the source area's relative difficulty but compensates for destination strength using `round(level × sqrt(sourceBST/destinationBST))`, clamped to 2–100. |
-| Catchability Guard | `OFF`, `ON` | `ON` | Ensures every non-legendary destination species is available in at least one reachable pre–Elite Four encounter when mathematically possible. It does not alter encounter rates, map access, or require sequence-breaking. A post-generation validator swaps destinations between slots to meet coverage. |
+| Pokémon Coverage | `OFF`, `ON` | `ON` | Ensures every non-legendary destination species is available in at least one reachable pre–Elite Four encounter when mathematically possible. It does not alter encounter rates, map access, or require sequence-breaking. A post-generation validator swaps destinations between slots to meet coverage. |
 
-When `SAME STAGE`, `BST ±50`, or `BST ±100` is active, Catchability Guard and
+When `SAME STAGE`, `BST ±50`, or `BST ±100` is active, Pokémon Coverage and
 trade-reachability repairs may use only swaps that remain valid for both
 affected source species. If no compatible donor exists, the repair is
 reported as unsatisfied rather than silently weakening the selected rule.
@@ -136,7 +136,7 @@ Wild encounter rate and the ten-slot probability buckets remain vanilla. Repel c
 |---|---|---:|---|
 | Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | In Red/Blue, `OFF` keeps Bulbasaur, Charmander, and Squirtle; enabled modes choose three unique eligible species. In Yellow, `OFF` keeps Pikachu and Eevee; enabled modes replace Pikachu with one saved eligible player starter and resolve one distinct saved rival starter in place of Eevee. `TYPE TRIAD` uses the triad candidate pool when one exists, then resolves the Yellow pair from that pool; otherwise it records a warning and falls back to `RANDOM`. |
 | Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | `BASIC ONLY` permits species with no pre-evolution in the eligible pool. `ANY` permits evolved forms. This filter applies only to the three player choices, not the rival's later randomized parties. |
-| Starter Level | number 2–20 | `5` | Sets the received starter's level and the level shown in the starter preview. The first rival battle remains governed by Trainer Levels, but cannot be more than three levels above the chosen starter when Progression Guard is on. |
+| Starter Level | number 2–20 | `5` | Sets the received starter's level and the level shown in the starter preview. The first rival battle remains governed by Trainer Levels, but cannot be more than three levels above the chosen starter when Trainer Safety is on. |
 | Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | `BALL ORDER` preserves the vanilla positional counterpick. `TYPE ADVANTAGE` gives the rival whichever unchosen starter has the strongest type matchup against the player's choice, with deterministic ties. `RANDOM OTHER` selects either unchosen starter from the saved seed. This choice controls starter flags and every vanilla rival-party branch that depends on them. |
 
 The Pokédex preview, confirmation text, received species, ball removal, rival movement, rival selection, and first rival team must agree. A solution that changes only `pokemon.before_give` is incomplete because the current Oak's Lab scripts display the original species before the gift event. In Yellow, a non-Pikachu randomized starter does not follow the player because the follower is a Pikachu-specific game feature.
@@ -163,7 +163,7 @@ because v0.1.30 has no per-save object-sprite seam.
 |---|---|---:|---|
 | In-game Trades | `OFF`, `RECEIVED`, `BOTH SIDES` | `BOTH SIDES` | `OFF` keeps every NPC trade vanilla. `RECEIVED` randomizes only the Pokémon the NPC gives. `BOTH SIDES` randomizes both the requested and received species. Dialog substitutions, party validation, Pokédex updates, nickname, OT behavior, and trade animation must use the resolved offer. |
 | Trade Fairness | `ANY`, `SIMILAR STRENGTH`, `NO DOWNGRADE` | `SIMILAR STRENGTH` | `ANY` ignores the global strength/stage rule for the received species. `SIMILAR STRENGTH` applies the selected global percentage band or same-stage rule between requested and received species. `NO DOWNGRADE` applies the global rule and requires received BST to be at least requested BST minus 5%; relax the no-downgrade threshold deterministically only if no candidate exists. |
-| Trade Evolution Safety | `OFF`, `ON` | `ON` | Prevents offers that require giving the same species received, and prevents impossible request species under Catchability Guard. Trade-evolution species remain legal; the normal in-game trade itself does not trigger a link evolution unless the base engine does so. |
+| Trade Validity | `OFF`, `ON` | `ON` | Prevents offers that require giving the same species received, and prevents impossible request species under Pokémon Coverage. Trade-evolution species remain legal; the normal in-game trade itself does not trigger a link evolution unless the base engine does so. |
 
 Each of the nine NPC-wired trades is generated once by stable trade index and
 stored. Completion flags remain vanilla so a trade cannot be repeated. The
@@ -184,14 +184,15 @@ Purchasing a randomized prize must show the correct species and level before pay
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
-| Non-key Items | `OFF`, `ON` | `OFF` | Shuffles ordinary visible, hidden, starting-PC, and supported scripted locations as a closed multiset. |
-| TM Location | `OFF`, `ON` | `OFF` | Shuffles TM locations, including supported gifts, exchanges, and Gym rewards. Enabling Shops also permits TMs in randomized stock. |
-| HM Location | `OFF`, `SAFE`, `FULL RANDOM` | `OFF` | `SAFE` places each HM no later than its required progression stage. `FULL RANDOM` shuffles HM locations without reachability constraints. HMs are never stocked by shops. |
-| Key Items | `OFF`, `SAFE`, `FULL RANDOM` | `OFF` | `SAFE` applies required-stage constraints to progression items. `FULL RANDOM` removes those constraints and allows supported key items in randomized shops. |
-| Badges | `VANILLA`, `SHUFFLED`, `RANDOM` | `VANILLA` | `VANILLA` keeps each badge with its Gym Leader. `SHUFFLED` permutes the eight badge identities among the eight Gym reward checks. `RANDOM` assigns each badge to a supported one-time pickup or reward—including starting-PC storage—and moves the eight displaced items into the Gym badge checks. Repeatable shops and mutually exclusive fossil choices are excluded. With Ensure Beatable `ON`, postgame checks are also excluded. |
-| Ensure Beatable | `OFF`, `ON` | `ON` | `ON` constrains badges and all enabled progression-item pools to locations available no later than their required stage. Displaced progression items receive the same treatment. A placement that cannot be proven safe falls back to vanilla badge checks with an attributed diagnostic. `OFF` preserves the unrestricted seeded result and can produce an unbeatable run. |
-| Shops | `OFF`, `ON` | `OFF` | Randomizes Poké Marts, Department Store counters, vending machines, and Game Corner TM prizes. It does not affect Game Corner Pokémon. |
-| Shop Prices | `VANILLA`, `RANDOM`, `CHEAP` | `VANILLA` | `VANILLA` preserves ordinary item prices and special-shop slot prices. `RANDOM` saves deterministic multiples of 100 from 100–5000. `CHEAP` uses 100. Ignored while Shops is off. |
+| Non-key Location | `VANILLA`, `SHUFFLED` | `VANILLA` | Keeps ordinary-item checks unchanged or shuffles them as a closed multiset. Hidden checks participate only when Hidden Items permits it. |
+| TM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps TMs unchanged, shuffles only TM checks, or joins TMs to the shared supported one-time-check pool. |
+| HM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps HMs unchanged, shuffles only HM checks, or joins HMs to the shared pool. HMs are never stocked by shops. |
+| Key Item Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps key items unchanged, shuffles only supported key-item checks, or joins them to the shared pool. |
+| Badge Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps badges with their Gym Leaders, permutes the eight badge checks, or joins badges to the shared one-time-check pool. Repeatable shops and mutually exclusive fossil choices are excluded. |
+| Hidden Items | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | `VANILLA` locks hidden checks out of all pools. `SHUFFLED` shuffles all hidden checks as one closed pool. `MIXED` lets hidden checks exchange items with supported visible, starting-PC, and scripted checks. |
+| Progression Safety | `OFF`, `ON` | `ON` | Independently constrains enabled badges, HMs, key items, and displaced progression items to locations available by their required stage. A pool that cannot be proven safe remains vanilla with an attributed diagnostic. `OFF` preserves unrestricted seeded placement and can produce an unbeatable run. |
+| Shops | `VANILLA`, `RANDOMIZED` | `VANILLA` | Randomizes Poké Marts, Department Store counters, vending machines, and Game Corner TM prizes. It does not affect Game Corner Pokémon. |
+| Shop Prices | `VANILLA`, `RANDOM`, `CHEAP` | `VANILLA` | `VANILLA` preserves ordinary item prices and special-shop slot prices. `RANDOM` saves deterministic multiples of 100 from 100–5000. `CHEAP` uses 100. Ignored while Shops is vanilla. |
 
 The engine's merged map and field tables are captured after all mods load.
 New Game projects the saved placements into those live tables. Continue and
@@ -209,8 +210,8 @@ do not migrate an already-generated run; they apply to the next New Game.
 | Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Applies to Gym Leaders and Elite Four members, excluding the Champion rival. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a single saved type theme per boss while retaining party size. `VANILLA` excludes boss parties from species and level randomization. |
 | Rival Pokémon | `INCLUDE`, `THEMED`, `VANILLA` | `INCLUDE` | Applies to every rival battle, including the Champion. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a rival theme and retains vanilla party size. With Rival Keep Pokémon `YES`, each starter branch uses that randomized starter's primary type; with `NO`, the run saves a deterministic rival theme. `VANILLA` leaves non-starter species, levels, moves, and party sizes vanilla while the starter slot still follows Rival Keep Pokémon. |
 | Rival Keep Pokémon | `NO`, `YES` | `YES` | `YES` assigns each recurring vanilla rival-family slot one randomized evolution family, advances along it when the vanilla counterpart evolves, and follows the vanilla add/remove schedule. If the destination family runs out of evolutions, its latest form remains. `NO` preserves the selected counterpick for Oak's Lab only; every later party, including the former starter slot, is independently resolved according to Rival Pokémon. |
-| Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | `UNCHANGED` preserves each party's count. `1–6 RANDOM` generates a saved count, but Progression Guard limits pre–Brock trainers to 1–3 and prevents required battles from exceeding six. |
-| Progression Guard | `OFF`, `ON` | `ON` | Enforces valid species, levels, and nonempty required parties; limits the first rival battle relative to the starter; prevents early mandatory teams composed only of high-BST or legendary Pokémon; and ensures generated moves can be constructed. It does not guarantee a particular difficulty. |
+| Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | `UNCHANGED` preserves each party's count. `1–6 RANDOM` generates a saved count, but Trainer Safety limits pre–Brock trainers to 1–3 and prevents required battles from exceeding six. |
+| Trainer Safety | `OFF`, `ON` | `ON` | Enforces valid species, levels, and nonempty required parties; limits the first rival battle relative to the starter; prevents early mandatory teams composed only of high-BST or legendary Pokémon; and ensures generated moves can be constructed. It does not guarantee a particular difficulty. |
 
 Trainer randomization runs before the engine constructs battlers. Vanilla special boss-move overrides must only be applied when legal for the resolved species; otherwise the normal generated moveset remains. Explicit per-slot move lists from other mods remain authoritative unless a compatibility conflict is reported.
 
@@ -426,7 +427,7 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Generate mappings from original records, never from already randomized output.
 - Save keys as `<mapId>/<terrain>/<slotIndex>` and `<mapId>/<rod>/<candidateIndex>`.
 - In global mode, save a source-species table once and use it everywhere.
-- Run Catchability Guard after all wild/trade mappings exist so safe swaps do not change counts or rates.
+- Run Pokémon Coverage after all wild/trade mappings exist so safe swaps do not change counts or rates.
 
 ### 9.2 Starters
 
@@ -445,7 +446,7 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Enumerate imported `field.trades` by numeric index.
 - Preserve dialog set, nickname, OT behavior, completion flag, and received level rule.
 - Save `{ give, get }` for each index.
-- Validate that the requested species can be acquired before that trade when Catchability Guard and Trade Evolution Safety are on.
+- Validate that the requested species can be acquired before that trade when Pokémon Coverage and Trade Validity are on.
 - A trade offer must not change after it is viewed.
 
 ### 9.4 Mod-only static encounters and gifts
@@ -632,7 +633,7 @@ and cover:
 - static and gift IDs are stable and all saved offers are valid;
 - required trainer parties are nonempty and at most six;
 - one-to-one mappings obey uniqueness while candidates remain;
-- Catchability Guard and trade reachability invariants hold when enabled;
+- Pokémon Coverage and trade reachability invariants hold when enabled;
 - generation terminates within bounded retries;
 - saved mappings serialize and parse to the same normalized table.
 
@@ -654,7 +655,7 @@ and cover:
 - randomizing during Continue when the save was originally vanilla;
 - network seed synchronization or an online seed server;
 - server-grade competitive anti-cheat, remote race administration, or proof that a player has not inspected local files;
-- guaranteed beatability under every combination with Progression Guard off.
+- guaranteed beatability under every combination with Trainer Safety off.
 
 ## 15. Fifteen implementation milestones
 

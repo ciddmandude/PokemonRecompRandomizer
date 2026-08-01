@@ -22,7 +22,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.42.1",
+  version = "0.43.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -238,7 +238,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.11.0-dev")
+assert(mod.exports.algorithmVersion == "1.12.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -272,7 +272,7 @@ assert(type(mod.exports.preferences.snapshot) == "function")
 assert(type(mod.exports.spoilers.canAccess) == "function")
 assert(type(mod.exports.spoilers.format) == "function")
 assert(type(mod.exports.spoilers.export) == "function")
-assert(#mod.exports.preferences.schema() == 43)
+assert(#mod.exports.preferences.schema() == 44)
 local exportedSchema = mod.exports.preferences.schema()
 exportedSchema[1].label = "MUTATED"
 assert(mod.exports.preferences.schema()[1].label ~= "MUTATED")
@@ -282,7 +282,7 @@ assert(mod.exports.preferences.pages()[1].rows[1].key ~= "mutated")
 local exportedSettings = mod.exports.preferences.snapshot()
 exportedSettings.randomizer = "MUTATED"
 assert(mod.exports.preferences.snapshot().randomizer ~= "MUTATED")
-assert(#optionSchema == 43)
+assert(#optionSchema == 44)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(screens.PokemonRandomizerSpoilerBrowser.new) == "function")
@@ -508,7 +508,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.42.1", api = 2 },
+  { id = "pokemon_randomizer", version = "0.43.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

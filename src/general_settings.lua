@@ -31,6 +31,7 @@ return function(SaveState)
     "hms",
     "key_items",
     "badges",
+    "hidden_items",
     "ensure_beatable",
     "shops",
     "shop_prices",
@@ -70,13 +71,14 @@ return function(SaveState)
     game_corner_pokemon = "randomized",
     prize_levels = "unchanged",
     prize_prices = "unchanged",
-    non_key_items = "off",
-    tms = "off",
-    hms = "off",
-    key_items = "off",
+    non_key_items = "vanilla",
+    tms = "vanilla",
+    hms = "vanilla",
+    key_items = "vanilla",
     badges = "vanilla",
+    hidden_items = "vanilla",
     ensure_beatable = "on",
-    shops = "off",
+    shops = "vanilla",
     shop_prices = "vanilla",
     trainer_pokemon = "by_slot",
     trainer_levels = "unchanged",
@@ -111,13 +113,14 @@ return function(SaveState)
     game_corner_pokemon = "randomized",
     prize_levels = "unchanged",
     prize_prices = "unchanged",
-    non_key_items = "off",
-    tms = "off",
-    hms = "off",
-    key_items = "off",
+    non_key_items = "vanilla",
+    tms = "vanilla",
+    hms = "vanilla",
+    key_items = "vanilla",
     badges = "vanilla",
+    hidden_items = "vanilla",
     ensure_beatable = "on",
-    shops = "off",
+    shops = "vanilla",
     shop_prices = "vanilla",
     trainer_pokemon = "global_map",
     trainer_levels = "unchanged",
@@ -152,13 +155,14 @@ return function(SaveState)
     game_corner_pokemon = "randomized",
     prize_levels = "scaled",
     prize_prices = "random_25",
-    non_key_items = "off",
-    tms = "off",
-    hms = "off",
-    key_items = "off",
+    non_key_items = "vanilla",
+    tms = "vanilla",
+    hms = "vanilla",
+    key_items = "vanilla",
     badges = "vanilla",
+    hidden_items = "vanilla",
     ensure_beatable = "off",
-    shops = "off",
+    shops = "vanilla",
     shop_prices = "vanilla",
     trainer_pokemon = "by_slot",
     trainer_levels = "plus_minus_10",
@@ -307,6 +311,7 @@ return function(SaveState)
       "hms",
       "key_items",
       "badges",
+      "hidden_items",
       "ensure_beatable",
       "shops",
       "trainer_pokemon",
@@ -328,9 +333,11 @@ return function(SaveState)
       end
     end
     if settings.ensure_beatable == "off"
-        and (settings.badges ~= nil and settings.badges ~= "vanilla"
-          or settings.hms == "full_random"
-          or settings.key_items == "full_random") then
+        and (settings.badges == "mixed" or settings.badges == "random"
+          or settings.hms == "mixed" or settings.hms == "full_random"
+          or settings.key_items == "mixed"
+          or settings.key_items == "full_random"
+          or settings.hidden_items == "mixed") then
       warnings[#warnings + 1] = {
         code = "BEATABILITY_DISABLED",
         message = "unrestricted progression-item placement may make the seed unbeatable",

@@ -38,6 +38,7 @@ for _, vector in ipairs(Vectors) do
   request.settings.hms = nil
   request.settings.key_items = nil
   request.settings.badges = nil
+  request.settings.hidden_items = nil
   request.settings.ensure_beatable = nil
   request.settings.shops = nil
   request.settings.shop_prices = nil

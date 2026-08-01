@@ -53,7 +53,10 @@ local sources = {
       { index = 1, item = "TM_BIDE" }, { index = 2, item = "OAKS_PARCEL" },
     } },
   },
-  field = { hiddenItems = {} },
+  field = { hiddenItems = {
+    EARLY = { { x = 1, y = 2, item = "POTION" } },
+    LATE = { { x = 3, y = 4, item = "ANTIDOTE" } },
+  } },
   scriptedItems = {
     { id = "brock_badge", mapId = "EARLY", item = "BOULDERBADGE",
       flag = "BEAT_BROCK", battle = true, command = false, badge = true },
@@ -87,6 +90,33 @@ for _, row in ipairs(badgeRandom.placements) do
 end
 assert(badgeAtField,
   "random mode places badges at supported one-time item locations")
+
+local hiddenShuffle = Category.generate(sources, {
+  non_key_items = "vanilla", tms = "vanilla", hms = "vanilla",
+  key_items = "vanilla", badges = "vanilla", hidden_items = "shuffled",
+  ensure_beatable = "off", shops = "vanilla",
+}, rng)
+assert(#hiddenShuffle.placements == 2,
+  "hidden shuffled mode emits every hidden check")
+for _, row in ipairs(hiddenShuffle.placements) do
+  assert(row.kind == "hidden",
+    "hidden shuffled mode stays inside the hidden-check pool")
+end
+
+local hiddenMixed = Category.generate(sources, {
+  non_key_items = "vanilla", tms = "vanilla", hms = "vanilla",
+  key_items = "vanilla", badges = "vanilla", hidden_items = "mixed",
+  ensure_beatable = "off", shops = "vanilla",
+}, rng)
+local sawHidden, sawVisible = false, false
+for _, row in ipairs(hiddenMixed.placements) do
+  sawHidden = sawHidden or row.kind == "hidden"
+  sawVisible = sawVisible or row.kind ~= "hidden"
+  assert(row.category == "non_key",
+    "hidden mixed mode does not unlock vanilla progression categories")
+end
+assert(sawHidden and sawVisible,
+  "hidden mixed mode exchanges items with supported visible checks")
 
 local shops = Category.generate(sources, { non_key_items = "off", tms = "on",
   hms = "full_random", key_items = "full_random", shops = "on",

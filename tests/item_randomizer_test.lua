@@ -54,19 +54,19 @@ local reverseRng = {
 local generated = ItemCategory.generate(
   sources, { non_key_items = "on", tms = "on", hms = "off",
     key_items = "off", shops = "off" }, reverseRng)
-assert(#generated.placements == 4,
-  "non-key visible, hidden, and starting-PC items may participate")
+assert(#generated.placements == 3,
+  "legacy non-key and TM toggles exclude vanilla hidden checks")
 assert(generated.placements[1].category == "non_key")
-assert(generated.placements[3].kind == "pc")
-assert(generated.placements[3].quantity == 1)
-assert(generated.placements[4].category == "tm")
+assert(generated.placements[2].kind == "pc")
+assert(generated.placements[2].quantity == 1)
+assert(generated.placements[3].category == "tm")
 
 local game = { data = sources }
 ItemRuntime.capture(game)
 local applied = ItemRuntime.apply(game, {
   mappings = { fieldItems = generated.placements },
 })
-assert(applied == 3)
+assert(applied == 2)
 assert(game.data.maps.MT_MOON_1F.objects[1].item == "TM_BIDE")
 assert(game.data.maps.VIRIDIAN_FOREST.objects[1].item == "POTION")
 assert(game.data.field.hiddenItems.ROUTE_2[1].item == "ANTIDOTE")
@@ -108,7 +108,7 @@ local battleApplied, refreshed = ItemRuntime.afterBattle(game, {
   current = function() return { mapId = "MT_MOON_1F" } end,
   invalidateMap = function(_, mapId) invalidated = mapId end,
 })
-assert(battleApplied == 3 and refreshed == true)
+assert(battleApplied == 2 and refreshed == true)
 assert(invalidated == "MT_MOON_1F")
 assert(game.data.maps.MT_MOON_1F.objects[1].item == "TM_BIDE",
   "post-battle repair must restore the randomized payload")

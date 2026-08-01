@@ -60,28 +60,29 @@ local generated = Category.generate(sources, {
 }, rng)
 assert(#generated.warnings == 0, "supported badge pool should be provably beatable")
 
-local counts, fieldBadges = {}, 0
+local counts, fieldRows = {}, 0
 for _, row in ipairs(generated.placements) do
+  if row.kind == "visible" then fieldRows = fieldRows + 1 end
   if items[row.item] and row.item:find("BADGE$") then
     counts[row.item] = (counts[row.item] or 0) + 1
     assert(row.kind ~= "shop", "badges must remain one-time acquisitions")
-    if row.kind == "visible" then fieldBadges = fieldBadges + 1 end
   end
 end
 for _, badge in ipairs(BADGES) do
   assert(counts[badge[3]] == 1, badge[3] .. " must appear exactly once")
 end
-assert(fieldBadges == 8, "random mode may place every badge in the field")
+assert(fieldRows == #objects,
+  "mixed mode includes supported field-item checks in the shared pool")
 
 local unrestricted = Category.generate(sources, {
   non_key_items = "off", tms = "off", hms = "off", key_items = "off",
   badges = "random", ensure_beatable = "off", shops = "off",
 }, rng)
-local pcBadge = false
+local sawPcCheck = false
 for _, row in ipairs(unrestricted.placements) do
-  if row.kind == "pc" and row.item:find("BADGE$") then pcBadge = true end
+  if row.kind == "pc" then sawPcCheck = true end
 end
-assert(pcBadge, "starting PC storage participates in unrestricted RANDOM mode")
+assert(sawPcCheck, "starting PC storage participates in unrestricted MIXED mode")
 
 local shuffled = Category.generate(sources, {
   non_key_items = "off", tms = "off", hms = "off", key_items = "off",

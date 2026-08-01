@@ -32,8 +32,8 @@ local mod = {
 }
 local preferences = Preferences.new(mod)
 preferences:define()
-equal(#defined, 43, "complete preference row count")
-equal(#preferences:pages(), 15, "paged schema count")
+equal(#defined, 44, "complete preference row count")
+equal(#preferences:pages(), 16, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
   for _, row in ipairs(page.rows) do
@@ -67,15 +67,16 @@ equal(defaults.game_corner_pokemon, "randomized", "prize default")
 equal(defaults.generate_spoiler_log, "on", "spoiler access default")
 equal(defaults.rival_pokemon, "include", "rival mode default")
 equal(defaults.rival_keep_pokemon, "yes", "rival continuity default")
-equal(defaults.non_key_items, "off", "ordinary item default")
-equal(defaults.tms, "off", "TM default")
-equal(defaults.hms, "off", "HM default")
-equal(defaults.key_items, "off", "key-item default")
+equal(defaults.non_key_items, "vanilla", "ordinary item default")
+equal(defaults.tms, "vanilla", "TM default")
+equal(defaults.hms, "vanilla", "HM default")
+equal(defaults.key_items, "vanilla", "key-item default")
 equal(defaults.badges, "vanilla", "badge default")
+equal(defaults.hidden_items, "vanilla", "hidden-item default")
 equal(defaults.ensure_beatable, "on", "beatability default")
-equal(defaults.shops, "off", "shop default")
+equal(defaults.shops, "vanilla", "shop default")
 equal(defaults.shop_prices, "vanilla", "shop-price default")
-local strengthRow, tmLocationRow, hmLocationRow
+local strengthRow, tmLocationRow, hmLocationRow, hiddenItemsRow
 for _, row in ipairs(defined) do
   if row.key == "similar_strength" then strengthRow = row break end
 end
@@ -86,9 +87,34 @@ assert(strengthRow and strengthRow.choices[4][2] == "bst_50"
 for _, row in ipairs(defined) do
   if row.key == "tms" then tmLocationRow = row end
   if row.key == "hms" then hmLocationRow = row end
+  if row.key == "hidden_items" then hiddenItemsRow = row end
 end
 equal(tmLocationRow and tmLocationRow.label, "TM LOCATION", "TM display label")
 equal(hmLocationRow and hmLocationRow.label, "HM LOCATION", "HM display label")
+equal(hiddenItemsRow and hiddenItemsRow.label, "HIDDEN ITEMS",
+  "hidden item display label")
+equal(hiddenItemsRow and hiddenItemsRow.choices[3][2], "mixed",
+  "hidden items expose mixed locations")
+
+local legacyGame = { save = { options = { modOptions = {
+  pokemon_randomizer = {
+    non_key_items = "on", tms = "off", hms = "safe",
+    key_items = "full_random", badges = "random", shops = "on",
+    ensure_beatable = "off",
+  },
+} } } }
+equal(preferences:get("non_key_items", legacyGame), "shuffled",
+  "legacy ordinary-item value migrates")
+equal(preferences:get("hms", legacyGame), "shuffled",
+  "legacy safe HM value migrates")
+equal(preferences:get("key_items", legacyGame), "shuffled",
+  "legacy full-random key value migrates")
+equal(preferences:get("badges", legacyGame), "mixed",
+  "legacy random badge value migrates")
+equal(preferences:get("shops", legacyGame), "randomized",
+  "legacy shop value migrates")
+equal(preferences:get("ensure_beatable", legacyGame), "on",
+  "legacy safe mode enables progression safety")
 
 assert(preferences:set("randomizer", "off", game))
 equal(writes, 1, "single preference persistence")

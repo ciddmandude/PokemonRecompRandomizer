@@ -1,5 +1,5 @@
--- Deterministic item-location and shop randomization. Each enabled field
--- category is a closed shuffle, so no item is created or lost.
+-- Deterministic item-location and shop randomization. Location modes control
+-- pool scope; progression safety is an independent post-generation policy.
 return function(StableSort, Progression)
   local ItemCategory = {}
 
@@ -8,10 +8,18 @@ return function(StableSort, Progression)
     RAINBOWBADGE = true, SOULBADGE = true, MARSHBADGE = true,
     VOLCANOBADGE = true, EARTHBADGE = true,
   }
+  local OPTIONAL_SOURCES = { dome_fossil = true, helix_fossil = true }
 
-  local OPTIONAL_SOURCES = {
-    dome_fossil = true,
-    helix_fossil = true,
+  local LEGACY_MODES = {
+    non_key = { off = "vanilla", on = "shuffled" },
+    tm = { off = "vanilla", on = "shuffled" },
+    hm = { off = "vanilla", safe = "shuffled", full_random = "shuffled" },
+    key = { off = "vanilla", safe = "shuffled", full_random = "shuffled" },
+    badge = { random = "mixed" },
+  }
+  local SETTING_KEYS = {
+    non_key = "non_key_items", tm = "tms", hm = "hms",
+    key = "key_items", badge = "badges",
   }
 
   local function category(itemId, items)
@@ -25,28 +33,28 @@ return function(StableSort, Progression)
     return "non_key"
   end
 
-  local function enabled(kind, settings)
-    if kind == "non_key" then return settings.non_key_items == "on" end
-    if kind == "tm" then return settings.tms == "on" end
-    if kind == "hm" then return settings.hms ~= nil and settings.hms ~= "off" end
-    if kind == "key" then
-      return settings.key_items ~= nil and settings.key_items ~= "off"
-    end
-    if kind == "badge" then
-      return settings.badges ~= nil and settings.badges ~= "vanilla"
-    end
-    return false
+  local function mode(kind, settings)
+    local value = settings[SETTING_KEYS[kind]]
+    return (LEGACY_MODES[kind] and LEGACY_MODES[kind][value])
+      or value or "vanilla"
   end
 
-  local function collectFieldRows(sources)
-    local items = sources.items or {}
-    local rows = {}
+  local function hiddenMode(settings)
+    return settings.hidden_items or "vanilla"
+  end
+
+  local function safetyOn(settings)
+    -- Preserve direct callers and old presets that still carry per-category
+    -- SAFE even though the UI now exposes one global progression policy.
+    return settings.ensure_beatable == "on"
+      or settings.hms == "safe" or settings.key_items == "safe"
+  end
+
+  local function collectRows(sources)
+    local items, rows = sources.items or {}, {}
     local function add(row)
       local kind = category(row.original, items)
-      if kind then
-        row.category = kind
-        rows[#rows + 1] = row
-      end
+      if kind then row.category = kind; rows[#rows + 1] = row end
     end
     for _, mapId in ipairs(StableSort.keys(sources.maps or {})) do
       local map = sources.maps[mapId]
@@ -86,6 +94,17 @@ return function(StableSort, Progression)
     return rows
   end
 
+  local function rowKey(row)
+    return table.concat({ row.kind or "", row.mapId or "", row.id or "",
+      tostring(row.objectIndex or ""), tostring(row.hiddenIndex or "") }, "\0")
+  end
+
+  local function copyRow(row)
+    local output = {}
+    for key, value in pairs(row) do output[key] = value end
+    return output
+  end
+
   local function stage(row, version)
     local access = Progression.access(row.mapId, "walk", nil, version)
     return access.available and access.stage or Progression.STAGES.POSTGAME
@@ -100,8 +119,7 @@ return function(StableSort, Progression)
       HM_SURF = S.FUCHSIA, GOLD_TEETH = S.FUCHSIA,
       HM_STRENGTH = S.VICTORY_ROAD, CARD_KEY = S.SAFFRON,
       SECRET_KEY = S.SURF,
-      BOULDERBADGE = S.PEWTER,
-      CASCADEBADGE = S.CERULEAN,
+      BOULDERBADGE = S.PEWTER, CASCADEBADGE = S.CERULEAN,
       THUNDERBADGE = S.LATE_STORY or S.VICTORY_ROAD,
       RAINBOWBADGE = S.LATE_STORY or S.VICTORY_ROAD,
       SOULBADGE = S.FUCHSIA,
@@ -112,26 +130,8 @@ return function(StableSort, Progression)
     return required[itemId] or fallback
   end
 
-  local function rowKey(row)
-    return table.concat({ row.kind or "", row.mapId or "", row.id or "",
-      tostring(row.objectIndex or ""), tostring(row.hiddenIndex or "") }, "\0")
-  end
-
-  local function copyRow(row)
-    local output = {}
-    for key, value in pairs(row) do output[key] = value end
-    return output
-  end
-
-  local function badgeCandidate(row, version, allowPostgame)
-    if row.kind == "shop" then return false end
-    if row.kind == "scripted" and OPTIONAL_SOURCES[row.id] then return false end
-    local access = Progression.access(row.mapId, "walk", nil, version)
-    return access.available and (allowPostgame or not access.postgame)
-  end
-
   local function assignItems(items, destinations, rng, version, constrained)
-    local pending = {}
+    local pending, available = {}, {}
     for _, item in ipairs(items) do
       pending[#pending + 1] = {
         id = item,
@@ -140,16 +140,11 @@ return function(StableSort, Progression)
       }
     end
     table.sort(pending, function(a, b)
-      if constrained and a.required ~= b.required then
-        return a.required < b.required
-      end
+      if constrained and a.required ~= b.required then return a.required < b.required end
       return a.tie < b.tie
     end)
-    local available = {}
     for _, row in ipairs(destinations) do
-      available[#available + 1] = {
-        row = row, stage = stage(row, version), tie = rng:nextU32(),
-      }
+      available[#available + 1] = { row = row, stage = stage(row, version) }
     end
     local output = {}
     for _, item in ipairs(pending) do
@@ -169,150 +164,68 @@ return function(StableSort, Progression)
     return output
   end
 
-  local function badgePlacements(rows, settings, rng, version)
-    local badges, candidates = {}, {}
-    for _, row in ipairs(rows) do
-      if row.category == "badge" then
-        badges[#badges + 1] = row
-      elseif badgeCandidate(row, version,
-          settings.ensure_beatable ~= "on") then
-        candidates[#candidates + 1] = row
-      end
-    end
-    if settings.badges == nil or settings.badges == "vanilla"
-        or #badges == 0 then return {}, {} end
-
-    local consumed, warnings = {}, {}
-    if settings.badges == "shuffled" then
-      local items = {}
-      for _, row in ipairs(badges) do
-        items[#items + 1] = row.original
-        consumed[rowKey(row)] = true
-      end
-      local placements = assignItems(items, badges, rng, version,
-        settings.ensure_beatable == "on")
-      if not placements then
-        warnings[#warnings + 1] = {
-          code = "BADGE_BEATABILITY_FALLBACK",
-          message = "no provably beatable badge shuffle was found; badges are vanilla",
-        }
-        return {}, {}, warnings
-      end
-      return placements, consumed, warnings
-    end
-
-    candidates = rng:shuffle(candidates)
-    if #candidates < #badges then
-      warnings[#warnings + 1] = {
-        code = "BADGE_LOCATION_SHORTAGE",
-        message = "fewer than eight supported one-time item locations were available",
-      }
-      return {}, {}, warnings
-    end
-
-    local selected, badgeItems = {}, {}
-    if settings.ensure_beatable == "on" then
-      local ordered = {}
-      for _, row in ipairs(badges) do
-        ordered[#ordered + 1] = { row = row,
-          required = requiredStage(row.original, Progression.STAGES.VICTORY_ROAD),
-          tie = rng:nextU32() }
-      end
-      table.sort(ordered, function(a, b)
-        return a.required == b.required and a.tie < b.tie
-          or a.required < b.required
-      end)
-      local remaining = {}
-      for index, row in ipairs(candidates) do remaining[index] = row end
-      for _, badge in ipairs(ordered) do
-        local choices = {}
-        for index, row in ipairs(remaining) do
-          if stage(row, version) <= badge.required then choices[#choices + 1] = index end
-        end
-        if #choices == 0 then
-          warnings[#warnings + 1] = {
-            code = "BADGE_BEATABILITY_FALLBACK",
-            message = "no provably beatable random badge placement was found; badges are vanilla",
-          }
-          return {}, {}, warnings
-        end
-        local choice = choices[rng:nextInt(1, #choices)]
-        local destination = table.remove(remaining, choice)
-        selected[#selected + 1] = destination
-        badgeItems[#badgeItems + 1] = badge.row.original
-      end
-    else
-      for index = 1, #badges do selected[index] = candidates[index] end
-      for _, row in ipairs(badges) do badgeItems[#badgeItems + 1] = row.original end
-      badgeItems = rng:shuffle(badgeItems)
-    end
-
-    local placements = {}
-    for index, destination in ipairs(selected) do
-      local row = copyRow(destination)
-      row.item = badgeItems[index]
-      placements[#placements + 1] = row
-      consumed[rowKey(destination)] = true
-    end
-    local displaced = {}
-    for _, destination in ipairs(selected) do displaced[#displaced + 1] = destination.original end
-    local returns = assignItems(displaced, badges, rng, version,
-      settings.ensure_beatable == "on")
-    if not returns then
-      warnings[#warnings + 1] = {
-        code = "BADGE_BEATABILITY_FALLBACK",
-        message = "displaced progression items could not be placed safely; badges are vanilla",
-      }
-      return {}, {}, warnings
-    end
-    for _, row in ipairs(returns) do placements[#placements + 1] = row end
-    for _, row in ipairs(badges) do consumed[rowKey(row)] = true end
-    return placements, consumed, warnings
-  end
-
-  local function shuffleCategory(rows, mode, rng, version)
-    local output = {}
-    if mode ~= "safe" then
-      local items = {}
-      for index, row in ipairs(rows) do items[index] = row.original end
+  local function closedShuffle(rows, rng, version, constrained)
+    local items = {}
+    for _, row in ipairs(rows) do items[#items + 1] = row.original end
+    if not constrained then
       items = rng:shuffle(items)
-      for index, row in ipairs(rows) do row.item = items[index]; output[#output + 1] = row end
+      local output = {}
+      for index, source in ipairs(rows) do
+        local row = copyRow(source)
+        row.item = items[index]
+        output[#output + 1] = row
+      end
       return output
     end
+    return assignItems(items, rows, rng, version, constrained)
+  end
 
-    -- Earliest-required items are placed first. Choosing the latest eligible
-    -- remaining location preserves earlier locations for other constrained
-    -- progression items and is deterministic.
-    local pending, destinations = {}, {}
-    for index, row in ipairs(rows) do
-      pending[index] = { item = row.original,
-        required = row.requiredStage
-          or requiredStage(row.original, stage(row, version)),
-        tie = rng:nextU32() }
-      destinations[index] = { row = row, available = stage(row, version),
-        tie = rng:nextU32() }
-    end
-    table.sort(pending, function(a, b)
-      return a.required == b.required and a.tie < b.tie or a.required < b.required
-    end)
-    for _, item in ipairs(pending) do
-      local best
-      for index, destination in ipairs(destinations) do
-        if destination.available <= item.required and (not best
-            or destination.available > destinations[best].available
-            or (destination.available == destinations[best].available
-              and destination.tie < destinations[best].tie)) then best = index end
+  local function supportedMixedDestination(row, version, constrained, hidden)
+    if row.kind == "shop" then return false end
+    if row.kind == "hidden" and hidden ~= "mixed" then return false end
+    if row.kind == "scripted" and OPTIONAL_SOURCES[row.id] then return false end
+    if not constrained then return true end
+    local access = Progression.access(row.mapId, "walk", nil, version)
+    return access.available and not access.postgame
+  end
+
+  local function mixedPlacements(rows, consumed, settings, rng, version)
+    local sources, sourceSet, pool = {}, {}, {}
+    local hidden = hiddenMode(settings)
+    for _, row in ipairs(rows) do
+      if not consumed[rowKey(row)] and (mode(row.category, settings) == "mixed"
+          or row.kind == "hidden" and hidden == "mixed") then
+        sources[#sources + 1] = row
+        sourceSet[rowKey(row)] = true
       end
-      if not best then return nil end
-      local destination = table.remove(destinations, best)
-      destination.row.item = item.item
-      output[#output + 1] = destination.row
     end
-    return output
+    if #sources == 0 then return {}, {}, {} end
+    local constrained = safetyOn(settings)
+    for _, row in ipairs(rows) do
+      local key = rowKey(row)
+      if not consumed[key]
+          and not (row.kind == "scripted" and OPTIONAL_SOURCES[row.id])
+          and (sourceSet[key]
+            or row.category == "non_key"
+              and supportedMixedDestination(
+                row, version, constrained, hidden)) then
+        pool[#pool + 1] = row
+      end
+    end
+    local placements = closedShuffle(pool, rng, version, constrained)
+    if not placements then
+      return {}, {}, {{
+        code = "MIXED_BEATABILITY_FALLBACK",
+        message = "the mixed item pool could not be proven beatable and remains vanilla",
+      }}
+    end
+    local used = {}
+    for _, row in ipairs(pool) do used[rowKey(row)] = true end
+    return placements, used, {}
   end
 
   local function shopRows(sources, settings, rng)
-    if settings.shops ~= "on" then return {} end
+    if settings.shops ~= "randomized" and settings.shops ~= "on" then return {} end
     local candidates = {}
     local shoppableKeys = {
       BICYCLE = true, BIKE_VOUCHER = true, CARD_KEY = true,
@@ -325,9 +238,12 @@ return function(StableSort, Progression)
     }
     for _, itemId in ipairs(StableSort.keys(sources.items or {})) do
       local kind = category(itemId, sources.items)
-      if kind == "non_key" or (kind == "tm" and settings.tms == "on")
-          or (kind == "key" and settings.key_items == "full_random"
-            and shoppableKeys[itemId]) then
+      if kind == "non_key"
+          or kind == "tm" and mode("tm", settings) ~= "vanilla"
+          or kind == "key"
+            and (mode("key", settings) == "mixed"
+              or settings.key_items == "full_random")
+            and shoppableKeys[itemId] then
         candidates[#candidates + 1] = itemId
       end
     end
@@ -346,33 +262,32 @@ return function(StableSort, Progression)
         return prices[item]
       end
     end
+    local function addShop(mapId, pointerId, talkKey, slot, original)
+      local item = candidates[cursor]
+      cursor = cursor % #candidates + 1
+      rows[#rows + 1] = { kind = "shop", mapId = mapId,
+        pointerId = pointerId, talkKey = talkKey, slot = slot,
+        original = original, item = item, price = selectedPrice(item),
+        category = category(item, sources.items) }
+    end
     for _, pointerId in ipairs(StableSort.keys(sources.textPointers or {})) do
       local pointer = sources.textPointers[pointerId]
       for _, talkKey in ipairs(StableSort.keys(pointer or {})) do
         local mart = type(pointer[talkKey]) == "table" and pointer[talkKey].mart
         for slot, original in ipairs(type(mart) == "table" and mart or {}) do
-          local item = candidates[cursor]
-          cursor = cursor % #candidates + 1
-          rows[#rows + 1] = { kind = "shop",
-            mapId = mapIdsByLabel[pointerId] or pointerId,
-            pointerId = pointerId,
-            talkKey = talkKey, slot = slot, original = original, item = item,
-            price = selectedPrice(item), category = category(item, sources.items) }
+          addShop(mapIdsByLabel[pointerId] or pointerId,
+            pointerId, talkKey, slot, original)
         end
       end
     end
     for _, special in ipairs({
-      { "CELADON_MART_ROOF", "vending", {
-        "FRESH_WATER", "SODA_POP", "LEMONADE" } },
-      { "GAME_CORNER_PRIZE_ROOM", "prize_tms", {
-        "TM_DRAGON_RAGE", "TM_HYPER_BEAM", "TM_SUBSTITUTE" } },
+      { "CELADON_MART_ROOF", "vending",
+        { "FRESH_WATER", "SODA_POP", "LEMONADE" } },
+      { "GAME_CORNER_PRIZE_ROOM", "prize_tms",
+        { "TM_DRAGON_RAGE", "TM_HYPER_BEAM", "TM_SUBSTITUTE" } },
     }) do
       for slot, original in ipairs(special[3]) do
-        local item = candidates[cursor]
-        cursor = cursor % #candidates + 1
-        rows[#rows + 1] = { kind = "shop", mapId = special[1],
-          talkKey = special[2], slot = slot, original = original, item = item,
-          price = selectedPrice(item), category = category(item, sources.items) }
+        addShop(special[1], nil, special[2], slot, original)
       end
     end
     return rows
@@ -383,44 +298,63 @@ return function(StableSort, Progression)
       "item RNG is required")
     sources, settings = sources or {}, settings or {}
     local version = sources.gameVersion or sources.version or "red"
-    local rows = collectFieldRows(sources)
-    local placements, consumed, warnings = badgePlacements(
-      rows, settings, rng, version)
-    local rowsByCategory = {
-      non_key = {}, tm = {}, hm = {}, key = {}, badge = {},
-    }
+    local rows, placements, warnings, consumed = collectRows(sources), {}, {}, {}
+    local constrained, hidden = safetyOn(settings), hiddenMode(settings)
+
+    local hiddenRows = {}
     for _, row in ipairs(rows) do
-      if not consumed[rowKey(row)] and enabled(row.category, settings) then
-        rowsByCategory[row.category][#rowsByCategory[row.category] + 1] = row
-      end
+      if row.kind == "hidden" then hiddenRows[#hiddenRows + 1] = row end
     end
-    for _, kind in ipairs({ "non_key", "tm", "hm", "key" }) do
-      local mode = kind == "hm" and settings.hms
-        or kind == "key" and settings.key_items or "full_random"
-      if settings.ensure_beatable == "on"
-          and (kind == "hm" or kind == "key") then mode = "safe" end
-      local shuffled = shuffleCategory(rowsByCategory[kind], mode, rng, version)
-      if not shuffled then
-        warnings = warnings or {}
-        warnings[#warnings + 1] = {
-          code = "PROGRESSION_ITEM_FALLBACK",
-          message = kind:upper()
-            .. " items could not be proven beatable and remain vanilla",
-        }
-      else
-        for _, row in ipairs(shuffled) do placements[#placements + 1] = row end
+    if hidden == "vanilla" or hidden == "shuffled" then
+      if hidden == "shuffled" then
+        local shuffled = closedShuffle(hiddenRows, rng, version, constrained)
+        if shuffled then
+          for _, row in ipairs(shuffled) do placements[#placements + 1] = row end
+        else
+          warnings[#warnings + 1] = {
+            code = "HIDDEN_ITEM_FALLBACK",
+            message = "hidden items could not be proven beatable and remain vanilla",
+          }
+        end
+      end
+      for _, row in ipairs(hiddenRows) do consumed[rowKey(row)] = true end
+    end
+
+    local mixed, mixedUsed, mixedWarnings = mixedPlacements(
+      rows, consumed, settings, rng, version)
+    for _, row in ipairs(mixed) do placements[#placements + 1] = row end
+    for key in pairs(mixedUsed) do consumed[key] = true end
+    for _, warning in ipairs(mixedWarnings) do warnings[#warnings + 1] = warning end
+
+    for _, kind in ipairs({ "non_key", "tm", "hm", "key", "badge" }) do
+      if mode(kind, settings) == "shuffled" then
+        local categoryRows = {}
+        for _, row in ipairs(rows) do
+          if row.category == kind and not consumed[rowKey(row)] then
+            categoryRows[#categoryRows + 1] = row
+          end
+        end
+        local shuffled = closedShuffle(categoryRows, rng, version,
+          constrained and (kind == "hm" or kind == "key" or kind == "badge"))
+        if shuffled then
+          for _, row in ipairs(shuffled) do placements[#placements + 1] = row end
+        else
+          warnings[#warnings + 1] = {
+            code = "PROGRESSION_ITEM_FALLBACK",
+            message = kind:upper()
+              .. " locations could not be proven beatable and remain vanilla",
+          }
+        end
       end
     end
     for _, row in ipairs(shopRows(sources, settings, rng)) do
       placements[#placements + 1] = row
     end
-    return {
-      placements = placements,
-      warnings = warnings or {},
-      fallbackCount = #(warnings or {}),
-    }
+    return { placements = placements, warnings = warnings,
+      fallbackCount = #warnings }
   end
 
   ItemCategory.category = category
+  ItemCategory.mode = mode
   return ItemCategory
 end

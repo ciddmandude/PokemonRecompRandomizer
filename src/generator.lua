@@ -242,14 +242,16 @@ return function(
       end
     end
 
-    if request.settings.non_key_items == "on"
-        or request.settings.tms == "on"
-        or (request.settings.hms ~= nil and request.settings.hms ~= "off")
-        or (request.settings.key_items ~= nil
-          and request.settings.key_items ~= "off")
-        or (request.settings.badges ~= nil
-          and request.settings.badges ~= "vanilla")
-        or request.settings.shops == "on" then
+    local function itemOptionEnabled(value)
+      return value ~= nil and value ~= "off" and value ~= "vanilla"
+    end
+    if itemOptionEnabled(request.settings.non_key_items)
+        or itemOptionEnabled(request.settings.tms)
+        or itemOptionEnabled(request.settings.hms)
+        or itemOptionEnabled(request.settings.key_items)
+        or itemOptionEnabled(request.settings.badges)
+        or itemOptionEnabled(request.settings.hidden_items)
+        or itemOptionEnabled(request.settings.shops) then
       local ok, category = pcall(ItemCategory.generate,
         request.sources or {}, request.settings,
         Foundation.Rng.fromSeed(request.seed.canonical, "items"))

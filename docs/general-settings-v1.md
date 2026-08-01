@@ -48,7 +48,7 @@ Standard and clears Seed Text.
 | Wild Pokémon | Global Map | Global Map | Area Slots |
 | Fishing | Randomized | Randomized | Randomized |
 | Wild Levels | Unchanged | Unchanged | +/-2 |
-| Catchability Guard | On | On | Off |
+| Pokémon Coverage | On | On | Off |
 | Starters | Random | Random | Random |
 | Starter Stage | Basic Only | Basic Only | Any |
 | Starter Level | 5 | 5 | 5 |
@@ -60,23 +60,24 @@ Standard and clears Seed Text.
 | Gift Uniqueness | Unique Gifts | Unique Gifts | Allow Duplicates |
 | In-game Trades | Received | Both Sides | Both Sides |
 | Trade Fairness | No Downgrade | Similar Strength | Any |
-| Trade Evolution Safety | On | On | Off |
+| Trade Validity | On | On | Off |
 | Game Corner Pokémon | Randomized | Randomized | Randomized |
 | Prize Levels | Unchanged | Unchanged | Scaled |
 | Prize Prices | Unchanged | Unchanged | Random +/-25% |
-| Non-key Items | Off | Off | Off |
-| TM Location | Off | Off | Off |
-| HM Location | Off | Off | Off |
-| Key Items | Off | Off | Off |
-| Badges | Vanilla | Vanilla | Vanilla |
-| Ensure Beatable | On | On | Off |
-| Shops | Off | Off | Off |
+| Non-key Location | Vanilla | Vanilla | Vanilla |
+| TM Location | Vanilla | Vanilla | Vanilla |
+| HM Location | Vanilla | Vanilla | Vanilla |
+| Key Item Location | Vanilla | Vanilla | Vanilla |
+| Badge Location | Vanilla | Vanilla | Vanilla |
+| Hidden Items | Vanilla | Vanilla | Vanilla |
+| Progression Safety | On | On | Off |
+| Shops | Vanilla | Vanilla | Vanilla |
 | Shop Prices | Vanilla | Vanilla | Vanilla |
 | Trainer Pokémon | Global Map | By Slot | By Slot |
 | Trainer Levels | Unchanged | Unchanged | +/-10% |
 | Boss Trainers | Vanilla | Themed | Include |
 | Party Size | Unchanged | Unchanged | 1-6 Random |
-| Progression Guard | On | On | Off |
+| Trainer Safety | On | On | Off |
 
 Casual narrows strength, removes legendary destinations, uses fairer trades,
 keeps bosses vanilla, and retains progression safeguards. Standard uses the

@@ -55,7 +55,7 @@ never the validated active-run copy.
 
 ## Persistence
 
-The mod registers 43 option rows with `mod.options:define`. Values are stored
+The mod registers 44 option rows with `mod.options:define`. Values are stored
 under:
 
 ```lua

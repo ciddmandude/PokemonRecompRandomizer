@@ -1,8 +1,8 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.42.1
-Algorithm build ...... 1.11.0-dev
+Mod version .......... 0.43.0
+Algorithm build ...... 1.12.0-dev
 Engine compatibility . API 2  (0.1.45 required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.42.1.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.43.0.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -563,7 +563,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.11.0-dev.
+  EXPECT: ALGORITHM reads 1.12.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -786,7 +786,7 @@ STR-04 [P1] Rival's first battle team - PASSED
   1. Continue from STR-03 to the first rival battle in Oak's Lab / Route 22.
   EXPECT: the rival's last party member is the counterpick species from the
           spoiler log.
-  EXPECT: with PROGRESSION GUARD ON, that Pokemon's level is at most
+  EXPECT: with TRAINER SAFETY ON, that Pokemon's level is at most
           STARTER LEVEL + 3.
 
 STR-05 [P1] Rival at every later branch
@@ -816,7 +816,7 @@ STR-08 [P1] Starter level bounds  - PASSED
   2. CFG-F20 (STARTER LEVEL = 20). Take a starter.
   EXPECT: the level shown in the lab preview equals the level of the received
           Pokemon in both cases (2 and 20).
-  EXPECT: with PROGRESSION GUARD ON, the first rival battle is capped at
+  EXPECT: with TRAINER SAFETY ON, the first rival battle is capped at
           STARTER LEVEL + 3 in both cases.
 
 STR-09 [P1] TYPE TRIAD
@@ -929,7 +929,7 @@ WILD-10 [P1] Repel uses the randomized level
   EXPECT: Repel suppression is decided by the FINAL randomized level, not the
           original one.
 
-WILD-11 [P1] Catchability Guard ON
+WILD-11 [P1] POKEMON COVERAGE ON
   1. CFG-A (guard ON). Export spoilers and read DIAGNOSTICS.
   EXPECT: no unexplained WILD_COVERAGE_UNSATISFIED entries on stock data.
   EXPECT: PROGRESSION_MAP_UNKNOWN appears only for maps genuinely outside the
@@ -938,7 +938,7 @@ WILD-11 [P1] Catchability Guard ON
      each is obtainable somewhere reachable before the Elite Four (i.e. not
      only in Cerulean Cave, and not only behind a gate you cannot pass).
 
-WILD-12 [P1] Catchability Guard OFF
+WILD-12 [P1] POKEMON COVERAGE OFF
   1. CFG-C (guard OFF). Export spoilers.
   EXPECT: the run generates successfully with no coverage repair warnings and
           no repair swaps. Species may legitimately be unobtainable.
@@ -1323,14 +1323,15 @@ PRZ-11 [P2] Ordinary Poke Marts untouched
 14. ITEMS AND SHOPS
 --------------------------------------------------------------------------------
 
-ITM-01 [P0] All defaults are off
+ITM-01 [P0] All location defaults are vanilla
   1. Reset defaults and inspect the ITEMS pages.
-  EXPECT: NON-KEY ITEMS, TM LOCATION, HM LOCATION, KEY ITEMS, and SHOPS are OFF.
-  EXPECT: BADGES and SHOP PRICES are VANILLA. ENSURE BEATABLE is ON.
-          Casual and Standard restore the same; Chaos sets ENSURE BEATABLE OFF.
+  EXPECT: NON-KEY LOCATION, TM LOCATION, HM LOCATION, KEY ITEM LOCATION,
+          BADGE LOCATION, HIDDEN ITEMS, SHOPS, and SHOP PRICES are VANILLA.
+  EXPECT: PROGRESSION SAFETY is ON. Casual and Standard restore the same;
+          Chaos sets PROGRESSION SAFETY OFF.
 
 ITM-02 [P0] Visible and hidden placements match the save
-  1. Enable NON-KEY ITEMS and start a New Game.
+  1. Set NON-KEY LOCATION = SHUFFLED and HIDDEN ITEMS = MIXED, then start a New Game.
   2. Export the spoiler and open the in-game map browser ITEMS tab.
   2. Collect ten visible item balls and ten hidden items from listed maps.
   EXPECT: every pickup equals the current item shown for that location.
@@ -1347,56 +1348,56 @@ ITM-04 [P0] Save switching restores the baseline
   EXPECT: each save uses its own spoiler result. No placement leaks from the
           previously loaded save.
 
-ITM-05 [P1] Every category OFF
-  1. Start a New Game with all five item/shop switches OFF.
+ITM-05 [P1] Every category VANILLA
+  1. Start a New Game with every item-location and shop option VANILLA.
   EXPECT: field items, scripted rewards, Gym TMs, marts, vending machines,
           and Game Corner TM prizes are vanilla.
 
 ITM-06 [P1] Closed multiset and exclusions
-  1. Enable NON-KEY ITEMS and TM LOCATION, then compare every non-shop spoiler row
+  1. Set NON-KEY LOCATION and TM LOCATION to SHUFFLED, then compare every non-shop spoiler row
      with the imported vanilla data.
   EXPECT: each category's source and destination multisets are identical.
           Neither pool contains an HM or key item.
 
 ITM-07 [P0] Starting PC Potion participates
-  1. Start a New Game with NON-KEY ITEMS = ON.
+  1. Start a New Game with NON-KEY LOCATION = SHUFFLED.
   2. Check the ITEMS tab for Red's House 2F, then open the bedroom PC.
   EXPECT: the PC contains one of the shuffled non-key items shown as
           PC STORAGE; its quantity remains one and it is not necessarily a
-          Potion. With NON-KEY ITEMS = OFF, the PC contains the vanilla Potion.
+          Potion. With NON-KEY LOCATION = VANILLA, the PC contains the vanilla Potion.
 
 ITM-08 [P0] TM reward coverage
-  1. Enable TM LOCATION and compare field TMs, NPC gifts, drink exchanges, and all
+  1. Set TM LOCATION = SHUFFLED and compare field TMs, NPC gifts, drink exchanges, and all
      eight Gym rewards to the spoiler export.
   EXPECT: each awards the saved result exactly once. Repeated dialogue never
-          duplicates an item. NON-KEY ITEMS can remain OFF.
+          duplicates an item. NON-KEY LOCATION can remain VANILLA.
 
-ITM-09 [P0] HM SAFE
-  1. Set HM LOCATION = SAFE and inspect all five HM placements in several seeds.
+ITM-09 [P0] HM SHUFFLED with progression safety
+  1. Set HM LOCATION = SHUFFLED and PROGRESSION SAFETY = ON, then inspect all five HM placements in several seeds.
   2. Play through every HM gate without adding inventory in a debugger.
   EXPECT: Cut, Surf, and Strength are obtainable no later than their required
           stages. Flash and Fly remain obtainable. No HM appears in a shop.
 
-ITM-10 [P1] HM FULL RANDOM
-  1. Set HM LOCATION = FULL RANDOM and generate several seeds.
-  EXPECT: all five HMs form a closed shuffle without stage restrictions.
-          The review screen makes no beatability guarantee for this mode.
+ITM-10 [P1] HM MIXED without progression safety
+  1. Set HM LOCATION = MIXED and PROGRESSION SAFETY = OFF, then generate several seeds.
+  EXPECT: HMs can exchange with supported one-time checks without stage restrictions.
+          The review screen warns that the seed may be unbeatable.
 
-ITM-11 [P0] Key Item SAFE
-  1. Set KEY ITEMS = SAFE and finish the game without debugger-added items.
+ITM-11 [P0] Key Item SHUFFLED with progression safety
+  1. Set KEY ITEM LOCATION = SHUFFLED and PROGRESSION SAFETY = ON, then finish the game without debugger-added items.
   EXPECT: every required gate can be cleared. Badges remain tied to Gym wins.
-          Key items do not appear in shops in SAFE mode.
+          Key items do not appear in shops in SHUFFLED mode.
 
-ITM-12 [P1] Key Item FULL RANDOM
-  1. Set KEY ITEMS = FULL RANDOM and SHOPS = ON.
+ITM-12 [P1] Key Item MIXED
+  1. Set KEY ITEM LOCATION = MIXED, PROGRESSION SAFETY = OFF, and SHOPS = RANDOMIZED.
   EXPECT: supported key items may appear in randomized shops. HMs and badges
           never appear in shop inventory. The mode may produce unbeatable runs.
 
 ITM-13 [P0] Shop coverage
-  1. Enable SHOPS and visit ordinary marts, every Celadon Department Store
+  1. Set SHOPS = RANDOMIZED and visit ordinary marts, every Celadon Department Store
      counter, all rooftop vending machines, and the Game Corner TM counter.
   EXPECT: all inventories match the spoiler. Game Corner Pokemon are governed
-          only by PRIZE POKEMON and do not change because SHOPS is ON.
+          only by PRIZE POKEMON and do not change because SHOPS is RANDOMIZED.
 
 ITM-14 [P1] Shop prices
   1. Repeat a shop purchase with VANILLA, RANDOM, and CHEAP prices.
@@ -1412,35 +1413,43 @@ ITM-15 [P0] In-game item spoiler
           price. Locations have no additional detail screen.
 
 ITM-16 [P0] Badge SHUFFLED
-  1. Set BADGES = SHUFFLED and ENSURE BEATABLE = OFF, then start a New Game.
+  1. Set BADGE LOCATION = SHUFFLED and PROGRESSION SAFETY = OFF, then start a New Game.
   2. Defeat all eight Gym Leaders and compare each reward with the spoiler.
   EXPECT: every Gym awards exactly one of the eight badges, every badge appears
           exactly once, and no badge appears at an ordinary item location.
           Re-talking to a defeated leader never duplicates a badge.
 
-ITM-17 [P0] Badge RANDOM
-  1. Set BADGES = RANDOM and ENSURE BEATABLE = OFF, then export the spoiler.
+ITM-17 [P0] Badge MIXED
+  1. Set BADGE LOCATION = MIXED and PROGRESSION SAFETY = OFF, then export the spoiler.
   2. Collect each listed badge and defeat each Gym Leader whose badge reward
      was replaced by an ordinary item.
   EXPECT: all eight badges appear exactly once among supported one-time item
           checks. Displaced items appear at the eight Gym badge checks. No
           A badge may be in starting PC storage. No badge is in a repeatable
           shop or a mutually exclusive fossil choice; postgame checks are
-          allowed because ENSURE BEATABLE is OFF.
+          allowed because PROGRESSION SAFETY is OFF.
 
-ITM-18 [P0] ENSURE BEATABLE ON
-  1. Set BADGES = RANDOM, HM LOCATION = FULL RANDOM, KEY ITEMS = FULL RANDOM, and
-     ENSURE BEATABLE = ON.
+ITM-18 [P0] PROGRESSION SAFETY ON
+  1. Set BADGE LOCATION, HM LOCATION, and KEY ITEM LOCATION to MIXED, then set
+     PROGRESSION SAFETY = ON.
   2. Generate at least ten seeds and finish one without debugger-added items.
   EXPECT: Boulder and Cascade are available before their first required gates;
           Soul and the required HMs/key items are available by their modeled
           progression stages; all eight badges are available before Route 23.
           Any repair or fallback is recorded in diagnostics.
 
-ITM-19 [P1] ENSURE BEATABLE OFF
-  1. Repeat ITM-18 with ENSURE BEATABLE = OFF.
+ITM-19 [P1] PROGRESSION SAFETY OFF
+  1. Repeat ITM-18 with PROGRESSION SAFETY = OFF.
   EXPECT: the unrestricted mapping is deterministic but may be impossible.
           Reloading the same seed reproduces the same badge locations.
+
+ITM-20 [P0] Hidden-item pool modes
+  1. Generate one seed with HIDDEN ITEMS = VANILLA, one with SHUFFLED, and one
+     with MIXED. Keep all category location settings VANILLA.
+  EXPECT: VANILLA leaves every hidden check unchanged and excludes it from all
+          other pools. SHUFFLED preserves the hidden-check item multiset while
+          moving items only among hidden checks. MIXED exchanges hidden items
+          with supported visible, starting-PC, and scripted one-time checks.
 
 
 --------------------------------------------------------------------------------
@@ -1500,14 +1509,14 @@ TRN-09 [P1] TRAINER LEVELS = PROGRESSIVE
           <=30 about 10% lower; <=45 unchanged; <=60 about 10% higher;
           above 60 about 20% higher. All clamped 2..100.
 
-TRN-10 [P1] PARTY SIZE = 1-6 RANDOM with PROGRESSION GUARD ON
+TRN-10 [P1] PARTY SIZE = 1-6 RANDOM with TRAINER SAFETY ON
   1. CFG-A but PARTY SIZE = 1-6 RANDOM. Fight every trainer available before
      Brock, then a spread of later trainers.
   EXPECT: pre-Brock trainers have 1 to 3 Pokemon.
   EXPECT: no required battle exceeds 6.
   EXPECT: sizes are stable across reloads.
 
-TRN-11 [P1] PROGRESSION GUARD OFF
+TRN-11 [P1] TRAINER SAFETY OFF
   1. CFG-C. Fight the earliest ten trainers.
   EXPECT: generation succeeds. Early teams may be brutal - high BST and
           legendary members are permitted. No errors, no empty parties.
@@ -1744,7 +1753,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.42.1.
+          compatibility block, and the archive file name all read 0.43.0.
 
 REL-05 [P1] Unsupported mod API
   1. Install on an engine without mod API 2 if one is available.

@@ -3,7 +3,7 @@
 Status: locked by golden vectors  
 Hash: `fnv1a32x4-v1`  
 PRNG: `xoshiro128ss-v1`  
-Algorithm build: `1.11.0-dev`
+Algorithm build: `1.12.0-dev`
 
 This document completely specifies milestone 2's deterministic behavior. A
 conforming implementation must reproduce `tests/golden_vectors.lua` exactly.
@@ -77,7 +77,8 @@ BST-point differences. Existing saved mappings remain authoritative.
 
 Yellow version support advanced the algorithm build to `1.8.0-dev`. Non-key
 categorized item and shop randomization advanced it to `1.10.0-dev`; badge
-placement and deterministic beatability repair advance it to `1.11.0-dev`. Yellow
+placement and deterministic beatability repair advance it to `1.12.0-dev`. Hidden-item
+pool separation and mixed item-location modes are included in this build. Yellow
 uses a one-player/one-rival starter mapping, three additional gift locations,
 its ROM-specific nine-trade table, and stable Yellow Game Corner IDs. Red and
 Blue golden mappings remain byte-for-byte unchanged. Existing saved runs keep

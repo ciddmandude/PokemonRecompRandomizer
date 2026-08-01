@@ -37,6 +37,35 @@ return function(Constants, Schema, General, Seed)
     return false
   end
 
+  local LEGACY_VALUES = {
+    non_key_items = { off = "vanilla", on = "shuffled" },
+    tms = { off = "vanilla", on = "shuffled" },
+    hms = { off = "vanilla", safe = "shuffled", full_random = "shuffled" },
+    key_items = {
+      off = "vanilla", safe = "shuffled", full_random = "shuffled",
+    },
+    badges = { random = "mixed" },
+    shops = { off = "vanilla", on = "randomized" },
+  }
+
+  local function normalizedOption(key, value, values)
+    local migrated = LEGACY_VALUES[key]
+    value = migrated and migrated[value] or value
+    if key == "ensure_beatable" and values
+        and (values.hms == "safe" or values.key_items == "safe") then
+      return "on"
+    end
+    return value
+  end
+
+  local function normalizedSettings(values)
+    local result = copy(values)
+    for key, value in pairs(result) do
+      result[key] = normalizedOption(key, value, values)
+    end
+    return result
+  end
+
   local function normalizePresetName(value)
     if type(value) ~= "string" then return nil, "invalid preset name" end
     value = value:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
@@ -185,7 +214,7 @@ return function(Constants, Schema, General, Seed)
         result[#result + 1] = {
           name = name,
           token = savedToken(name),
-          settings = copy(entry.settings),
+          settings = normalizedSettings(entry.settings),
         }
         if #result >= MAX_SAVED_PRESETS then break end
       end
@@ -229,6 +258,7 @@ return function(Constants, Schema, General, Seed)
     local bucket = optionBucket(self, game)
     if bucket then value = bucket[key] end
     if value == nil then value = self.mod.options:get(key) end
+    value = normalizedOption(key, value, bucket)
     if key == "seed_text" and type(value) == "string" and value ~= "" then
       value = Seed.normalize(value)
     end
@@ -270,6 +300,7 @@ return function(Constants, Schema, General, Seed)
   local function savedPresetMatches(self, entry, game)
     for _, row in ipairs(capturedRows(self)) do
       local expected = entry.settings[row.key]
+      expected = normalizedOption(row.key, expected, entry.settings)
       if not validValue(row, expected) then expected = row.default end
       if self:get(row.key, game) ~= expected then return false end
     end
@@ -312,6 +343,7 @@ return function(Constants, Schema, General, Seed)
     if saved then
       for _, captured in ipairs(capturedRows(self)) do
         local nextValue = saved.settings[captured.key]
+        nextValue = normalizedOption(captured.key, nextValue, saved.settings)
         if not validValue(captured, nextValue) then
           nextValue = captured.default
         end

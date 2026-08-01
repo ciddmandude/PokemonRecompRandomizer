@@ -40,6 +40,13 @@ local function text(key, label, default, maxLength, help)
 end
 
 local ON_OFF = { { "OFF", "off" }, { "ON", "on" } }
+local VANILLA_SHUFFLED = {
+  { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+}
+local VANILLA_SHUFFLED_MIXED = {
+  { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+  { "MIXED", "mixed" },
+}
 
 local groups = {
   {
@@ -90,8 +97,8 @@ local groups = {
         { "UNCHANGED", "unchanged" }, { "+/-2", "plus_minus_2" },
         { "SCALED", "scaled" },
       }, "KEEP, NUDGE, OR BST-SCALE LEVELS."),
-      choice("catchability_guard", "CATCH GUARD", "on", ON_OFF,
-        "PROTECT PRE-LEAGUE AVAILABILITY."),
+      choice("catchability_guard", "POKEMON COVERAGE", "on", ON_OFF,
+        "PROTECT EARLY SPECIES."),
     },
   },
   {
@@ -146,7 +153,7 @@ local groups = {
         { "ANY", "any" }, { "SIMILAR", "similar" },
         { "NO DOWNGRADE", "no_downgrade" },
       }, "CONTROL NPC TRADE VALUE."),
-      choice("trade_evolution_safety", "TRADE SAFETY", "on", ON_OFF,
+      choice("trade_evolution_safety", "TRADE VALIDITY", "on", ON_OFF,
         "AVOID SELF OR IMPOSSIBLE TRADES."),
     },
   },
@@ -170,25 +177,23 @@ local groups = {
   {
     name = "ITEMS",
     rows = {
-      choice("non_key_items", "NON-KEY ITEMS", "off", ON_OFF,
-        "RANDOMIZE ORDINARY ITEM LOCATIONS."),
-      choice("tms", "TM LOCATION", "off", ON_OFF,
-        "RANDOMIZE TM LOCATIONS."),
-      choice("hms", "HM LOCATION", "off", {
-        { "OFF", "off" }, { "SAFE", "safe" },
-        { "FULL RANDOM", "full_random" },
-      }, "KEEP REQUIRED HM LOCATIONS EARLY."),
-      choice("key_items", "KEY ITEMS", "off", {
-        { "OFF", "off" }, { "SAFE", "safe" },
-        { "FULL RANDOM", "full_random" },
-      }, "KEEP KEY ITEMS EARLY."),
-      choice("badges", "BADGES", "vanilla", {
-        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
-        { "RANDOM", "random" },
-      }, "SHUFFLE OR PLACE BADGES ANYWHERE."),
-      choice("ensure_beatable", "ENSURE BEATABLE", "on", ON_OFF,
-        "REPAIR ITEM LOGIC. KEEP RUN BEATABLE."),
-      choice("shops", "SHOPS", "off", ON_OFF,
+      choice("non_key_items", "NON-KEY LOCATION", "vanilla",
+        VANILLA_SHUFFLED, "SHUFFLE ORDINARY ITEMS."),
+      choice("tms", "TM LOCATION", "vanilla", VANILLA_SHUFFLED_MIXED,
+        "SHUFFLE OR MIX TMS."),
+      choice("hms", "HM LOCATION", "vanilla", VANILLA_SHUFFLED_MIXED,
+        "SHUFFLE OR MIX HMS."),
+      choice("key_items", "KEY ITEM LOCATION", "vanilla",
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX KEY ITEMS."),
+      choice("badges", "BADGE LOCATION", "vanilla",
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX BADGES."),
+      choice("hidden_items", "HIDDEN ITEMS", "vanilla",
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX HIDDEN ITEMS."),
+      choice("ensure_beatable", "PROGRESSION SAFETY", "on", ON_OFF,
+        "KEEP KEY ITEMS REACHABLE."),
+      choice("shops", "SHOPS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "RANDOMIZED", "randomized" },
+      },
         "RANDOMIZE SHOP INVENTORIES."),
       choice("shop_prices", "SHOP PRICES", "vanilla", {
         { "VANILLA", "vanilla" }, { "RANDOM", "random" },
@@ -221,7 +226,7 @@ local groups = {
       choice("party_size", "PARTY SIZE", "unchanged", {
         { "UNCHANGED", "unchanged" }, { "1-6 RANDOM", "random_1_6" },
       }, "KEEP OR RANDOMIZE PARTY COUNTS."),
-      choice("progression_guard", "PROGRESSION GUARD", "on", ON_OFF,
+      choice("progression_guard", "TRAINER SAFETY", "on", ON_OFF,
         "LIMIT EXTREME REQUIRED BATTLES."),
     },
   },

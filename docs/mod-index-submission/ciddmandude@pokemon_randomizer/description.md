@@ -38,11 +38,11 @@ options and every next-run setting except the Randomizer master switch.
 Options include the species pool, legendary handling, duplicate policy,
 similar-strength or same-evolution-stage matching, level adjustment, boss and
 rival behavior, rival team continuity, starter selection, gift and trade
-rules, Catchability Guard, Progression Guard, and spoiler availability. Every
+rules, Pokémon Coverage, Trainer Safety, and spoiler availability. Every
 randomization category can also be disabled independently.
 
-Catchability Guard attempts to keep non-legendary randomized species obtainable
-through normal Kanto progression. Progression Guard protects required and
+Pokémon Coverage attempts to keep non-legendary randomized species obtainable
+through normal Kanto progression. Trainer Safety protects required and
 early-game battles from invalid or excessively extreme generated parties.
 Encounter rates, encounter-slot probability buckets, and normal Repel behavior
 remain unchanged.

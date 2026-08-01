@@ -37,6 +37,7 @@ return function()
     {
       "ITEMS",
       { "non_key_items", "tms", "hms", "key_items", "badges",
+        "hidden_items",
         "ensure_beatable", "shops", "shop_prices" },
     },
     {
@@ -50,16 +51,17 @@ return function()
   }
 
   local SETTING_LABELS = {
-    catchability_guard = "Catchability Guard",
+    catchability_guard = "Pokemon Coverage",
     duplicate_policy = "Duplicate Policy",
     game_corner_pokemon = "Prize Pokemon",
     gift_pokemon = "Gift Pokemon",
-    non_key_items = "Non-key Items",
+    non_key_items = "Non-key Location",
     tms = "TM Location",
     hms = "HM Location",
-    key_items = "Key Items",
-    badges = "Badges",
-    ensure_beatable = "Ensure Beatable",
+    key_items = "Key Item Location",
+    badges = "Badge Location",
+    hidden_items = "Hidden Items",
+    ensure_beatable = "Progression Safety",
     shops = "Shops",
     shop_prices = "Shop Prices",
     in_game_trades = "In-game Trades",
@@ -67,7 +69,7 @@ return function()
     party_size = "Party Size",
     prize_levels = "Prize Levels",
     prize_prices = "Prize Prices",
-    progression_guard = "Progression Guard",
+    progression_guard = "Trainer Safety",
     randomizer = "Randomizer",
     generate_spoiler_log = "Enable Spoiler Log",
     rival_counterpick = "Rival Counterpick",
@@ -80,7 +82,7 @@ return function()
     starter_level = "Starter Level",
     starter_stage = "Starter Stage",
     static_pokemon = "Static Pokemon",
-    trade_evolution_safety = "Trade Evolution Safety",
+    trade_evolution_safety = "Trade Validity",
     trainer_pokemon = "Trainer Pokemon",
     wild_pokemon = "Wild Pokemon",
   }
