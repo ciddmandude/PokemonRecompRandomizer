@@ -3,9 +3,11 @@
 return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
+    StaticGiftCompat, TradePrizeCompat, TrainerRuntime, ItemRuntime,
+    MechanicsRuntime,
+    ItemSourceCatalog,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
-    PublicFacade)
+    NewGameSetup, PublicFacade)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -49,6 +51,10 @@ return function(
     assertFunction(mod.save, "set", "mod.save:set")
     assertFunction(mod.options, "define", "mod.options:define")
     assertFunction(mod.options, "get", "mod.options:get")
+    assertFunction(mod.ui, "insertBefore", "mod.ui.insertBefore")
+    assertFunction(mod.ui, "insertStepBefore", "mod.ui.insertStepBefore")
+    assertFunction(mod.ui.TextBox, "new", "mod.ui.TextBox.new")
+    assertFunction(mod.ui.ListMenu, "new", "mod.ui.ListMenu.new")
     assertFunction(mod.migrations, "add", "mod.migrations:add")
     assertFunction(mod.content.screens, "register",
       "mod.content.screens:register")
@@ -105,12 +111,81 @@ return function(
       return records
     end
 
+    local function mergedMoveRecords()
+      local registry = mod.content.moves
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
+    local function mergedTypeIds()
+      local found = {}
+      local registry = mod.content.type_chart
+      if type(registry) == "table" and type(registry.each) == "function" then
+        for id in registry:each() do
+          if type(id) == "string" then
+            local attacking, defending = id:match("^([^>]+)>(.+)$")
+            if attacking then found[attacking], found[defending] = true, true end
+          end
+        end
+      end
+      for _, record in pairs(mergedSpeciesRecords()) do
+        for _, id in ipairs(type(record) == "table" and record.types or {}) do
+          found[id] = true
+        end
+      end
+      for _, record in pairs(mergedMoveRecords()) do
+        if type(record) == "table" and type(record.type) == "string" then
+          found[record.type] = true
+        end
+      end
+      local ids = {}
+      for id in pairs(found) do ids[#ids + 1] = id end
+      table.sort(ids)
+      return ids
+    end
+
+
+    local function mergedMapRecords()
+      local registry = mod.content.maps
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
+    local function mergedItemRecords()
+      local registry = mod.content.items
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
+    local function mergedTextPointerRecords()
+      local registry = mod.content.text_pointers
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
     local function mergedFieldRecords(save)
       local registry = mod.content.field
       local fishing = registry:get("fishing")
       local records = {
         fishing = fishing,
         trades = registry:get("trades"),
+        hiddenItems = registry:get("hiddenItems"),
       }
       for _, definition in pairs(fishing or {}) do
         if type(definition) == "table"
@@ -184,9 +259,16 @@ return function(
         return {
           encounters = mergedEncounterRecords(),
           trainers = mergedTrainerRecords(),
+          maps = mergedMapRecords(),
+          items = mergedItemRecords(),
+          textPointers = mergedTextPointerRecords(),
+          scriptedItems = ItemSourceCatalog,
+          startingPcItems = type(save) == "table" and save.pcItems or {},
           field = field,
           gameVersion = version,
           typeEffectiveness = mergedTypeEffectiveness(),
+          moves = mergedMoveRecords(),
+          typeIds = mergedTypeIds(),
         }
       end,
     })
@@ -197,6 +279,8 @@ return function(
     StaticGiftCompat.install(
       mod, function() return lifecycle:activeRun() end)
     TradePrizeCompat.install(
+      mod, function() return lifecycle:activeRun() end)
+    ItemRuntime.install(
       mod, function() return lifecycle:activeRun() end)
     local function spoilerBrowserModel(game, run)
       local data = type(game) == "table" and game.data or {}
@@ -226,6 +310,10 @@ return function(
         tostring(maps),
         tostring(type(data.field) == "table" and data.field
           or mod.content.field),
+        tostring(type(data.items) == "table" and data.items
+          or mod.content.items),
+        tostring(type(data.text_pointers) == "table" and data.text_pointers
+          or mod.content.text_pointers),
       }, "|")
       return {
         index = SpoilerBrowser.buildCached(run, {
@@ -234,6 +322,10 @@ return function(
           trainers = trainers,
           maps = maps,
           field = field,
+          items = type(data.items) == "table" and data.items or {},
+          textPointers = type(data.text_pointers) == "table"
+            and data.text_pointers or mergedTextPointerRecords(),
+          scriptedItems = ItemSourceCatalog,
           gameVersion = type(save) == "table"
               and save.version or generatedVersion,
           saveIdentity = table.concat({
@@ -246,6 +338,14 @@ return function(
     end
     local viewSpoilers = SpoilerController.viewAction(
       mod, lifecycle, spoilerBrowserModel)
+    local viewSpoilersFromStart = SpoilerController.viewAction(
+      mod, lifecycle, function(game, run)
+        local model = spoilerBrowserModel(game, run)
+        model.onCancel = function(activeGame)
+          mod.ui.push(activeGame or game, "StartMenu")
+        end
+        return model
+      end)
     local exportSpoilers = SpoilerController.exportAction(mod, lifecycle)
     publicApi.save = PublicFacade.save({
       checksumVersion = Constants.SAVE_CHECKSUM_VERSION,
@@ -280,7 +380,7 @@ return function(
     end
 
     mod.content.screens:register(Constants.OPTIONS_SCREEN_ID, {
-      new = function(game)
+      new = function(game, model)
         local function reviewNextRun(activeGame)
           local lines = {}
           local settings = preferences:snapshot(activeGame)
@@ -360,7 +460,7 @@ return function(
             copy_active_seed = copyActiveSeed,
             view_spoiler_log = viewSpoilers,
             export_spoiler_log = exportSpoilers,
-          })
+          }, model)
       end,
     })
 
@@ -389,6 +489,27 @@ return function(
           mod.ui.push(activeGame, Constants.OPTIONS_SCREEN_ID)
         end,
       }
+      return output
+    end)
+
+    mod.hooks:wrap("ui.start_menu.items", function(nextFn, game, items)
+      local output = nextFn(game, items)
+      if type(output) ~= "table" then return output end
+      local allowed = SpoilerController.canAccess(lifecycle:activeRun())
+      if not allowed then return output end
+      local anchor = "QUIT"
+      for _, item in ipairs(output) do
+        if item.label == "MODS" then
+          anchor = "MODS"
+          break
+        end
+      end
+      mod.ui.insertBefore(output, anchor, {
+        label = "SPOILER",
+        onSelect = function()
+          return viewSpoilersFromStart(game)
+        end,
+      })
       return output
     end)
 
@@ -458,6 +579,73 @@ return function(
         for key, value in pairs(stamped) do namespace[key] = value end
       end)
 
+    mod.migrations:add(
+      Constants.FIELD_ITEM_MIGRATION_VERSION, function(namespace)
+        if type(namespace) ~= "table"
+            or namespace.schemaVersion ~= Constants.SAVE_SCHEMA_VERSION
+            or type(namespace.settings) ~= "table"
+            or type(namespace.compatibility) ~= "table"
+            or type(namespace.mappings) ~= "table" then
+          return
+        end
+        local migrated = SaveState.clone(namespace)
+        if migrated.settings.field_items == nil then
+          migrated.settings.field_items = "off"
+        end
+        if type(migrated.mappings.fieldItems) ~= "table" then
+          migrated.mappings.fieldItems = {}
+        end
+        migrated.compatibility.settingsHash =
+          SaveState.hashBehaviorSettings(migrated.settings)
+        local stamped, errors = SaveState.stamp(migrated)
+        if not stamped then
+          error(("field-item migration failed validation (%d issue%s)")
+            :format(#errors, #errors == 1 and "" or "s"))
+        end
+        for key in pairs(namespace) do namespace[key] = nil end
+        for key, value in pairs(stamped) do namespace[key] = value end
+      end)
+
+    mod.migrations:add(
+      Constants.MECHANICS_MIGRATION_VERSION, function(namespace)
+        if type(namespace) ~= "table"
+            or namespace.schemaVersion ~= Constants.SAVE_SCHEMA_VERSION
+            or type(namespace.settings) ~= "table"
+            or type(namespace.compatibility) ~= "table"
+            or type(namespace.mappings) ~= "table" then
+          return
+        end
+        local migrated = SaveState.clone(namespace)
+        local defaults = {
+          base_stats = "vanilla", stat_family_consistency = "on",
+          evolutions = "vanilla", evolution_repeats = "avoid",
+          evolution_trade_safety = "vanilla",
+          pokemon_types = "vanilla", type_family_consistency = "on",
+          pokemon_movesets = "vanilla", early_damage = "on",
+          learnset_levels = "vanilla", tmhm_compatibility = "vanilla",
+          move_types = "vanilla", move_data = "vanilla",
+          move_safety = "on",
+        }
+        for key, value in pairs(defaults) do
+          if migrated.settings[key] == nil then migrated.settings[key] = value end
+        end
+        migrated.mappings.pokemonMechanics =
+          type(migrated.mappings.pokemonMechanics) == "table"
+            and migrated.mappings.pokemonMechanics or {}
+        migrated.mappings.moveData =
+          type(migrated.mappings.moveData) == "table"
+            and migrated.mappings.moveData or {}
+        migrated.compatibility.settingsHash =
+          SaveState.hashBehaviorSettings(migrated.settings)
+        local stamped, errors = SaveState.stamp(migrated)
+        if not stamped then
+          error(("mechanics migration failed validation (%d issue%s)")
+            :format(#errors, #errors == 1 and "" or "s"))
+        end
+        for key in pairs(namespace) do namespace[key] = nil end
+        for key, value in pairs(stamped) do namespace[key] = value end
+      end)
+
     -- Recomp constructs a disposable New Game-shaped save during boot so
     -- title-screen systems have options and player defaults available.  It
     -- emits save.created for that skeleton before game.ready, then emits a
@@ -465,9 +653,16 @@ return function(
     -- Generating on the boot event made the title-screen options report
     -- LOCKED after every application restart, even when nothing was saved.
     local gameReady = false
+    local activeGame
+    local pendingNewGameSave
     local bootSuppressionLogged = false
-    mod.events:on("game.ready", function()
+    mod.events:on("game.ready", function(event)
       gameReady = true
+      activeGame = type(event) == "table" and event.game or activeGame
+      if activeGame then
+        ItemRuntime.capture(activeGame)
+        MechanicsRuntime.capture(activeGame)
+      end
     end)
     mod.events:on("save.created", function(event)
       if not gameReady then
@@ -480,16 +675,80 @@ return function(
         end
         return
       end
-      lifecycle:onCreated(event)
+      pendingNewGameSave = event.save
+    end)
+    mod.hooks:wrap("intro.oak_speech.build",
+      function(nextFn, steps, speech)
+        local output = nextFn(steps, speech)
+        if type(output) ~= "table" or type(speech) ~= "table"
+            or type(speech.game) ~= "table" then
+          return output
+        end
+        local game = speech.game
+        local save = pendingNewGameSave
+        if type(save) ~= "table" or game.save ~= save then return output end
+        mod.ui.insertStepBefore(output, "oak_welcome", {
+          id = "pokemon_randomizer:new_game_setup",
+          kind = "fn",
+          run = function(_, done)
+            local completed = false
+            local function finishSetup(enabled)
+              if completed or pendingNewGameSave ~= save then return end
+              completed = true
+              pendingNewGameSave = nil
+              local settings = preferences:snapshot(game)
+              settings.randomizer = enabled and "on" or "off"
+              lifecycle:onCreated({ save = save, settings = settings })
+              local run = lifecycle:activeRun()
+              ItemRuntime.initializeSave(save, run)
+              MechanicsRuntime.apply(game, run)
+              ItemRuntime.apply(game, run)
+              done()
+            end
+            local ok, err = pcall(NewGameSetup.start, {
+              game = game,
+              ui = mod.ui,
+              preferences = preferences,
+              openSettings = function(onDone)
+                mod.ui.push(game, Constants.OPTIONS_SCREEN_ID, {
+                  onboarding = true,
+                  onDone = onDone,
+                })
+              end,
+              complete = finishSetup,
+            })
+            if not ok then
+              mod.log:error("New Game setup failed: %s", tostring(err))
+              finishSetup(false)
+            end
+          end,
+        })
+        return output
     end)
     mod.events:on("save.loading", function(event)
+      pendingNewGameSave = nil
       lifecycle:onLoading(event)
+      local namespace = type(event) == "table" and type(event.raw) == "table"
+        and event.raw.modData and event.raw.modData[Constants.MOD_ID]
+      if activeGame then
+        local valid = type(namespace) == "table"
+          and SaveState.validate(namespace, nil, true)
+        local run = valid and namespace.enabled and namespace or nil
+        MechanicsRuntime.apply(activeGame, run)
+        ItemRuntime.apply(activeGame, run)
+      end
     end)
     mod.events:on("save.loaded", function(event)
       lifecycle:onLoaded(event)
     end)
     mod.events:on("save.writing", function(event)
       lifecycle:onWriting(event)
+    end)
+    mod.events:on("battle.ended", function(event)
+      if not activeGame then return end
+      local run = lifecycle:activeRun()
+      ItemRuntime.prepareBattleRewards(event, run)
+      ItemRuntime.afterBattle(activeGame, run, mod.world)
     end)
 
     mod.events:once("mods.loaded", function()

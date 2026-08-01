@@ -9,10 +9,12 @@ end
 
 local Constants = loadFactory("src/constants.lua")
 local StableSort = loadFactory("src/stable_sort.lua")
+local ItemFilter = loadFactory("src/item_filter.lua")
 local StaticCatalog = loadFactory("src/static_gift_catalog.lua")
 local TradeCatalog = loadFactory("src/trade_prize_catalog.lua")
 local Browser = loadFactory(
-  "src/spoiler_browser.lua", StableSort, StaticCatalog, TradeCatalog)
+  "src/spoiler_browser.lua", StableSort, StaticCatalog, TradeCatalog,
+  ItemFilter)
 local BrowserScreen = loadFactory(
   "src/spoiler_browser_screen.lua", Constants, Browser)
 assert(BrowserScreen.searchFooter == "SEARCH:SELECT")
@@ -110,10 +112,44 @@ local run = {
         },
       },
     },
+    pokemonMechanics = {
+      SNORLAX = {
+        evolutions = {
+          { species = "PIKACHU", method = "LEVEL", level = 35 },
+        },
+      },
+    },
+    fieldItems = {
+      {
+        kind = "visible", mapId = "ROUTE_1", objectIndex = 2,
+        original = "POTION", item = "ANTIDOTE",
+      },
+      {
+        kind = "scripted", id = "brock_tm", mapId = "ROUTE_1_GATE",
+        original = "TM_BIDE", item = "ANTIDOTE", battle = true,
+      },
+      {
+        kind = "shop", mapId = "ROUTE_1_GATE", pointerId = "TestMart",
+        talkKey = "CLERK", slot = 1, original = "POKE_BALL",
+        item = "POTION", price = 100,
+      },
+    },
   },
 }
 
 local sources = {
+  items = {
+    ANTIDOTE = { id = "ANTIDOTE", name = "Antidote" },
+    POTION = { id = "POTION", name = "Potion", price = 300 },
+    POKE_BALL = { id = "POKE_BALL", name = "Poke Ball", price = 200 },
+    TM_BIDE = { id = "TM_BIDE", name = "TM34", price = 2000,
+      machine = { kind = "TM" } },
+    FLOOR_1F = { id = "FLOOR_1F", name = "1F" },
+    FLOOR_B2F = { id = "FLOOR_B2F", name = "B2F" },
+    FLOOR_ROOF = { id = "FLOOR_ROOF", name = "ROOF" },
+    UNUSED_ITEM_1 = { id = "UNUSED_ITEM_1", name = "?????" },
+    UNUSED_ITEM_2 = { id = "UNUSED_ITEM_2", label = "?????" },
+  },
   species = {
     PIDGEY = { dex = 16, name = "Pidgey" },
     SNORLAX = { dex = 143, name = "Snorlax" },
@@ -146,9 +182,10 @@ local sources = {
       label = "Route 1",
       objects = {
         { trainerClass = "OPP_YOUNGSTER", trainerParty = 1 },
+        { index = 2, item = "POTION" },
       },
     },
-    ROUTE_1_GATE = { label = "Route 1 Gate", objects = {} },
+    ROUTE_1_GATE = { label = "TestMart", name = "Route 1 Gate", objects = {} },
   },
   field = {
     fishing = {
@@ -186,15 +223,31 @@ local sources = {
       },
     },
   },
+  textPointers = {
+    TestMart = { CLERK = { mart = { "POKE_BALL" } } },
+  },
+  scriptedItems = {
+    { id = "brock_tm", mapId = "ROUTE_1_GATE", item = "TM_BIDE",
+      battle = true },
+  },
   gameVersion = "red",
 }
 
 local index = Browser.build(run, sources)
+for _, item in ipairs(index.items) do
+  assert(item.id ~= "FLOOR_1F" and item.id ~= "FLOOR_B2F"
+      and item.id ~= "FLOOR_ROOF" and item.id ~= "UNUSED_ITEM_1"
+      and item.id ~= "UNUSED_ITEM_2",
+    "spoiler item index excludes non-item registry entries")
+end
 assert(#index.species == 5)
 assert(index.species[1].id == "PIDGEY")
 assert(index.species[4].id == "SNORLAX")
 assert(index.species[5].id == "MODMON",
   "species without a dex number sort alphabetically after numbered species")
+assert(index.species[4].evolutions[1].species == "PIKACHU"
+  and index.species[4].evolutions[1].level == 35,
+  "Pokemon index uses the finalized randomized evolution data")
 
 local routeWild = index.maps.ROUTE_1.tabs.grass
 assert(#routeWild == 1,
@@ -224,15 +277,16 @@ local routeArea
 for _, area in ipairs(index.areas) do
   if area.name == "ROUTE 1" then routeArea = area break end
 end
-assert(routeArea and #routeArea.maps == 1,
+assert(routeArea and #routeArea.maps == 2,
   "area lists retain only buildings/maps with spoiler content")
 local routeTabs = BrowserScreen.availableTabs(index, index.maps.ROUTE_1)
-assert(#routeTabs == 5
+assert(#routeTabs == 6
   and routeTabs[1] == "grass"
   and routeTabs[2] == "old_rod"
   and routeTabs[3] == "good_rod"
   and routeTabs[4] == "super_rod"
-  and routeTabs[5] == "trainers",
+  and routeTabs[5] == "trainers"
+  and routeTabs[6] == "items",
   "map tab carousel omits every empty category")
 local routeFishing = index.maps.ROUTE_1.tabs.super_rod
 local fishingTotal, noBite = 0, nil
@@ -272,6 +326,11 @@ assert(#lolaLines == 5
   "trade tabs expose complete inline offers without a repeated Trade prefix")
 assert(BrowserScreen.isInlineTab("trades"),
   "trade rows do not open a separate detail screen")
+local itemRow = index.maps.ROUTE_1.tabs.items[1]
+assert(itemRow.label == "Antidote"
+  and BrowserScreen.rowSecondary(starterPreview, itemRow) == "ITEM BALL"
+  and BrowserScreen.isInlineTab("items"),
+  "field items appear inline on their map without drill-down")
 
 local pressed = {}
 local stack = {
@@ -299,6 +358,47 @@ local ui = {
 }
 local screen = BrowserScreen.new(game, { index = index }, ui)
 assert(screen.mode == "root")
+assert(#screen.rows == 3 and screen.rows[1].label == "POKEMON"
+  and screen.rows[2].label == "ITEMS" and screen.rows[3].label == "MAP",
+  "spoiler root offers Pokemon, Items, and Map")
+local returnedToPause
+local pauseScreen = BrowserScreen.new(game, {
+  index = index,
+  onCancel = function(activeGame) returnedToPause = activeGame end,
+}, ui)
+local popsBeforePauseReturn = stack.pops
+pauseScreen:back()
+assert(stack.pops == popsBeforePauseReturn + 1
+    and returnedToPause == game,
+  "root-level B closes the spoiler browser and invokes its return action")
+local itemScreen = BrowserScreen.new(game, { index = index }, ui)
+itemScreen.selection = 2
+itemScreen:choose()
+assert(itemScreen.mode == "items" and #itemScreen.rows == 4
+  and itemScreen.rows[1].item.id == "ANTIDOTE"
+  and itemScreen.rows[3].item.id == "POTION"
+  and itemScreen.rows[4].item.id == "TM_BIDE",
+  "item browser lists every merged item alphabetically")
+itemScreen:openSearch("items")
+assert(namingOptions and namingOptions.title == "ITEM SEARCH")
+namingOptions.onDone("anti")
+assert(itemScreen.itemSearch == "ANTI" and #itemScreen.rows == 1)
+itemScreen:choose()
+assert(itemScreen.mode == "item_locations" and #itemScreen.rows == 2
+  and itemScreen.rows[1].label == "Route 1"
+  and itemScreen.rows[1].right == "ITEM BALL"
+  and itemScreen.rows[2].right == "GYM REWARD",
+  "selecting an item opens all current locations with source type inline")
+itemScreen:choose()
+assert(itemScreen.mode == "item_locations",
+  "item locations do not add another drill-down screen")
+local shopLocation
+for _, location in ipairs(index.locationsByItem.POTION or {}) do
+  if location.sourceKind == "shop" then shopLocation = location break end
+end
+assert(shopLocation and BrowserScreen.rowSecondary(itemScreen, shopLocation)
+    == "SHOP Y100",
+  "item locations include current randomized shop stock and price")
 assert(BrowserScreen.rowSecondary(screen, routeWild[1])
   == "100 PCT LV.3-5",
   "encounter rows use their second line for current level information")
@@ -343,6 +443,19 @@ pressed.a = true
 screen:update()
 pressed = {}
 assert(screen.mode == "locations" and #screen.rows >= 5)
+assert(screen.rows[1].section and screen.rows[1].label == "EVOLUTIONS"
+  and screen.rows[2].label == "Pikachu"
+  and screen.rows[2].right == "LV.35"
+  and screen.rows[3].section and screen.rows[3].label == "LOCATIONS",
+  "Pokemon details show finalized evolutions before locations")
+local firstLocationSelection = screen.selection
+screen:move(-1)
+assert(screen.selection == firstLocationSelection,
+  "Pokemon location cursor skips non-interactive evolution rows")
+assert(BrowserScreen.evolutionTrigger({ item = "THUNDER_STONE" })
+    == "THUNDER ST."
+  and BrowserScreen.evolutionTrigger({ method = "TRADE" }) == "TRADE",
+  "evolution triggers are readable within the in-game screen width")
 local routeLocationIndex
 for indexValue, row in ipairs(screen.rows) do
   if row.location and row.location.mapId == "ROUTE_1" then

@@ -6,7 +6,7 @@ return function()
     {
       "GENERAL",
       {
-        "randomizer", "preset", "seed_mode", "seed_text", "species_pool",
+        "preset", "seed_mode", "seed_text", "species_pool",
         "similar_strength", "legendaries", "duplicate_policy",
         "generate_spoiler_log",
       },
@@ -35,6 +35,12 @@ return function()
       { "game_corner_pokemon", "prize_levels", "prize_prices" },
     },
     {
+      "ITEMS",
+      { "non_key_items", "tms", "hms", "key_items", "badges",
+        "hidden_items",
+        "ensure_beatable", "shops", "shop_prices" },
+    },
+    {
       "TRAINERS",
       {
         "trainer_pokemon", "trainer_levels", "boss_trainers",
@@ -42,20 +48,44 @@ return function()
         "progression_guard",
       },
     },
+    {
+      "POKEMON DATA",
+      {
+        "base_stats", "stat_family_consistency", "pokemon_types",
+        "type_family_consistency", "pokemon_movesets", "early_damage",
+        "learnset_levels", "tmhm_compatibility",
+      },
+    },
+    {
+      "EVOLUTIONS",
+      { "evolutions", "evolution_repeats", "evolution_trade_safety" },
+    },
+    {
+      "MOVE DATA",
+      { "move_types", "move_data", "move_safety" },
+    },
   }
 
   local SETTING_LABELS = {
-    catchability_guard = "Catchability Guard",
+    catchability_guard = "Pokemon Coverage",
     duplicate_policy = "Duplicate Policy",
     game_corner_pokemon = "Prize Pokemon",
     gift_pokemon = "Gift Pokemon",
+    non_key_items = "Non-key Location",
+    tms = "TM Location",
+    hms = "HM Location",
+    key_items = "Key Item Location",
+    badges = "Badge Location",
+    hidden_items = "Hidden Items",
+    ensure_beatable = "Progression Safety",
+    shops = "Shops",
+    shop_prices = "Shop Prices",
     in_game_trades = "In-game Trades",
     legendaries = "Legendaries",
     party_size = "Party Size",
     prize_levels = "Prize Levels",
     prize_prices = "Prize Prices",
-    progression_guard = "Progression Guard",
-    randomizer = "Randomizer",
+    progression_guard = "Trainer Safety",
     generate_spoiler_log = "Enable Spoiler Log",
     rival_counterpick = "Rival Counterpick",
     rival_keep_pokemon = "Rival Keep Pokemon",
@@ -67,9 +97,23 @@ return function()
     starter_level = "Starter Level",
     starter_stage = "Starter Stage",
     static_pokemon = "Static Pokemon",
-    trade_evolution_safety = "Trade Evolution Safety",
+    trade_evolution_safety = "Trade Validity",
     trainer_pokemon = "Trainer Pokemon",
     wild_pokemon = "Wild Pokemon",
+    base_stats = "Base Stats",
+    stat_family_consistency = "Family Stats",
+    pokemon_types = "Pokemon Types",
+    type_family_consistency = "Family Types",
+    pokemon_movesets = "Pokemon Movesets",
+    early_damage = "Early Damage",
+    learnset_levels = "Learnset Levels",
+    tmhm_compatibility = "TM/HM Compatibility",
+    move_types = "Move Types",
+    move_data = "Move Data",
+    move_safety = "Move Safety",
+    evolutions = "Evolutions",
+    evolution_repeats = "Evolution Repeats",
+    evolution_trade_safety = "Trade Evolution Safety",
   }
 
   local SPECIAL_NAMES = {
@@ -487,6 +531,95 @@ return function()
     end
   end
 
+  local function formatFieldItems(lines, placements)
+    section(lines, "ITEM LOCATIONS AND SHOPS")
+    if #placements == 0 then
+      add(lines, "  Items and shops are vanilla.")
+      return
+    end
+    for _, row in ipairs(placements) do
+      local position = row.kind == "hidden"
+        and ("hidden at " .. tostring(row.x) .. "," .. tostring(row.y))
+        or row.kind == "pc" and "starting PC storage"
+        or row.kind == "scripted" and row.badge and "Gym badge reward"
+        or row.kind == "scripted" and ("scripted gift " .. tostring(row.id))
+        or row.kind == "shop" and ("shop " .. tostring(row.talkKey)
+          .. " slot " .. tostring(row.slot))
+        or ("object " .. tostring(row.objectIndex or "?"))
+      local price = type(row.price) == "number"
+        and ("; price " .. tostring(row.price)) or ""
+      add(lines, ("  [%s; %s%s] %s -> %s"):format(
+        locationText(row.mapId), position, price,
+        readableId(row.original), readableId(row.item)))
+    end
+  end
+
+  local function formatPokemonMechanics(lines, mappings)
+    section(lines, "POKEMON MECHANICS")
+    if next(mappings or {}) == nil then
+      add(lines, "  Pokemon data is vanilla.")
+      return
+    end
+    for _, id in ipairs(sortedKeys(mappings)) do
+      local row = mappings[id]
+      add(lines, "  " .. speciesName(id))
+      if type(row.baseStats) == "table" then
+        add(lines, ("    Stats: HP %s / ATK %s / DEF %s / SPD %s / SPC %s")
+          :format(tostring(row.baseStats.hp), tostring(row.baseStats.attack),
+            tostring(row.baseStats.defense), tostring(row.baseStats.speed),
+            tostring(row.baseStats.special)))
+      end
+      if type(row.types) == "table" then
+        local names = {}
+        for index, typeId in ipairs(row.types) do names[index] = readableId(typeId) end
+        add(lines, "    Types: " .. table.concat(names, " / "))
+      end
+      if type(row.evolutions) == "table" then
+        if #row.evolutions == 0 then
+          add(lines, "    Evolves: none")
+        else
+          for _, evolution in ipairs(row.evolutions) do
+            local detail = readableId(evolution.method or "unknown")
+            if evolution.level then detail = detail .. " " .. evolution.level end
+            if evolution.item then
+              detail = detail .. " " .. readableId(evolution.item)
+            end
+            add(lines, ("    Evolves to %s (%s)"):format(
+              speciesName(evolution.species), detail))
+          end
+        end
+      end
+      if type(row.level1Moves) == "table" then
+        local names = {}
+        for index, move in ipairs(row.level1Moves) do names[index] = readableId(move) end
+        add(lines, "    Level 1: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+      end
+      for _, learned in ipairs(row.learnset or {}) do
+        add(lines, ("    Level %s: %s"):format(
+          tostring(learned.level), readableId(learned.move)))
+      end
+      if type(row.tmhm) == "table" then
+        local names = {}
+        for index, move in ipairs(row.tmhm) do names[index] = readableId(move) end
+        add(lines, "    TM/HM: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+      end
+    end
+  end
+
+  local function formatMoveData(lines, mappings)
+    section(lines, "MOVE DATA")
+    if next(mappings or {}) == nil then
+      add(lines, "  Move data is vanilla.")
+      return
+    end
+    for _, id in ipairs(sortedKeys(mappings)) do
+      local row = mappings[id]
+      add(lines, ("  %-16s TYPE %-9s POWER %-3s ACC %-3s PP %s"):format(
+        readableId(id), readableId(row.type), tostring(row.power),
+        tostring(row.accuracy), tostring(row.pp)))
+    end
+  end
+
   local function formatDiagnostics(lines, diagnostics)
     section(lines, "DIAGNOSTICS")
     diagnostics = diagnostics or {}
@@ -575,6 +708,9 @@ return function()
     formatTrades(lines, mappings.trades or {})
     formatPrizes(lines, mappings.prizes or {})
     formatTrainers(lines, mappings.trainerParties or {})
+    formatFieldItems(lines, mappings.fieldItems or {})
+    formatPokemonMechanics(lines, mappings.pokemonMechanics or {})
+    formatMoveData(lines, mappings.moveData or {})
     formatDiagnostics(lines, run.diagnostics or {})
     add(lines, "")
     add(lines, "END OF SPOILER LOG")

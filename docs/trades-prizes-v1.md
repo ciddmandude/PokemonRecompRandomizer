@@ -59,7 +59,7 @@ the trade animation remain stock-engine behavior.
   particular, relaxing the No Downgrade BST floor never changes `EXCLUDE`
   or `MATCH`; the shipped Casual preset therefore cannot receive a legendary
   trade or Game Corner prize.
-- `TRADE SAFETY: ON` excludes offers whose requested and received species
+- `TRADE VALIDITY: ON` excludes offers whose requested and received species
   are identical.
 - With Catchability Guard enabled, randomized requested species are
   preferentially selected from destinations already produced by the wild,

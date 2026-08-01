@@ -54,12 +54,19 @@ The design follows these platform rules:
 
 ### 4.1 Starting a randomized run
 
-1. The player opens `OPTIONS > RANDOMIZER`.
-2. The player selects a preset or changes individual settings.
-3. The player enters a seed or leaves Seed Mode on `AUTO`.
-4. The player returns to the title screen and selects `NEW GAME`.
-5. On `save.created`, the mod snapshots the current randomizer preferences, resolves the seed, validates the eligible species pool, generates every enabled mapping, and writes the run configuration into the new save.
-6. Oak's intro and normal gameplay continue. The starter balls, encounters, trades, prizes, and trainer teams use the stored configuration.
+1. The player selects `NEW GAME`.
+2. Before Oak's first introduction line, the game asks whether to enable the
+   randomizer. `NO` creates a vanilla run and resumes the intro.
+3. `YES` asks whether to use a preset. `YES` opens a picker containing the
+   built-in and player-saved presets; choosing one starts immediately.
+4. Declining the preset picker opens the custom New Game settings screen.
+   Preset loading and active-run actions are hidden, while every editable
+   setting, Save Preset, Delete Preset, and Reset Defaults remain available.
+5. B on the custom screen asks for confirmation. Once confirmed, the mod
+   snapshots the selected preferences, resolves the seed, validates the pool,
+   generates all enabled mappings atomically, and writes the run configuration
+   into the new save.
+6. Oak's intro and normal gameplay continue using that stored configuration.
 
 If generation cannot produce a valid run, New Game must show a clear error and fall back to vanilla content for that new save. It must never produce a partially randomized save.
 
@@ -100,12 +107,16 @@ Add a `RANDOMIZER` row to the main Options menu using `ui.options.rows`. Activat
 
 Every row must show a one- or two-line help description in a bottom panel. Left/Right changes enumerated values, A edits or activates, B returns, and Start opens a confirmation for `RESET DEFAULTS`.
 
+In the custom New Game variant, B instead opens `START WITH THESE SETTINGS?`.
+Confirming generates the run and resumes Oak. The screen hides Preset loading,
+Copy Active Seed, View Spoilers, and Export Spoilers because those either
+belong to the preceding chooser or require an active run.
+
 ### 5.1 General settings
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
-| Randomizer | `OFF`, `ON` | `ON` | Master switch for the next New Game. `OFF` creates no randomized mappings and all categories behave as vanilla. It does not disable the mod or erase configuration already stored in a save. |
-| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS` | `STANDARD` | Applies a documented bundle of settings. Selecting `CASUAL`, `STANDARD`, or `CHAOS` also sets Enable Spoiler Log to `ON`. Editing any bundled setting changes the display to `CUSTOM`. `CASUAL` uses similar-strength choices and progression safeguards; `STANDARD` uses independent random choices with safeguards; `CHAOS` enables full-pool, independent choices and disables most safeguards except hard validity rules. |
+| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS`, saved names | `STANDARD` | Applies a documented built-in bundle or a player-saved preset. Built-ins enable spoilers but preserve Seed Mode and Seed Text. Up to eight player presets may be named and displayed in this same list; they restore Seed Mode, Seed Text, spoiler access, and every category/safeguard setting. Editing a captured value changes an active saved preset to `CUSTOM`. |
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` generates a new 128-bit seed when New Game is confirmed. `MANUAL` uses Seed Text after normalization. Changing this setting never rerolls an existing save. |
 | Seed Text | text, 1–32 characters | blank | Used only in `MANUAL`. Accept uppercase letters, digits, space, hyphen, and underscore. Trim outer spaces, collapse repeated spaces, and uppercase before hashing. Reject an empty canonical seed. The original display text and canonical value are both saved. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | `VANILLA 151` excludes mod-added species. `MERGED DATA` includes every valid merged-registry species that has battle sprites, stats, growth data, and a learnset. Missing or invalid species are excluded with a logged reason. |
@@ -121,9 +132,9 @@ Every row must show a one- or two-line help description in a bottom panel. Left/
 | Wild Pokémon | `OFF`, `GLOBAL MAP`, `AREA SLOTS` | `GLOBAL MAP` | `OFF` leaves all walking, surfing, and fishing encounters vanilla. `GLOBAL MAP` replaces a source species consistently everywhere using one saved source-to-destination table. `AREA SLOTS` saves a replacement for each map, terrain, and encounter slot, allowing the same source species to differ by location. |
 | Fishing | `VANILLA`, `RANDOMIZED` | `RANDOMIZED` | Controls Old/Good/Super Rod candidates independently. When randomized, it follows the selected Wild mode and uses saved fishing mappings. Gifted Magikarp is not a fishing encounter. |
 | Wild Levels | `UNCHANGED`, `±2`, `SCALED` | `UNCHANGED` | `UNCHANGED` preserves each original slot level. `±2` deterministically adjusts each slot from -2 to +2, clamped to 2–100. `SCALED` preserves the source area's relative difficulty but compensates for destination strength using `round(level × sqrt(sourceBST/destinationBST))`, clamped to 2–100. |
-| Catchability Guard | `OFF`, `ON` | `ON` | Ensures every non-legendary destination species is available in at least one reachable pre–Elite Four encounter when mathematically possible. It does not alter encounter rates, map access, or require sequence-breaking. A post-generation validator swaps destinations between slots to meet coverage. |
+| Pokémon Coverage | `OFF`, `ON` | `ON` | Ensures every non-legendary destination species is available in at least one reachable pre–Elite Four encounter when mathematically possible. It does not alter encounter rates, map access, or require sequence-breaking. A post-generation validator swaps destinations between slots to meet coverage. |
 
-When `SAME STAGE`, `BST ±50`, or `BST ±100` is active, Catchability Guard and
+When `SAME STAGE`, `BST ±50`, or `BST ±100` is active, Pokémon Coverage and
 trade-reachability repairs may use only swaps that remain valid for both
 affected source species. If no compatible donor exists, the repair is
 reported as unsatisfied rather than silently weakening the selected rule.
@@ -136,7 +147,7 @@ Wild encounter rate and the ten-slot probability buckets remain vanilla. Repel c
 |---|---|---:|---|
 | Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | In Red/Blue, `OFF` keeps Bulbasaur, Charmander, and Squirtle; enabled modes choose three unique eligible species. In Yellow, `OFF` keeps Pikachu and Eevee; enabled modes replace Pikachu with one saved eligible player starter and resolve one distinct saved rival starter in place of Eevee. `TYPE TRIAD` uses the triad candidate pool when one exists, then resolves the Yellow pair from that pool; otherwise it records a warning and falls back to `RANDOM`. |
 | Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | `BASIC ONLY` permits species with no pre-evolution in the eligible pool. `ANY` permits evolved forms. This filter applies only to the three player choices, not the rival's later randomized parties. |
-| Starter Level | number 2–20 | `5` | Sets the received starter's level and the level shown in the starter preview. The first rival battle remains governed by Trainer Levels, but cannot be more than three levels above the chosen starter when Progression Guard is on. |
+| Starter Level | number 2–20 | `5` | Sets the received starter's level and the level shown in the starter preview. The first rival battle remains governed by Trainer Levels, but cannot be more than three levels above the chosen starter when Trainer Safety is on. |
 | Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | `BALL ORDER` preserves the vanilla positional counterpick. `TYPE ADVANTAGE` gives the rival whichever unchosen starter has the strongest type matchup against the player's choice, with deterministic ties. `RANDOM OTHER` selects either unchosen starter from the saved seed. This choice controls starter flags and every vanilla rival-party branch that depends on them. |
 
 The Pokédex preview, confirmation text, received species, ball removal, rival movement, rival selection, and first rival team must agree. A solution that changes only `pokemon.before_give` is incomplete because the current Oak's Lab scripts display the original species before the gift event. In Yellow, a non-Pikachu randomized starter does not follow the player because the follower is a Pikachu-specific game feature.
@@ -163,7 +174,7 @@ because v0.1.30 has no per-save object-sprite seam.
 |---|---|---:|---|
 | In-game Trades | `OFF`, `RECEIVED`, `BOTH SIDES` | `BOTH SIDES` | `OFF` keeps every NPC trade vanilla. `RECEIVED` randomizes only the Pokémon the NPC gives. `BOTH SIDES` randomizes both the requested and received species. Dialog substitutions, party validation, Pokédex updates, nickname, OT behavior, and trade animation must use the resolved offer. |
 | Trade Fairness | `ANY`, `SIMILAR STRENGTH`, `NO DOWNGRADE` | `SIMILAR STRENGTH` | `ANY` ignores the global strength/stage rule for the received species. `SIMILAR STRENGTH` applies the selected global percentage band or same-stage rule between requested and received species. `NO DOWNGRADE` applies the global rule and requires received BST to be at least requested BST minus 5%; relax the no-downgrade threshold deterministically only if no candidate exists. |
-| Trade Evolution Safety | `OFF`, `ON` | `ON` | Prevents offers that require giving the same species received, and prevents impossible request species under Catchability Guard. Trade-evolution species remain legal; the normal in-game trade itself does not trigger a link evolution unless the base engine does so. |
+| Trade Validity | `OFF`, `ON` | `ON` | Prevents offers that require giving the same species received, and prevents impossible request species under Pokémon Coverage. Trade-evolution species remain legal; the normal in-game trade itself does not trigger a link evolution unless the base engine does so. |
 
 Each of the nine NPC-wired trades is generated once by stable trade index and
 stored. Completion flags remain vanilla so a trade cannot be repeated. The
@@ -180,7 +191,33 @@ Blue and is not a player-accessible offer.
 
 Purchasing a randomized prize must show the correct species and level before payment, deduct the displayed cost once, and pass the resolved species through the normal gift flow.
 
-### 5.7 Trainer settings
+### 5.7 Item and shop settings
+
+| Option | Values | Default | Detailed behavior |
+|---|---|---:|---|
+| Non-key Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps ordinary checks unchanged, shuffles them as a closed multiset, or joins them with every other category set to `MIXED`. Deterministic retries minimize original items remaining at their own checks in both unrestricted and Progression Safety-constrained pools, producing zero fixed points whenever a sampled valid permutation permits it. Hidden checks participate only when Hidden Items permits it. |
+| TM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps TMs unchanged, shuffles only TM checks, or joins TMs to the shared supported one-time-check pool. |
+| HM Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps HMs unchanged, shuffles only HM checks, or joins HMs to the shared pool. HMs are never stocked by shops. |
+| Key Item Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps key items unchanged, shuffles only supported key-item checks, or joins them to the shared pool. |
+| Badge Location | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | Keeps badges with their Gym Leaders, permutes the eight badge checks, or joins badges to the shared one-time-check pool. Repeatable shops and mutually exclusive fossil choices are excluded. |
+| Hidden Items | `VANILLA`, `SHUFFLED`, `MIXED` | `VANILLA` | `VANILLA` locks hidden checks out of all pools. `SHUFFLED` shuffles all hidden checks as one closed pool. `MIXED` lets hidden checks exchange items with supported visible, starting-PC, and scripted checks. |
+| Progression Safety | `OFF`, `ON` | `ON` | Independently constrains enabled badges, HMs, key items, and displaced progression items to locations available by their required stage. Postgame and unknown-map source checks are locked vanilla and excluded from the reachable mixed pool. A reachable pool that still cannot be proven safe remains vanilla with an attributed diagnostic. `OFF` preserves unrestricted seeded placement and can produce an unbeatable run. |
+| Shops | `VANILLA`, `RANDOMIZED` | `VANILLA` | Randomizes Poké Marts, Department Store counters, vending machines, and Game Corner TM prizes. It does not affect Game Corner Pokémon. |
+| Shop Prices | `VANILLA`, `RANDOM`, `CHEAP` | `VANILLA` | `VANILLA` preserves ordinary item prices and special-shop slot prices. `RANDOM` saves deterministic multiples of 100 from 100–5000. `CHEAP` uses 100. Ignored while Shops is vanilla. |
+
+The engine item registry also contains elevator menu labels such as `B2F`,
+`1F`, `11F`, and `ROOF`. These are not obtainable items and are excluded from
+spoilers, item pools, and randomized shop inventories. Unused placeholder item
+IDs displayed as `?????` are excluded by the same shared filter.
+
+The engine's merged map and field tables are captured after all mods load.
+New Game projects the saved placements into those live tables. Continue and
+save switching first restore that merged baseline, then apply the selected
+save's placements before overworld construction. A normal save operation only
+persists the mapping and never requires an application restart. These settings
+do not migrate an already-generated run; they apply to the next New Game.
+
+### 5.8 Trainer settings
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
@@ -189,20 +226,22 @@ Purchasing a randomized prize must show the correct species and level before pay
 | Boss Trainers | `INCLUDE`, `THEMED`, `VANILLA` | `THEMED` | Applies to Gym Leaders and Elite Four members, excluding the Champion rival. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a single saved type theme per boss while retaining party size. `VANILLA` excludes boss parties from species and level randomization. |
 | Rival Pokémon | `INCLUDE`, `THEMED`, `VANILLA` | `INCLUDE` | Applies to every rival battle, including the Champion. `INCLUDE` follows Trainer Pokémon. `THEMED` guarantees a rival theme and retains vanilla party size. With Rival Keep Pokémon `YES`, each starter branch uses that randomized starter's primary type; with `NO`, the run saves a deterministic rival theme. `VANILLA` leaves non-starter species, levels, moves, and party sizes vanilla while the starter slot still follows Rival Keep Pokémon. |
 | Rival Keep Pokémon | `NO`, `YES` | `YES` | `YES` assigns each recurring vanilla rival-family slot one randomized evolution family, advances along it when the vanilla counterpart evolves, and follows the vanilla add/remove schedule. If the destination family runs out of evolutions, its latest form remains. `NO` preserves the selected counterpick for Oak's Lab only; every later party, including the former starter slot, is independently resolved according to Rival Pokémon. |
-| Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | `UNCHANGED` preserves each party's count. `1–6 RANDOM` generates a saved count, but Progression Guard limits pre–Brock trainers to 1–3 and prevents required battles from exceeding six. |
-| Progression Guard | `OFF`, `ON` | `ON` | Enforces valid species, levels, and nonempty required parties; limits the first rival battle relative to the starter; prevents early mandatory teams composed only of high-BST or legendary Pokémon; and ensures generated moves can be constructed. It does not guarantee a particular difficulty. |
+| Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | `UNCHANGED` preserves each party's count. `1–6 RANDOM` generates a saved count, but Trainer Safety limits pre–Brock trainers to 1–3 and prevents required battles from exceeding six. |
+| Trainer Safety | `OFF`, `ON` | `ON` | Enforces valid species, levels, and nonempty required parties; limits the first rival battle relative to the starter; prevents early mandatory teams composed only of high-BST or legendary Pokémon; and ensures generated moves can be constructed. It does not guarantee a particular difficulty. |
 
 Trainer randomization runs before the engine constructs battlers. Vanilla special boss-move overrides must only be applied when legal for the resolved species; otherwise the normal generated moveset remains. Explicit per-slot move lists from other mods remain authoritative unless a compatibility conflict is reported.
 
-### 5.8 Actions
+### 5.9 Actions
 
 | Action | Behavior |
 |---|---|
 | Review Next Run | Opens a scrollable summary of all editable settings and validation warnings. |
 | Reset Defaults | Confirms, then restores the `STANDARD` preset and clears manual Seed Text. |
 | Copy Active Seed | Copies the active seed and run code to the system clipboard when clipboard support exists; otherwise displays both for transcription. |
-| View Spoiler Log | Opens an unrestricted Pokémon/map browser. Pokémon mode lists every merged species in Pokédex order, supports partial-name search, and indexes obtainable/encounter locations. Displayed location names longer than 16 characters are abbreviated without changing the indexed map identity. Wild locations display their method and one combined chance/level line for each distinct level directly in the location list and do not drill down. Static locations identify their encounter inline as `STATIC - <Pokémon>` and also do not drill down. Starter and gift locations display their source plus the current Pokémon and level inline and also do not drill down. Trade locations display the complete numbered offer with current `REQUESTED` and `RECEIVED` Pokémon inline and also do not drill down. Prize locations display the Game Corner version and slot, current Pokémon, level, and coin cost inline and also do not drill down. Selecting another location with exactly one result opens that result directly; only locations with multiple results show an intermediate chooser. Map mode uses the Kanto map, groups relevant floors/buildings, and presents only populated category tabs with offers, prizes, and complete trainer parties. Starter and gift tabs show each current Pokémon and level inline and do not open detail screens. Grass, surf, Old Rod, Good Rod, and Super Rod use separate tabs. Encounter tabs show each Pokémon followed by one combined chance line per distinct level and do not open a separate detail screen. Every rod tab includes its per-cast no-bite percentage so its outcomes total 100%. The Trades tab renders all numbered offers inline with `REQUESTED` and `RECEIVED` fields and does not open a detail screen. Browser rows show current results without original species or prices. The saved settings section is omitted. Available only when the active run saved Enable Spoiler Log as `ON`. |
+| View Spoiler Log | Opens an unrestricted Pokémon/items/map browser. Eligible runs also add `SPOILER` immediately before `MODS` in the Start menu, and B returns there after viewing. Pokémon mode lists every merged species in Pokédex order, supports partial-name search, shows current evolutions before obtainable locations, and indexes those locations. Items mode lists every merged item alphabetically, supports partial-name search, and shows all current field, hidden, PC, scripted, Gym, mart, vending, and Game Corner TM-prize locations with source type and applicable price. Item locations have no further drill-down. Map mode groups relevant floors/buildings and presents only populated tabs, including `ITEMS`. Encounter methods use separate tabs with per-level chances and rod no-bite odds. Trades show complete offers inline; trainer rows open complete parties. Browser rows show current results without original randomized values. The saved settings section is omitted. Available only when the active run saved Enable Spoiler Log as `ON`. |
 | Export Spoiler Log | Explicitly writes a complete readable plaintext report, including saved settings, without ROM bytes. Available only when the active run saved Enable Spoiler Log as `ON`. |
+| Save Preset | Opens a 16-character name editor and stores the current next-run options except Randomizer and the Preset label. Names are unique, normalized to uppercase, and restricted to letters, digits, spaces, hyphens, and underscores. Saving an occupied name requires confirmation. |
+| Delete Preset | Opens a list of player-saved presets and confirms deletion. Built-in presets cannot be deleted. Deleting the active preset does not alter its loaded option values. |
 
 ## 6. Determinism and generation algorithm
 
@@ -361,7 +400,7 @@ Requirements:
 
 | Feature | Integration |
 |---|---|
-| Save initialization | Listen to `save.created` after `Game:adoptSave`; generate and store the complete run configuration atomically. |
+| Save initialization | Capture the real `save.created` after `Game:adoptSave`, insert the mandatory chooser before `oak_welcome` through `intro.oak_speech.build`, then generate and store the complete run configuration atomically before resuming the intro. |
 | Save verification | Listen to `save.loading`, `save.loaded`, and `save.writing`; use `mod.migrations` for schema changes. |
 | Wild walking/surfing | Wrap `encounter.species` for global mappings. Wrap `encounter.roll` when area-slot mapping or saved level adjustment needs the original slot identity; on 0.1.38+, observe the delegated engine RNG's bucket draw without adding a draw or rerolling. |
 | Fishing | Wrap `encounter.fishing`. |
@@ -404,7 +443,7 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Generate mappings from original records, never from already randomized output.
 - Save keys as `<mapId>/<terrain>/<slotIndex>` and `<mapId>/<rod>/<candidateIndex>`.
 - In global mode, save a source-species table once and use it everywhere.
-- Run Catchability Guard after all wild/trade mappings exist so safe swaps do not change counts or rates.
+- Run Pokémon Coverage after all wild/trade mappings exist so safe swaps do not change counts or rates.
 
 ### 9.2 Starters
 
@@ -423,7 +462,7 @@ All new hook results must be type-checked. Invalid results log an attributed err
 - Enumerate imported `field.trades` by numeric index.
 - Preserve dialog set, nickname, OT behavior, completion flag, and received level rule.
 - Save `{ give, get }` for each index.
-- Validate that the requested species can be acquired before that trade when Catchability Guard and Trade Evolution Safety are on.
+- Validate that the requested species can be acquired before that trade when Pokémon Coverage and Trade Validity are on.
 - A trade offer must not change after it is viewed.
 
 ### 9.4 Mod-only static encounters and gifts
@@ -485,9 +524,19 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 ## 10. Functional requirements
 
-`FR-01` The mod shall expose every setting and action in Section 5 through the in-game Options menu.
+`FR-01` The mod shall expose every setting and action in Section 5 through the
+in-game Options menu. The enable/disable decision is a New Game prompt, not a
+persistent option row.
 
-`FR-02` A New Game shall snapshot global randomizer preferences into the new save before gameplay.
+`FR-02` Before Oak's first introduction line, every New Game shall ask whether
+to enable the randomizer. Declining shall create a vanilla run. Accepting shall
+offer a preset picker or a custom settings flow, then snapshot the selected
+preferences into the new save before gameplay.
+
+`FR-02A` The player shall be able to persist, overwrite, load through the
+existing Preset row and New Game preset picker, and delete up to eight named
+setting presets. Each saved preset shall include both seed options and every
+editable next-run option.
 
 `FR-03` The canonical seed, algorithm version, settings, pool hash, and resolved mappings shall be serialized with player progress.
 
@@ -608,7 +657,7 @@ and cover:
 - static and gift IDs are stable and all saved offers are valid;
 - required trainer parties are nonempty and at most six;
 - one-to-one mappings obey uniqueness while candidates remain;
-- Catchability Guard and trade reachability invariants hold when enabled;
+- Pokémon Coverage and trade reachability invariants hold when enabled;
 - generation terminates within bounded retries;
 - saved mappings serialize and parse to the same normalized table.
 
@@ -624,20 +673,21 @@ and cover:
 
 ## 14. Out of scope for version 1
 
-- moves, abilities, types, stats, learnsets, evolutions, items, TMs, field items, marts, maps, warps, palettes, or music;
+- moves, abilities, types, stats, learnsets, evolutions, scripted item gifts,
+  marts, maps, warps, palettes, or music;
 - changing Pokémon species already owned in an existing save;
 - randomizing during Continue when the save was originally vanilla;
 - network seed synchronization or an online seed server;
 - server-grade competitive anti-cheat, remote race administration, or proof that a player has not inspected local files;
-- guaranteed beatability under every combination with Progression Guard off.
+- guaranteed beatability under every combination with Trainer Safety off.
 
 ## 15. Fifteen implementation milestones
 
 1. **Project skeleton and contracts** — Add the API-2 manifest, module layout, supported-version checks, logging, pure generator interfaces, and player-facing README.
 2. **Deterministic RNG foundation** — Implement seed normalization, 128-bit hashing, named stream derivation, integer PRNG, rejection sampling, stable sorting, and Fisher–Yates; land golden vectors.
 3. **Species manifest and filters** — Build vanilla/merged eligible pools, metadata export API, BST/type/evolution/legendary filters, pool fingerprints, and relaxation diagnostics.
-4. **Save lifecycle and migrations** — Generate atomically on `save.created`, implement the Section 7 schema, checksum validation, load/write listeners, safe disable, and first migration harness.
-5. **Options shell** — Add the `RANDOMIZER` Options row, custom paged screen, input behavior, help panel, active-run lock display, reset confirmation, and persistence of next-run preferences.
+4. **Save lifecycle and migrations** — Defer a real `save.created` until the mandatory intro chooser completes, then generate atomically before Oak's first line; implement the Section 7 schema, checksum validation, load/write listeners, safe disable, and first migration harness.
+5. **Options shell** — Add the `RANDOMIZER` Options row, mandatory New Game enable/preset chooser, custom paged setup flow, input behavior, help panel, active-run lock display, reset confirmation, and persistence of next-run preferences.
 6. **General options and presets** — Implement every Section 5.1 setting, Casual/Standard/Chaos bundles, custom-state detection, run review, seed/run-code display, and clipboard fallback.
 7. **Wild global mapping** — Implement grass/surf global species mapping through `encounter.species`, unchanged levels, category isolation, and integration tests.
 8. **Wild area, fishing, and levels** — Add stable slot identity support, area-slot mappings, `encounter.fishing`, level modes, catchability validation, and rate/repel regression tests.

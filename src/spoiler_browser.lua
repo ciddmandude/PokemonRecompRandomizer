@@ -1,5 +1,5 @@
 -- Pure read-only index for the in-game spoiler browser.
-return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
+return function(StableSort, StaticGiftCatalog, TradePrizeCatalog, ItemFilter)
   local Browser = {}
   local indexCache = { key = nil, value = nil, builds = 0, hits = 0 }
 
@@ -14,12 +14,14 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
   local TABS = {
     "grass", "surf", "old_rod", "good_rod", "super_rod", "trainers",
     "starters", "statics", "gifts", "trades", "prizes",
+    "items",
   }
   local TAB_LABELS = {
     grass = "GRASS", surf = "SURF", old_rod = "OLD ROD",
     good_rod = "GOOD ROD", super_rod = "SUPER ROD",
     trainers = "TRAINERS", starters = "STARTERS", statics = "STATICS",
     gifts = "GIFTS", trades = "TRADES", prizes = "PRIZES",
+    items = "ITEMS",
   }
   local STARTERS = {
     { id = "LEFT", source = "CHARMANDER" },
@@ -157,6 +159,27 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
     if obtainableSpecies then
       addSpeciesLocation(index, obtainableSpecies, mapId, tab, row)
     end
+  end
+
+  local function itemName(id, records)
+    local row = type(records) == "table" and records[id]
+    local name = type(row) == "table" and (row.name or row.label)
+    return type(name) == "string" and name ~= "" and name or words(id)
+  end
+
+  local function addItemRow(index, mapId, row)
+    local definition = type(row.item) == "string"
+      and index.sources.items[row.item]
+    if not definition
+        or ItemFilter and not ItemFilter.isUsable(row.item, definition) then
+      return
+    end
+    row.kind = "item"
+    row.label = itemName(row.item, index.sources.items)
+    row.location = mapName(mapId, index.sources.maps, index.townLocations)
+    addMapRow(index, mapId, "items", row)
+    index.locationsByItem[row.item] = index.locationsByItem[row.item] or {}
+    index.locationsByItem[row.item][#index.locationsByItem[row.item] + 1] = row
   end
 
   local function wildDestination(run, mapId, terrain, slotIndex, source)
@@ -434,6 +457,144 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
     end
   end
 
+  local function addFieldItems(index)
+    local placements = type(index.run.mappings) == "table"
+      and index.run.mappings.fieldItems or {}
+    local mapped = { visible = {}, hidden = {}, scripted = {}, shop = {} }
+    for _, row in ipairs(type(placements) == "table" and placements or {}) do
+      if row.kind == "visible" then
+        mapped.visible[row.mapId .. "\0" .. tostring(row.objectIndex)] = row
+      elseif row.kind == "hidden" then
+        mapped.hidden[row.mapId .. "\0" .. tostring(row.hiddenIndex)] = row
+      elseif row.kind == "scripted" then
+        mapped.scripted[row.id] = row
+      elseif row.kind == "shop" then
+        mapped.shop[(row.pointerId or row.mapId) .. "\0" .. row.talkKey
+          .. "\0" .. tostring(row.slot)] = row
+      end
+    end
+
+    for _, mapId in ipairs(StableSort.keys(index.sources.maps or {})) do
+      local map = index.sources.maps[mapId]
+      for arrayIndex, object in ipairs(type(map) == "table" and map.objects or {}) do
+        if type(object) == "table" and type(object.item) == "string" then
+          local objectIndex = object.index or arrayIndex
+          local replacement = mapped.visible[mapId .. "\0" .. tostring(objectIndex)]
+          addItemRow(index, mapId, { item = replacement and replacement.item or object.item,
+            sourceKind = "visible", objectIndex = objectIndex })
+        end
+      end
+    end
+    local hidden = type(index.sources.field) == "table"
+      and index.sources.field.hiddenItems or {}
+    for _, mapId in ipairs(StableSort.keys(hidden or {})) do
+      for hiddenIndex, object in ipairs(hidden[mapId] or {}) do
+        local replacement = mapped.hidden[mapId .. "\0" .. tostring(hiddenIndex)]
+        addItemRow(index, mapId, { item = replacement and replacement.item or object.item,
+          sourceKind = "hidden", hidden = true, hiddenIndex = hiddenIndex,
+          x = object.x, y = object.y })
+      end
+    end
+
+    local pcFound = false
+    for _, row in ipairs(type(placements) == "table" and placements or {}) do
+      if row.kind == "pc" then
+        pcFound = true
+        addItemRow(index, row.mapId, { item = row.item,
+          sourceKind = "pc", storage = true, quantity = row.quantity })
+      end
+    end
+    if not pcFound then
+      addItemRow(index, "REDS_HOUSE_2F", { item = "POTION",
+        sourceKind = "pc", storage = true, quantity = 1 })
+    end
+
+    for _, source in ipairs(index.sources.scriptedItems or {}) do
+      local replacement = mapped.scripted[source.id]
+      addItemRow(index, source.mapId, {
+        item = replacement and replacement.item or source.item,
+        sourceKind = source.battle and "gym" or "gift",
+        sourceId = source.id,
+      })
+    end
+
+    local mapIdsByLabel = {}
+    for mapId, map in pairs(index.sources.maps or {}) do
+      if type(map) == "table" and type(map.label) == "string" then
+        mapIdsByLabel[map.label] = mapId
+      end
+    end
+    for _, pointerId in ipairs(StableSort.keys(index.sources.textPointers or {})) do
+      local pointer = index.sources.textPointers[pointerId]
+      for _, talkKey in ipairs(StableSort.keys(pointer or {})) do
+        local mart = type(pointer[talkKey]) == "table" and pointer[talkKey].mart
+        for slot, sourceItem in ipairs(type(mart) == "table" and mart or {}) do
+          local replacement = mapped.shop[pointerId .. "\0" .. talkKey
+            .. "\0" .. tostring(slot)]
+          local item = replacement and replacement.item or sourceItem
+          local definition = index.sources.items[item]
+          addItemRow(index, replacement and replacement.mapId
+              or mapIdsByLabel[pointerId] or pointerId, {
+            item = item, sourceKind = "shop", shop = true,
+            price = replacement and replacement.price
+              or type(definition) == "table" and definition.price,
+            talkKey = talkKey, slot = slot,
+          })
+        end
+      end
+    end
+
+    local specials = {
+      { mapId = "CELADON_MART_ROOF", talkKey = "vending",
+        currency = "Y", rows = {
+          { "FRESH_WATER", 200 }, { "SODA_POP", 300 }, { "LEMONADE", 350 },
+        } },
+      { mapId = "GAME_CORNER_PRIZE_ROOM", talkKey = "prize_tms",
+        currency = "COINS", rows = {
+          { "TM_DRAGON_RAGE", 3300 }, { "TM_HYPER_BEAM", 5500 },
+          { "TM_SUBSTITUTE", 7700 },
+        } },
+    }
+    for _, special in ipairs(specials) do
+      for slot, source in ipairs(special.rows) do
+        local key = special.mapId .. "\0" .. special.talkKey
+          .. "\0" .. tostring(slot)
+        local replacement = mapped.shop[key]
+        addItemRow(index, special.mapId, {
+          item = replacement and replacement.item or source[1],
+          sourceKind = special.talkKey, shop = true,
+          price = replacement and replacement.price or source[2],
+          currency = special.currency, slot = slot,
+        })
+      end
+    end
+  end
+
+  local function buildItems(index)
+    for id, record in pairs(index.sources.items or {}) do
+      if type(id) == "string" and type(record) == "table"
+          and (not ItemFilter or ItemFilter.isUsable(id, record)) then
+        index.items[#index.items + 1] = {
+          id = id, name = itemName(id, index.sources.items),
+        }
+      end
+    end
+    table.sort(index.items, function(a, b)
+      if a.name ~= b.name then return a.name < b.name end
+      return a.id < b.id
+    end)
+  end
+
+  local function finalizeItems(index)
+    for _, rows in pairs(index.locationsByItem) do
+      table.sort(rows, function(a, b)
+        if a.location ~= b.location then return a.location < b.location end
+        if a.sourceKind ~= b.sourceKind then return a.sourceKind < b.sourceKind end
+        return (a.slot or 0) < (b.slot or 0)
+      end)
+    end
+  end
+
   local function trainerParty(index, classId, partyIndex)
     local sourceClass = index.sources.trainers[classId]
     local sourceParty = type(sourceClass) == "table"
@@ -518,10 +679,29 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
   local function buildSpecies(index)
     for id, record in pairs(index.sources.species or {}) do
       if type(id) == "string" and type(record) == "table" then
+        local mechanics = type(index.run.mappings) == "table"
+          and type(index.run.mappings.pokemonMechanics) == "table"
+          and index.run.mappings.pokemonMechanics[id]
+        local finalized = type(mechanics) == "table"
+          and mechanics.evolutions or record.evolutions
+        local evolutions = {}
+        for _, evolution in ipairs(type(finalized) == "table"
+            and finalized or {}) do
+          if type(evolution) == "table"
+              and type(evolution.species) == "string" then
+            evolutions[#evolutions + 1] = {
+              species = evolution.species,
+              method = evolution.method,
+              level = evolution.level,
+              item = evolution.item,
+            }
+          end
+        end
         index.species[#index.species + 1] = {
           id = id,
           name = speciesName(id, index.sources.species),
           dex = tonumber(record.dex),
+          evolutions = evolutions,
         }
         index.names[id] = speciesName(id, index.sources.species)
       end
@@ -624,20 +804,25 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
       townLocations = locations,
       townMap = townMap,
       species = {},
+      items = {},
       names = {},
       locationsBySpecies = {},
+      locationsByItem = {},
       maps = {},
       areas = {},
       tabs = copyArray(TABS),
       tabLabels = TAB_LABELS,
     }
     buildSpecies(index)
+    buildItems(index)
     addWild(index)
     addStarters(index)
     addStaticGifts(index)
     addTradesPrizes(index)
+    addFieldItems(index)
     addTrainers(index)
     finalizeSpecies(index)
+    finalizeItems(index)
     buildAreas(index)
     return index
   end
@@ -659,6 +844,7 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
         identityPart(sources.trainers),
         identityPart(sources.maps),
         identityPart(sources.field),
+        identityPart(sources.items),
       }, "|")
     return table.concat({
       "spoiler-index-v1",

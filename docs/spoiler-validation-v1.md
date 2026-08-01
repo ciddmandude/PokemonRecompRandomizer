@@ -7,15 +7,19 @@
 behavior-settings hash because it cannot affect generation.
 
 New Game never writes a spoiler file automatically. When the saved run setting
-is `ON`, `VIEW SPOILERS` opens an unrestricted Pokémon/map browser:
+is `ON`, `VIEW SPOILERS` opens an unrestricted Pokémon/items/map browser:
 
 - Pokémon mode lists every merged-registry species in Pokédex order, placing
   unnumbered species alphabetically afterward. `SELECT` opens partial-name
   search. Each species has one entry per obtainable/encounter location.
+- Items mode lists every merged-registry item alphabetically. `SELECT` opens
+  partial-name search. Selecting an item shows every current field, hidden,
+  PC, scripted/Gym, mart, vending, and Game Corner TM-prize location with its
+  source type and applicable price, without another drill-down screen.
 - Map mode renders the extracted Kanto Town Map, groups relevant buildings and
   floors under their map coordinate, and presents `GRASS`, `SURF`, `OLD ROD`,
   `GOOD ROD`, `SUPER ROD`, `TRAINERS`,
-  `STARTERS`, `STATICS`, `GIFTS`, `TRADES`, and `PRIZES` tabs.
+  `STARTERS`, `STATICS`, `GIFTS`, `TRADES`, `PRIZES`, and `ITEMS` tabs.
 - Encounter tabs combine slot probability by current species and distinct
   level, display every level directly, and do not open a detail screen.
 - Trainer entries open a complete generic class/party listing with levels.
@@ -68,7 +72,7 @@ count. The complete-namespace budget is 256 KiB.
 ## Tests
 
 The headless suite verifies the default, absence of automatic writes,
-saved-run access gating, merged-species ordering/search, reverse location
+saved-run access gating, merged-species and item ordering/search, reverse location
 indexing, global-map expansion, duplicate-slot probability aggregation,
 map/building grouping, trainer-party drill-down, manual plaintext export,
 output paths, legacy-save visibility, reachability repairs, missing-content

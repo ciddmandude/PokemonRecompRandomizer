@@ -26,6 +26,15 @@ return function(SaveState)
     "game_corner_pokemon",
     "prize_levels",
     "prize_prices",
+    "non_key_items",
+    "tms",
+    "hms",
+    "key_items",
+    "badges",
+    "hidden_items",
+    "ensure_beatable",
+    "shops",
+    "shop_prices",
     "trainer_pokemon",
     "trainer_levels",
     "boss_trainers",
@@ -33,6 +42,20 @@ return function(SaveState)
     "rival_keep_pokemon",
     "party_size",
     "progression_guard",
+    "base_stats",
+    "evolutions",
+    "evolution_repeats",
+    "evolution_trade_safety",
+    "stat_family_consistency",
+    "pokemon_types",
+    "type_family_consistency",
+    "pokemon_movesets",
+    "early_damage",
+    "learnset_levels",
+    "tmhm_compatibility",
+    "move_types",
+    "move_data",
+    "move_safety",
   }
 
   local PRESET_KEY_SET = {}
@@ -62,6 +85,15 @@ return function(SaveState)
     game_corner_pokemon = "randomized",
     prize_levels = "unchanged",
     prize_prices = "unchanged",
+    non_key_items = "vanilla",
+    tms = "vanilla",
+    hms = "vanilla",
+    key_items = "vanilla",
+    badges = "vanilla",
+    hidden_items = "vanilla",
+    ensure_beatable = "on",
+    shops = "vanilla",
+    shop_prices = "vanilla",
     trainer_pokemon = "by_slot",
     trainer_levels = "unchanged",
     boss_trainers = "themed",
@@ -69,6 +101,20 @@ return function(SaveState)
     rival_keep_pokemon = "yes",
     party_size = "unchanged",
     progression_guard = "on",
+    base_stats = "vanilla",
+    evolutions = "vanilla",
+    evolution_repeats = "avoid",
+    evolution_trade_safety = "vanilla",
+    stat_family_consistency = "on",
+    pokemon_types = "vanilla",
+    type_family_consistency = "on",
+    pokemon_movesets = "vanilla",
+    early_damage = "on",
+    learnset_levels = "vanilla",
+    tmhm_compatibility = "vanilla",
+    move_types = "vanilla",
+    move_data = "vanilla",
+    move_safety = "on",
   }
 
   local CASUAL = {
@@ -95,6 +141,15 @@ return function(SaveState)
     game_corner_pokemon = "randomized",
     prize_levels = "unchanged",
     prize_prices = "unchanged",
+    non_key_items = "vanilla",
+    tms = "vanilla",
+    hms = "vanilla",
+    key_items = "vanilla",
+    badges = "vanilla",
+    hidden_items = "vanilla",
+    ensure_beatable = "on",
+    shops = "vanilla",
+    shop_prices = "vanilla",
     trainer_pokemon = "global_map",
     trainer_levels = "unchanged",
     boss_trainers = "vanilla",
@@ -102,6 +157,20 @@ return function(SaveState)
     rival_keep_pokemon = "yes",
     party_size = "unchanged",
     progression_guard = "on",
+    base_stats = "vanilla",
+    evolutions = "vanilla",
+    evolution_repeats = "avoid",
+    evolution_trade_safety = "vanilla",
+    stat_family_consistency = "on",
+    pokemon_types = "vanilla",
+    type_family_consistency = "on",
+    pokemon_movesets = "vanilla",
+    early_damage = "on",
+    learnset_levels = "vanilla",
+    tmhm_compatibility = "vanilla",
+    move_types = "vanilla",
+    move_data = "vanilla",
+    move_safety = "on",
   }
 
   local CHAOS = {
@@ -128,6 +197,15 @@ return function(SaveState)
     game_corner_pokemon = "randomized",
     prize_levels = "scaled",
     prize_prices = "random_25",
+    non_key_items = "vanilla",
+    tms = "vanilla",
+    hms = "vanilla",
+    key_items = "vanilla",
+    badges = "vanilla",
+    hidden_items = "vanilla",
+    ensure_beatable = "off",
+    shops = "vanilla",
+    shop_prices = "vanilla",
     trainer_pokemon = "by_slot",
     trainer_levels = "plus_minus_10",
     boss_trainers = "include",
@@ -135,6 +213,20 @@ return function(SaveState)
     rival_keep_pokemon = "no",
     party_size = "random_1_6",
     progression_guard = "off",
+    base_stats = "vanilla",
+    evolutions = "vanilla",
+    evolution_repeats = "avoid",
+    evolution_trade_safety = "vanilla",
+    stat_family_consistency = "on",
+    pokemon_types = "vanilla",
+    type_family_consistency = "on",
+    pokemon_movesets = "vanilla",
+    early_damage = "on",
+    learnset_levels = "vanilla",
+    tmhm_compatibility = "vanilla",
+    move_types = "vanilla",
+    move_data = "vanilla",
+    move_safety = "on",
   }
 
   local PRESETS = {
@@ -270,6 +362,14 @@ return function(SaveState)
       "gift_pokemon",
       "in_game_trades",
       "game_corner_pokemon",
+      "non_key_items",
+      "tms",
+      "hms",
+      "key_items",
+      "badges",
+      "hidden_items",
+      "ensure_beatable",
+      "shops",
       "trainer_pokemon",
     }) do
       summary.settings[key] = value(settings[key], "UNKNOWN")
@@ -287,6 +387,17 @@ return function(SaveState)
           message = err.message,
         }
       end
+    end
+    if settings.ensure_beatable == "off"
+        and (settings.badges == "mixed" or settings.badges == "random"
+          or settings.hms == "mixed" or settings.hms == "full_random"
+          or settings.key_items == "mixed"
+          or settings.key_items == "full_random"
+          or settings.hidden_items == "mixed") then
+      warnings[#warnings + 1] = {
+        code = "BEATABILITY_DISABLED",
+        message = "unrestricted progression-item placement may make the seed unbeatable",
+      }
     end
     return warnings
   end

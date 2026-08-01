@@ -133,7 +133,8 @@ return function(Constants, Generator, SaveState, General)
     assert(type(event) == "table" and type(event.save) == "table",
       "save.created requires event.save")
     self.session.revision = self.session.revision + 1
-    local settings = SaveState.clone(self.settings())
+    local settings = SaveState.clone(
+      type(event.settings) == "table" and event.settings or self.settings())
     local manifest = self:manifest(settings)
     local seed, seedError
     if self.seed then

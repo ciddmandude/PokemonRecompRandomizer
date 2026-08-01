@@ -40,13 +40,18 @@ local function text(key, label, default, maxLength, help)
 end
 
 local ON_OFF = { { "OFF", "off" }, { "ON", "on" } }
+local VANILLA_SHUFFLED = {
+  { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+}
+local VANILLA_SHUFFLED_MIXED = {
+  { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+  { "MIXED", "mixed" },
+}
 
 local groups = {
   {
     name = "GENERAL",
     rows = {
-      choice("randomizer", "RANDOMIZER", "on", ON_OFF,
-        "MASTER SWITCH FOR THE NEXT NEW GAME."),
       choice("preset", "PRESET", "standard", {
         { "CUSTOM", "custom" }, { "CASUAL", "casual" },
         { "STANDARD", "standard" }, { "CHAOS", "chaos" },
@@ -90,8 +95,8 @@ local groups = {
         { "UNCHANGED", "unchanged" }, { "+/-2", "plus_minus_2" },
         { "SCALED", "scaled" },
       }, "KEEP, NUDGE, OR BST-SCALE LEVELS."),
-      choice("catchability_guard", "CATCH GUARD", "on", ON_OFF,
-        "PROTECT PRE-LEAGUE AVAILABILITY."),
+      choice("catchability_guard", "POKEMON COVERAGE", "on", ON_OFF,
+        "PROTECT EARLY SPECIES."),
     },
   },
   {
@@ -146,7 +151,7 @@ local groups = {
         { "ANY", "any" }, { "SIMILAR", "similar" },
         { "NO DOWNGRADE", "no_downgrade" },
       }, "CONTROL NPC TRADE VALUE."),
-      choice("trade_evolution_safety", "TRADE SAFETY", "on", ON_OFF,
+      choice("trade_evolution_safety", "TRADE VALIDITY", "on", ON_OFF,
         "AVOID SELF OR IMPOSSIBLE TRADES."),
     },
   },
@@ -165,6 +170,33 @@ local groups = {
         { "BY STRENGTH", "by_strength" },
         { "RANDOM +/-25%", "random_25" },
       }, "KEEP OR CHANGE COIN COSTS."),
+    },
+  },
+  {
+    name = "ITEMS",
+    rows = {
+      choice("non_key_items", "NON-KEY LOCATION", "vanilla",
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX ORDINARY ITEMS."),
+      choice("tms", "TM LOCATION", "vanilla", VANILLA_SHUFFLED_MIXED,
+        "SHUFFLE OR MIX TMS."),
+      choice("hms", "HM LOCATION", "vanilla", VANILLA_SHUFFLED_MIXED,
+        "SHUFFLE OR MIX HMS."),
+      choice("key_items", "KEY ITEM LOCATION", "vanilla",
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX KEY ITEMS."),
+      choice("badges", "BADGE LOCATION", "vanilla",
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX BADGES."),
+      choice("hidden_items", "HIDDEN ITEMS", "vanilla",
+        VANILLA_SHUFFLED_MIXED, "SHUFFLE OR MIX HIDDEN ITEMS."),
+      choice("ensure_beatable", "PROGRESSION SAFETY", "on", ON_OFF,
+        "KEEP KEY ITEMS REACHABLE."),
+      choice("shops", "SHOPS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "RANDOMIZED", "randomized" },
+      },
+        "RANDOMIZE SHOP INVENTORIES."),
+      choice("shop_prices", "SHOP PRICES", "vanilla", {
+        { "VANILLA", "vanilla" }, { "RANDOM", "random" },
+        { "CHEAP", "cheap" },
+      }, "PRICE RANDOMIZED SHOP ITEMS."),
     },
   },
   {
@@ -192,8 +224,71 @@ local groups = {
       choice("party_size", "PARTY SIZE", "unchanged", {
         { "UNCHANGED", "unchanged" }, { "1-6 RANDOM", "random_1_6" },
       }, "KEEP OR RANDOMIZE PARTY COUNTS."),
-      choice("progression_guard", "PROGRESSION GUARD", "on", ON_OFF,
+      choice("progression_guard", "TRAINER SAFETY", "on", ON_OFF,
         "LIMIT EXTREME REQUIRED BATTLES."),
+    },
+  },
+  {
+    name = "POKEMON DATA",
+    rows = {
+      choice("base_stats", "BASE STATS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "REDISTRIBUTE", "redistributed" },
+        { "FULL RANDOM", "full_random" },
+      }, "SHUFFLE, PRESERVE BST, OR RANDOMIZE."),
+      choice("stat_family_consistency", "FAMILY STATS", "on", ON_OFF,
+        "USE ONE STAT SHAPE PER EVO FAMILY."),
+      choice("pokemon_types", "POKEMON TYPES", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "RANDOMIZED", "randomized" },
+      }, "SHUFFLE OR RANDOMIZE TYPES."),
+      choice("type_family_consistency", "FAMILY TYPES", "on", ON_OFF,
+        "EVOLUTIONS MAY CHANGE TYPE."),
+      choice("pokemon_movesets", "MOVESETS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "RANDOMIZED", "randomized" },
+        { "TYPE-AWARE", "type_aware" }, { "FULL RANDOM", "full_random" },
+      }, "RANDOMIZE LEARNED MOVES."),
+      choice("early_damage", "EARLY DAMAGE", "on", ON_OFF,
+        "GUARANTEE DAMAGE BY LEVEL 5."),
+      choice("learnset_levels", "LEARN LEVELS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+      }, "KEEP OR SHUFFLE LEARNING LEVELS."),
+      choice("tmhm_compatibility", "TM/HM COMPAT", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+      }, "SHUFFLE MACHINE COMPATIBILITY."),
+    },
+  },
+  {
+    name = "EVOLUTIONS",
+    rows = {
+      choice("evolutions", "EVOLUTIONS", "vanilla", {
+        { "VANILLA", "vanilla" },
+        { "KEEP STAGES", "preserve_stages" },
+        { "SIMILAR", "similar_strength" },
+        { "FULL RANDOM", "full_random" },
+      }, "RANDOMIZE EVOLUTION TARGETS."),
+      choice("evolution_repeats", "EVO REPEATS", "avoid", {
+        { "AVOID", "avoid" }, { "ALLOW", "allow" },
+      }, "CONTROL REPEATED DESTINATIONS."),
+      choice("evolution_trade_safety", "TRADE EVOS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "LEVEL 37", "fixed_37" },
+        { "RANDOM 30-40", "random_30_40" },
+      }, "KEEP OR CONVERT TRADE EVOS."),
+    },
+  },
+  {
+    name = "MOVE DATA",
+    rows = {
+      choice("move_types", "MOVE TYPES", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "RANDOMIZED", "randomized" },
+      }, "RANDOMIZE MOVE TYPES."),
+      choice("move_data", "MOVE DATA", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "BALANCED", "balanced" }, { "FULL RANDOM", "full_random" },
+      }, "CHANGE POWER, ACCURACY AND PP."),
+      choice("move_safety", "MOVE SAFETY", "on", ON_OFF,
+        "PROTECT SPECIAL MOVE RULES."),
     },
   },
 }

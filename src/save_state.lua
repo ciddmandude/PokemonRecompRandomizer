@@ -14,6 +14,9 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     "trades",
     "prizes",
     "trainerParties",
+    "fieldItems",
+    "pokemonMechanics",
+    "moveData",
   }
 
   local function addError(errors, path, code, message)
@@ -350,6 +353,53 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     if type(mappings.starters) == "table"
         and type(mappings.starterFlags) == "table" then
       validateStarterMappings(mappings, errors)
+    end
+    local items = mappings.fieldItems
+    if type(items) == "table" then
+      if not isDenseArray(items) then
+        addError(errors, "mappings.fieldItems", "TYPE",
+          "field item mappings must be a dense array")
+      else
+        for index, row in ipairs(items) do
+          local path = ("mappings.fieldItems[%d]"):format(index)
+          if type(row) ~= "table"
+              or (row.kind ~= "visible" and row.kind ~= "hidden"
+                and row.kind ~= "pc" and row.kind ~= "scripted"
+                and row.kind ~= "shop")
+              or type(row.mapId) ~= "string" or row.mapId == ""
+              or type(row.original) ~= "string" or row.original == ""
+              or type(row.item) ~= "string" or row.item == "" then
+            addError(errors, path, "TYPE",
+              "field item row requires kind, map, original, and item")
+          elseif row.kind == "visible"
+              and (type(row.objectIndex) ~= "number"
+                or row.objectIndex < 1 or row.objectIndex % 1 ~= 0) then
+            addError(errors, path .. ".objectIndex", "VALUE",
+              "visible item object index must be a positive integer")
+          elseif row.kind == "hidden"
+              and (type(row.hiddenIndex) ~= "number"
+                or row.hiddenIndex < 1 or row.hiddenIndex % 1 ~= 0
+                or type(row.x) ~= "number" or type(row.y) ~= "number") then
+            addError(errors, path, "VALUE",
+              "hidden item row requires an index and coordinates")
+          elseif row.kind == "pc"
+              and (type(row.quantity) ~= "number" or row.quantity < 1
+                or row.quantity % 1 ~= 0) then
+            addError(errors, path .. ".quantity", "VALUE",
+              "PC item row requires a positive integer quantity")
+          elseif row.kind == "scripted"
+              and (type(row.id) ~= "string" or row.id == "") then
+            addError(errors, path .. ".id", "VALUE",
+              "scripted item row requires an id")
+          elseif row.kind == "shop"
+              and (type(row.talkKey) ~= "string" or row.talkKey == ""
+                or type(row.slot) ~= "number" or row.slot < 1
+                or row.slot % 1 ~= 0) then
+            addError(errors, path, "VALUE",
+              "shop item row requires a talk key and positive slot")
+          end
+        end
+      end
     end
   end
 

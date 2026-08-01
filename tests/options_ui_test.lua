@@ -32,8 +32,8 @@ local mod = {
 }
 local preferences = Preferences.new(mod)
 preferences:define()
-equal(#defined, 35, "complete preference row count")
-equal(#preferences:pages(), 13, "paged schema count")
+equal(#defined, 57, "complete preference row count")
+equal(#preferences:pages(), 19, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
   for _, row in ipairs(page.rows) do
@@ -60,14 +60,24 @@ local game = {
 }
 
 local defaults = preferences:snapshot()
-equal(defaults.randomizer, "on", "randomizer default")
+assert(defaults.randomizer == nil,
+  "the enable choice belongs to the New Game intro")
 equal(defaults.preset, "standard", "preset default")
 equal(defaults.seed_text, "", "seed text default")
 equal(defaults.game_corner_pokemon, "randomized", "prize default")
 equal(defaults.generate_spoiler_log, "on", "spoiler access default")
 equal(defaults.rival_pokemon, "include", "rival mode default")
 equal(defaults.rival_keep_pokemon, "yes", "rival continuity default")
-local strengthRow
+equal(defaults.non_key_items, "vanilla", "ordinary item default")
+equal(defaults.tms, "vanilla", "TM default")
+equal(defaults.hms, "vanilla", "HM default")
+equal(defaults.key_items, "vanilla", "key-item default")
+equal(defaults.badges, "vanilla", "badge default")
+equal(defaults.hidden_items, "vanilla", "hidden-item default")
+equal(defaults.ensure_beatable, "on", "beatability default")
+equal(defaults.shops, "vanilla", "shop default")
+equal(defaults.shop_prices, "vanilla", "shop-price default")
+local strengthRow, nonKeyRow, tmLocationRow, hmLocationRow, hiddenItemsRow
 for _, row in ipairs(defined) do
   if row.key == "similar_strength" then strengthRow = row break end
 end
@@ -75,32 +85,115 @@ assert(strengthRow and strengthRow.choices[4][2] == "bst_50"
     and strengthRow.choices[5][2] == "bst_100"
     and strengthRow.choices[6][2] == "same_stage",
   "similar strength exposes BST ranges and SAME STAGE")
+for _, row in ipairs(defined) do
+  if row.key == "tms" then tmLocationRow = row end
+  if row.key == "non_key_items" then nonKeyRow = row end
+  if row.key == "hms" then hmLocationRow = row end
+  if row.key == "hidden_items" then hiddenItemsRow = row end
+end
+equal(tmLocationRow and tmLocationRow.label, "TM LOCATION", "TM display label")
+equal(nonKeyRow and nonKeyRow.choices[3][2], "mixed",
+  "non-key items expose mixed locations")
+equal(hmLocationRow and hmLocationRow.label, "HM LOCATION", "HM display label")
+equal(hiddenItemsRow and hiddenItemsRow.label, "HIDDEN ITEMS",
+  "hidden item display label")
+equal(hiddenItemsRow and hiddenItemsRow.choices[3][2], "mixed",
+  "hidden items expose mixed locations")
 
-assert(preferences:set("randomizer", "off", game))
+local legacyGame = { save = { options = { modOptions = {
+  pokemon_randomizer = {
+    non_key_items = "on", tms = "off", hms = "safe",
+    key_items = "full_random", badges = "random", shops = "on",
+    ensure_beatable = "off",
+  },
+} } } }
+equal(preferences:get("non_key_items", legacyGame), "shuffled",
+  "legacy ordinary-item value migrates")
+equal(preferences:get("hms", legacyGame), "shuffled",
+  "legacy safe HM value migrates")
+equal(preferences:get("key_items", legacyGame), "shuffled",
+  "legacy full-random key value migrates")
+equal(preferences:get("badges", legacyGame), "mixed",
+  "legacy random badge value migrates")
+equal(preferences:get("shops", legacyGame), "randomized",
+  "legacy shop value migrates")
+equal(preferences:get("ensure_beatable", legacyGame), "on",
+  "legacy safe mode enables progression safety")
+
+assert(preferences:set("seed_mode", "manual", game))
 equal(writes, 1, "single preference persistence")
-equal(game.save.options.modOptions.pokemon_randomizer.randomizer,
-  "off", "options.lua namespace write")
-equal(game.mods.modOptions.pokemon_randomizer.randomizer,
-  "off", "loader preference mirror")
-equal(preferences:get("randomizer", game), "off", "live preference read")
+equal(game.save.options.modOptions.pokemon_randomizer.seed_mode,
+  "manual", "options.lua namespace write")
+equal(game.mods.modOptions.pokemon_randomizer.seed_mode,
+  "manual", "loader preference mirror")
+equal(preferences:get("seed_mode", game), "manual", "live preference read")
 
 local ok = preferences:set("starter_level", 99, game)
 assert(not ok, "invalid preference rejected")
 equal(writes, 1, "invalid preference not written")
 
-local randomizerRow = defined[1]
-preferences:step(randomizerRow, 1, game)
-equal(preferences:get("randomizer", game), "on", "choice wraps forward")
-preferences:step(randomizerRow, -1, game)
-equal(preferences:get("randomizer", game), "off", "choice wraps backward")
+local seedModeRow
+for _, row in ipairs(defined) do
+  if row.key == "seed_mode" then seedModeRow = row end
+end
+preferences:step(seedModeRow, 1, game)
+equal(preferences:get("seed_mode", game), "auto", "choice wraps forward")
+preferences:step(seedModeRow, -1, game)
+equal(preferences:get("seed_mode", game), "manual", "choice wraps backward")
 
 preferences:set("seed_text", "CUSTOM", game)
 local beforeReset = writes
 local reset = preferences:reset(game)
 equal(writes, beforeReset + 1, "reset writes once")
-equal(reset.randomizer, "on", "reset randomizer")
 equal(reset.seed_text, "", "reset clears manual seed")
 equal(reset.preset, "standard", "reset restores standard")
+
+preferences:set("seed_mode", "manual", game)
+preferences:set("seed_text", "SAVED SEED", game)
+preferences:set("generate_spoiler_log", "off", game)
+preferences:set("wild_pokemon", "area_slots", game)
+local savedPreset = assert(preferences:savePreset("my run", game, false))
+equal(savedPreset, "saved:MY RUN", "saved preset token")
+equal(preferences:get("preset", game), savedPreset,
+  "saving marks current named preset")
+equal(preferences:display({ key = "preset", type = "choice" }, game),
+  "MY RUN", "saved preset display name")
+equal(#preferences:savedPresets(game), 1, "saved preset persisted")
+local duplicate, duplicateError = preferences:savePreset("MY RUN", game, false)
+assert(not duplicate and duplicateError == "preset exists",
+  "duplicate preset requires overwrite")
+
+preferences:set("seed_text", "OTHER SEED", game)
+equal(preferences:get("preset", game), "custom",
+  "saved seed edit changes marker to custom")
+preferences:set("preset", savedPreset, game)
+equal(preferences:get("seed_mode", game), "manual",
+  "loading saved preset restores seed mode")
+equal(preferences:get("seed_text", game), "SAVED SEED",
+  "loading saved preset restores seed text")
+equal(preferences:get("generate_spoiler_log", game), "off",
+  "loading saved preset restores spoiler option")
+equal(preferences:get("wild_pokemon", game), "area_slots",
+  "loading saved preset restores category option")
+local presetPages = preferences:pages(game)
+local foundSavedChoice = false
+for _, page in ipairs(presetPages) do
+  for _, row in ipairs(page.rows) do
+    if row.key == "preset" then
+      for _, choice in ipairs(row.choices) do
+        if choice[1] == "MY RUN" and choice[2] == savedPreset then
+          foundSavedChoice = true
+        end
+      end
+    end
+  end
+end
+assert(foundSavedChoice, "saved preset appears in existing preset list")
+assert(preferences:deletePreset(savedPreset, game) == "MY RUN")
+equal(#preferences:savedPresets(game), 0, "saved preset deleted")
+equal(preferences:get("preset", game), "custom",
+  "deleting active preset redetects current settings")
+preferences:reset(game)
 
 local beforePreset = writes
 preferences:set("preset", "chaos", game)
@@ -140,6 +233,7 @@ game.stack = {
 local choiceCallback
 local namingOptions
 local quantityOptions
+local listMenu
 local ui = {
   ChoiceBox = {
     new = function(_, callback)
@@ -159,6 +253,15 @@ local ui = {
       return { kind = "quantity" }
     end,
   },
+  ListMenu = {
+    new = function(_, title, items, options)
+      listMenu = {
+        kind = "list", title = title, items = items,
+        onChoose = options.onChoose,
+      }
+      return listMenu
+    end,
+  },
 }
 
 local screen = Screen.new(game, preferences, ui, function()
@@ -170,7 +273,8 @@ equal(screen:runLabel(), "ACTIVE:NONE", "no-run label")
 pressed.right = true
 screen:update()
 pressed = {}
-equal(preferences:get("randomizer", game), "off", "right steps value")
+equal(preferences:get("preset", game), "chaos", "right steps value")
+preferences:reset(game)
 
 for _ = 1, 4 do
   pressed.down = true
@@ -185,7 +289,7 @@ screen:update()
 pressed = {}
 equal(screen.page, 3, "select advances page")
 
-screen.page, screen.row = 1, 4
+screen.page, screen.row = 1, 3
 screen:edit(screen:currentRow())
 assert(namingOptions and namingOptions.maxLen == 32)
 namingOptions.onDone("  my   seed  ")
@@ -205,7 +309,25 @@ game.save.options.modOptions.pokemon_randomizer.seed_text = "OLD?"
 equal(preferences:get("seed_text", game), "",
   "invalid legacy seed reads as blank")
 
-screen.page, screen.row = 5, 3
+screen:savePreset()
+assert(namingOptions and namingOptions.maxLen == 16,
+  "saved preset name editor uses readable limit")
+namingOptions.onDone("forest run")
+equal(preferences:get("preset", game), "saved:FOREST RUN",
+  "save action activates named preset")
+screen:deletePreset()
+assert(listMenu and listMenu.title == "DELETE PRESET"
+    and #listMenu.items == 1,
+  "delete action opens saved preset selector")
+listMenu.onChoose(listMenu.items[1])
+assert(screen.presetPrompt, "delete action requests confirmation")
+choiceCallback(true)
+equal(#preferences:savedPresets(game), 0,
+  "confirmed delete action removes preset")
+equal(screen.notice, "PRESET DELETED", "delete confirmation notice")
+game.stack.pops = 0
+
+screen.page, screen.row = 4, 3
 screen:edit(screen:currentRow())
 assert(quantityOptions and quantityOptions.max == 20)
 quantityOptions.onDone(1)
@@ -226,6 +348,42 @@ pressed.b = true
 screen:update()
 pressed = {}
 equal(game.stack.pops, 1, "B returns")
+
+local onboardingDone = false
+local onboarding = Screen.new(game, preferences, ui, function()
+  return { active = false, phase = "idle" }
+end, nil, {
+  onboarding = true,
+  onDone = function() onboardingDone = true end,
+})
+equal(onboarding:runLabel(), "NEW GAME SETUP", "onboarding header")
+local onboardingKeys = {}
+for _, page in ipairs(onboarding.pages) do
+  for _, row in ipairs(page.rows) do onboardingKeys[row.key] = true end
+end
+assert(not onboardingKeys.preset
+    and not onboardingKeys.copy_active_seed
+    and not onboardingKeys.view_spoiler_log
+    and not onboardingKeys.export_spoiler_log,
+  "custom New Game settings hide preset loading and active-run actions")
+assert(onboardingKeys.save_preset and onboardingKeys.delete_preset
+    and onboardingKeys.reset_defaults,
+  "custom New Game settings retain preset management and reset")
+pressed.b = true
+onboarding:update()
+pressed = {}
+assert(onboarding.finishPrompt and not onboardingDone,
+  "B asks before starting with custom settings")
+choiceCallback(false)
+assert(not onboarding.finishPrompt and not onboardingDone
+    and onboarding.notice == "KEEP EDITING",
+  "declining confirmation returns to settings")
+pressed.b = true
+onboarding:update()
+pressed = {}
+choiceCallback(true)
+assert(onboardingDone and game.stack.pops == 2,
+  "confirming custom settings returns to Oak and starts the run")
 
 local locked = Screen.new(game, preferences, ui, function()
   return {

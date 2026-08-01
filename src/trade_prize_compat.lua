@@ -27,6 +27,16 @@ return function(Catalog)
     return copy
   end
 
+  local function specialShop(activeRun, talkKey, slot)
+    local run = activeRun()
+    local rows = type(run) == "table" and type(run.mappings) == "table"
+      and run.mappings.fieldItems or {}
+    for _, row in ipairs(type(rows) == "table" and rows or {}) do
+      if row.kind == "shop" and row.mapId == "GAME_CORNER_PRIZE_ROOM"
+          and row.talkKey == talkKey and row.slot == slot then return row end
+    end
+  end
+
   local function tradeContributions()
     local output = {}
     for _, record in ipairs(Catalog.trades) do
@@ -60,8 +70,15 @@ return function(Catalog)
         mapped = saved ~= nil,
       }
     end
-    for _, record in ipairs(Catalog.prizeItems) do
-      output[#output + 1] = shallowCopy(record)
+    for slot, record in ipairs(Catalog.prizeItems) do
+      local mapped = specialShop(activeRun, "prize_tms", slot)
+      local copy = shallowCopy(record)
+      if mapped then
+        copy.item = mapped.item
+        copy.cost = mapped.price or record.cost
+        copy.mapped = true
+      end
+      output[#output + 1] = copy
     end
     return output
   end

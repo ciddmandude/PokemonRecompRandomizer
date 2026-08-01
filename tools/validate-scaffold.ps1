@@ -141,8 +141,8 @@ if (@($manifest.permissions).Count -ne 1 `
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.38.0') {
-  throw "manifest version must be 0.38.0"
+if ($manifest.version -ne '0.46.0') {
+  throw "manifest version must be 0.46.0"
 }
 
 if (Test-Path -LiteralPath (Join-Path $ProjectRoot '.modkitignore')) {
@@ -158,8 +158,8 @@ $gitIgnore = if ($PSBoundParameters.ContainsKey(
 if ($gitIgnore -notmatch '(?m)^/dist/\*\.zip\r?$') {
   throw '.gitignore must exclude generated release ZIPs'
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.38\.0"') {
-  throw "constants MOD_VERSION must match manifest version 0.38.0"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.46\.0"') {
+  throw "constants MOD_VERSION must match manifest version 0.46.0"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

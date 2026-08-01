@@ -24,21 +24,27 @@ existing save.
 - Both sides of supported in-game trades.
 - Pokemon prizes, levels, and optional prices at the Celadon Game Corner Prize
   Exchange. TM prizes are not changed.
+- Non-key visible item balls and hidden items. Key items, scripted gifts, Gym
+  rewards, and shop inventories remain unchanged.
 
 ## Settings and safeguards
 
-The Randomizer menu is available from the game's Options menu. Casual,
-Standard, and Chaos presets provide quick starting points, while Custom mode
-allows each category to be configured individually.
+Before Oak's first line, each New Game asks whether to enable the randomizer.
+Players may immediately choose a built-in or saved preset, or open the custom
+settings screen. The same settings remain available from the game's Options
+menu. Casual, Standard, and Chaos provide quick starting points, while Custom
+mode allows each category to be configured individually. Players can save up
+to eight named presets directly in the game; saved presets include both seed
+options and every next-run setting.
 
 Options include the species pool, legendary handling, duplicate policy,
 similar-strength or same-evolution-stage matching, level adjustment, boss and
 rival behavior, rival team continuity, starter selection, gift and trade
-rules, Catchability Guard, Progression Guard, and spoiler availability. Every
+rules, Pokémon Coverage, Trainer Safety, and spoiler availability. Every
 randomization category can also be disabled independently.
 
-Catchability Guard attempts to keep non-legendary randomized species obtainable
-through normal Kanto progression. Progression Guard protects required and
+Pokémon Coverage attempts to keep non-legendary randomized species obtainable
+through normal Kanto progression. Trainer Safety protects required and
 early-game battles from invalid or excessively extreme generated parties.
 Encounter rates, encounter-slot probability buckets, and normal Repel behavior
 remain unchanged.

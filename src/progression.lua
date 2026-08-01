@@ -10,6 +10,7 @@ return function(StableSort)
     FUCHSIA = 5,
     SURF = 6,
     LATE_STORY = 7,
+    SAFFRON = 7,
     VICTORY_ROAD = 8,
     POSTGAME = 9,
   }
@@ -70,6 +71,7 @@ return function(StableSort)
 
   local EXACT_MAPS = {
     PALLET_TOWN = { stage = 0 },
+    REDS_HOUSE_2F = { stage = 0 },
     ROUTE_1 = { stage = 0 },
     VIRIDIAN_CITY = { stage = 0 },
     ROUTE_22 = { stage = 0 },
@@ -77,6 +79,7 @@ return function(StableSort)
     VIRIDIAN_FOREST = { stage = 0 },
 
     PEWTER_CITY = { stage = 1 },
+    PEWTER_GYM = { stage = 1 },
     ROUTE_3 = { stage = 1, requirements = { "BOULDER_BADGE" } },
     MT_MOON_1F = { stage = 1, requirements = { "BOULDER_BADGE" } },
     MT_MOON_B1F = { stage = 1, requirements = { "BOULDER_BADGE" } },
@@ -84,6 +87,7 @@ return function(StableSort)
 
     ROUTE_4 = { stage = 2 },
     CERULEAN_CITY = { stage = 2 },
+    CERULEAN_GYM = { stage = 2 },
     CERULEAN_MELANIES_HOUSE = { stage = 2 },
     ROUTE_24 = { stage = 2 },
     ROUTE_25 = { stage = 2 },
@@ -92,6 +96,7 @@ return function(StableSort)
     UNDERGROUND_PATH_ROUTE_5 = { stage = 2 },
     ROUTE_6 = { stage = 3 },
     VERMILION_CITY = { stage = 3 },
+    VERMILION_GYM = { stage = 3 },
     ROUTE_11 = { stage = 3 },
     DIGLETTS_CAVE = { stage = 3 },
     DIGLETTS_CAVE_ENTRANCE_ROUTE_2 = { stage = 3, requirements = { "HM01_CUT" } },
@@ -110,6 +115,7 @@ return function(StableSort)
     POKEMON_TOWER_6F = { stage = 4, requirements = { "SILPH_SCOPE" } },
     POKEMON_TOWER_7F = { stage = 4, requirements = { "SILPH_SCOPE" } },
     CELADON_CITY = { stage = 4 },
+    CELADON_GYM = { stage = 4 },
     CELADON_MANSION_ROOF_HOUSE = { stage = 4 },
     MT_MOON_POKECENTER = { stage = 1 },
 
@@ -121,11 +127,13 @@ return function(StableSort)
     ROUTE_17 = { stage = 5, requirements = { "POKE_FLUTE" } },
     ROUTE_18 = { stage = 5 },
     FUCHSIA_CITY = { stage = 5 },
+    FUCHSIA_GYM = { stage = 5 },
     FIGHTING_DOJO = {
       stage = 4,
       requirements = { "SAFFRON_ACCESS" },
     },
     SILPH_CO_7F = { stage = 7, requirements = { "SILPH_CO_ACCESS" } },
+    SAFFRON_GYM = { stage = 7, requirements = { "SAFFRON_ACCESS" } },
 
     ROUTE_19 = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     ROUTE_20 = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
@@ -137,11 +145,15 @@ return function(StableSort)
     SEAFOAM_ISLANDS_B4F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POWER_PLANT = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     CINNABAR_ISLAND = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
+    CINNABAR_GYM = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE",
+      "SECRET_KEY" } },
     CINNABAR_LAB_FOSSIL_ROOM = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POKEMON_MANSION_1F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POKEMON_MANSION_2F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POKEMON_MANSION_3F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POKEMON_MANSION_B1F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
+
+    VIRIDIAN_GYM = { stage = 7, requirements = { "SEVEN_BADGES" } },
 
     ROUTE_23 = {
       stage = 8,

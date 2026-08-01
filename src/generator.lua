@@ -1,8 +1,8 @@
 -- Public, pure generator boundary.
 return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory, TradePrizeCategory, TrainerCategory,
-    Progression, ValidationCategory)
+    StaticGiftCategory, TradePrizeCategory, TrainerCategory, ItemCategory,
+    MechanicsCategory, Progression, ValidationCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -239,6 +239,97 @@ return function(
           }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 1
+      end
+    end
+
+    local function itemOptionEnabled(value)
+      return value ~= nil and value ~= "off" and value ~= "vanilla"
+    end
+    if itemOptionEnabled(request.settings.non_key_items)
+        or itemOptionEnabled(request.settings.tms)
+        or itemOptionEnabled(request.settings.hms)
+        or itemOptionEnabled(request.settings.key_items)
+        or itemOptionEnabled(request.settings.badges)
+        or itemOptionEnabled(request.settings.hidden_items)
+        or itemOptionEnabled(request.settings.shops) then
+      local ok, category = pcall(ItemCategory.generate,
+        request.sources or {}, request.settings,
+        Foundation.Rng.fromSeed(request.seed.canonical, "items"))
+      if ok then
+        result.mappings.fieldItems = category.placements
+        for _, row in ipairs(category.warnings or {}) do
+          result.diagnostics.warnings[
+            #result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + (category.fallbackCount or 0)
+      else
+        result.mappings.fieldItems = {}
+        result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
+          code = "FIELD_ITEM_GENERATION_FAILED",
+          message = "item generation failed; items and shops are vanilla",
+        }
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + 1
+      end
+    end
+
+    local function mechanicsEnabled(settings)
+      return settings.base_stats ~= nil and settings.base_stats ~= "vanilla"
+        or settings.evolutions ~= nil and settings.evolutions ~= "vanilla"
+        or settings.evolution_trade_safety ~= nil
+          and settings.evolution_trade_safety ~= "vanilla"
+        or settings.pokemon_types ~= nil
+          and settings.pokemon_types ~= "vanilla"
+        or settings.pokemon_movesets ~= nil
+          and settings.pokemon_movesets ~= "vanilla"
+        or settings.tmhm_compatibility ~= nil
+          and settings.tmhm_compatibility ~= "vanilla"
+        or settings.move_types ~= nil and settings.move_types ~= "vanilla"
+        or settings.move_data ~= nil and settings.move_data ~= "vanilla"
+    end
+    if mechanicsEnabled(request.settings) then
+      local ok, category = pcall(MechanicsCategory.generate,
+        manifest, request.sources or {}, request.settings, {
+          stats = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.base_stats"),
+          pokemonTypes = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.pokemon_types"),
+          movesets = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.movesets"),
+          compatibility = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.tmhm"),
+          evolutions = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.evolutions"),
+          tradeEvolutions = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.trade_evolutions"),
+          moveData = {
+            types = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_types"),
+            power = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_power"),
+            accuracy = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_accuracy"),
+            pp = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_pp"),
+          },
+        })
+      if ok then
+        result.mappings.pokemonMechanics = category.pokemonMechanics
+        result.mappings.moveData = category.moveData
+        for _, row in ipairs(category.warnings or {}) do
+          result.diagnostics.warnings[#result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount = result.diagnostics.fallbackCount
+          + (category.fallbackCount or 0)
+      else
+        result.mappings.pokemonMechanics = {}
+        result.mappings.moveData = {}
+        result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
+          code = "MECHANICS_GENERATION_FAILED",
+          message = "mechanics generation failed; Pokemon and moves are vanilla",
+        }
+        result.diagnostics.fallbackCount = result.diagnostics.fallbackCount + 1
       end
     end
 

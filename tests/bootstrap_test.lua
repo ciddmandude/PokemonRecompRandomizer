@@ -17,12 +17,15 @@ local commandRecords = {
 }
 local optionSchema
 local pushedScreen
+local pushedModel
+local setupQuestions = {}
+local setupPicker
 local saveBucket = {}
 local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.38.0",
+  version = "0.46.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -203,7 +206,42 @@ local mod = {
     get = function(_, key) return options[key] end,
   },
   ui = {
-    push = function(_, id) pushedScreen = id end,
+    push = function(_, id, model)
+      pushedScreen, pushedModel = id, model
+    end,
+    insertBefore = function(items, anchor, item)
+      for index, row in ipairs(items) do
+        if row.label == anchor then
+          table.insert(items, index, item)
+          return items
+        end
+      end
+      items[#items + 1] = item
+      return items
+    end,
+    insertStepBefore = function(steps, anchor, step)
+      for index, row in ipairs(steps) do
+        if row.id == anchor then
+          table.insert(steps, index, step)
+          return steps
+        end
+      end
+      steps[#steps + 1] = step
+      return steps
+    end,
+    TextBox = {
+      new = function(_, text, _, options)
+        local row = { text = text, options = options }
+        setupQuestions[#setupQuestions + 1] = row
+        return row
+      end,
+    },
+    ListMenu = {
+      new = function(_, title, items, options)
+        setupPicker = { title = title, items = items, options = options }
+        return setupPicker
+      end,
+    },
   },
   migrations = {
     add = function(_, since, callback)
@@ -238,7 +276,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.8.0-dev")
+assert(mod.exports.algorithmVersion == "1.17.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -272,7 +310,7 @@ assert(type(mod.exports.preferences.snapshot) == "function")
 assert(type(mod.exports.spoilers.canAccess) == "function")
 assert(type(mod.exports.spoilers.format) == "function")
 assert(type(mod.exports.spoilers.export) == "function")
-assert(#mod.exports.preferences.schema() == 35)
+assert(#mod.exports.preferences.schema() == 57)
 local exportedSchema = mod.exports.preferences.schema()
 exportedSchema[1].label = "MUTATED"
 assert(mod.exports.preferences.schema()[1].label ~= "MUTATED")
@@ -282,11 +320,13 @@ assert(mod.exports.preferences.pages()[1].rows[1].key ~= "mutated")
 local exportedSettings = mod.exports.preferences.snapshot()
 exportedSettings.randomizer = "MUTATED"
 assert(mod.exports.preferences.snapshot().randomizer ~= "MUTATED")
-assert(#optionSchema == 35)
+assert(#optionSchema == 57)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(screens.PokemonRandomizerSpoilerBrowser.new) == "function")
 assert(type(hookCallbacks["ui.options.rows"]) == "function")
+assert(type(hookCallbacks["ui.start_menu.items"]) == "function")
+assert(type(hookCallbacks["intro.oak_speech.build"]) == "function")
 assert(type(hookCallbacks["encounter.species"]) == "function")
 assert(type(hookCallbacks["encounter.roll"]) == "function")
 assert(type(hookCallbacks["encounter.fishing"]) == "function")
@@ -310,9 +350,12 @@ assert(type(callbacks["save.created"]) == "function")
 assert(type(callbacks["save.loading"]) == "function")
 assert(type(callbacks["save.loaded"]) == "function")
 assert(type(callbacks["save.writing"]) == "function")
-assert(#migrations == 2)
+assert(type(callbacks["battle.ended"]) == "function")
+assert(#migrations == 4)
 assert(migrations[1].since == "0.4.0")
 assert(migrations[2].since == "0.6.0")
+assert(migrations[3].since == "0.40.0")
+assert(migrations[4].since == "0.45.0")
 
 mod.exports.registerSpeciesMeta("TESTMON", { legendary = true })
 mod.exports.registerSpeciesMeta("TESTMON", {
@@ -352,6 +395,13 @@ assert(optionRows[1].label == "RANDOMIZER")
 assert(optionRows[1].value() == "OPEN")
 optionRows[1].activate({})
 assert(pushedScreen == "PokemonRandomizerOptions")
+
+local unavailableStartRows = hookCallbacks["ui.start_menu.items"](
+  function(_, rows) return rows end, {}, {
+    { label = "OPTION" }, { label = "MODS" }, { label = "QUIT" },
+  })
+assert(#unavailableStartRows == 3,
+  "pause menu must hide SPOILER until an eligible run is active")
 
 local bootPlaceholder = {
   version = "red",
@@ -394,9 +444,46 @@ local save = {
   modData = {},
 }
 callbacks["save.created"]({ save = save })
+assert(save.modData.pokemon_randomizer == nil,
+  "New Game generation must wait for the intro chooser")
+local introStack = {
+  values = {},
+  push = function(self, value) self.values[#self.values + 1] = value end,
+  pop = function(self) table.remove(self.values) end,
+}
+local introGame = { save = save, data = {}, stack = introStack }
+local steps = hookCallbacks["intro.oak_speech.build"](
+  function(value) return value end,
+  { { id = "oak_welcome", kind = "say" } },
+  { game = introGame })
+assert(#steps == 2
+    and steps[1].id == "pokemon_randomizer:new_game_setup"
+    and steps[2].id == "oak_welcome",
+  "New Game setup must run before Oak's first line")
+local introContinued = false
+steps[1].run({}, function() introContinued = true end)
+assert(setupQuestions[1].text == "TURN ON THE\nRANDOMIZER?"
+    and setupQuestions[1].options.defaultNo == true,
+  "the first prompt must offer a safe vanilla default")
+setupQuestions[1].options.choice(true)
+assert(setupQuestions[2].text == "USE A SETTINGS\nPRESET?"
+    and setupQuestions[2].options.defaultNo == false,
+  "enabled New Games must offer the preset picker")
+setupQuestions[2].options.choice(true)
+assert(setupPicker and setupPicker.title == "RANDOMIZER PRESET")
+local standard
+for _, item in ipairs(setupPicker.items) do
+  assert(item.value ~= "custom",
+    "the preset picker must not include the custom editor sentinel")
+  if item.value == "standard" then standard = item end
+end
+assert(standard, "the preset picker must include STANDARD")
+setupPicker.options.onChoose(standard)
 love = oldLove
 local run = save.modData.pokemon_randomizer
 assert(type(run) == "table")
+assert(introContinued,
+  "Oak's intro must resume immediately after selecting a preset")
 assert(run.schemaVersion == 1)
 assert(run.enabled == true)
 assert(run.settings.generate_spoiler_log == "on")
@@ -424,6 +511,22 @@ assert(#run.seed.canonical == 26)
 assert(type(mod.exports.runCode(run)) == "string")
 assert(optionRows[1].value() == "LOCKED",
   "an actual New Game must lock its generated run")
+
+local pauseGame = { data = {}, save = save }
+local startRows = hookCallbacks["ui.start_menu.items"](
+  function(_, rows) return rows end, pauseGame, {
+    { label = "OPTION" }, { label = "MODS" }, { label = "QUIT" },
+  })
+assert(#startRows == 4 and startRows[2].label == "SPOILER"
+    and startRows[3].label == "MODS",
+  "eligible runs add SPOILER immediately before MODS")
+startRows[2].onSelect()
+assert(pushedScreen == "PokemonRandomizerSpoilerBrowser"
+    and type(pushedModel.onCancel) == "function",
+  "pause-menu SPOILER opens the existing browser with return navigation")
+pushedModel.onCancel(pauseGame)
+assert(pushedScreen == "StartMenu",
+  "closing the pause-menu spoiler browser reopens the Start menu")
 
 local nextCalled = false
 local vanillaEncounter = { species = "BULBASAUR", level = 7, marker = true }
@@ -506,7 +609,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.38.0", api = 2 },
+  { id = "pokemon_randomizer", version = "0.46.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
@@ -560,5 +663,27 @@ assert(type(legacy.compatibility.settingsHash) == "string")
 assert(legacy.compatibility.settingsHash == legacyHash)
 local migratedValid = mod.exports.save.validate(legacy, nil, true)
 assert(migratedValid)
+
+local preItems = mod.exports.save.activeRun() or run
+preItems = type(preItems) == "table" and preItems or legacy
+preItems = (function(value)
+  local function copy(input)
+    if type(input) ~= "table" then return input end
+    local output = {}
+    for key, child in pairs(input) do output[copy(key)] = copy(child) end
+    return output
+  end
+  return copy(value)
+end)(preItems)
+preItems.settings.field_items = nil
+preItems.mappings.fieldItems = nil
+preItems.compatibility.settingsHash =
+  mod.exports.save.checksum and preItems.compatibility.settingsHash
+preItems.checksum = nil
+migrations[3].callback(preItems)
+assert(preItems.settings.field_items == "off")
+assert(type(preItems.mappings.fieldItems) == "table"
+  and next(preItems.mappings.fieldItems) == nil)
+assert(mod.exports.save.validate(preItems, nil, true))
 
 io.write("bootstrap_test: ok\n")

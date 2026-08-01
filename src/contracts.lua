@@ -25,6 +25,9 @@ return function(Constants)
     "trades",
     "prizes",
     "trainerParties",
+    "fieldItems",
+    "pokemonMechanics",
+    "moveData",
   }
 
   local function addError(errors, path, code, message)

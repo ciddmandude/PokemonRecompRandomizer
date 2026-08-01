@@ -74,20 +74,30 @@ return function(mod)
   local TrainerCategory = loadModule(
     "src/trainer_category.lua", StableSort, SpeciesFilters, Matching)
   local TrainerRuntime = loadModule("src/trainer_runtime.lua")
+  local ItemFilter = loadModule("src/item_filter.lua")
+  local ItemSourceCatalog = loadModule("src/item_source_catalog.lua")
+  local ItemCategory = loadModule(
+    "src/item_category.lua", StableSort, Progression, ItemFilter)
+  local ItemRuntime = loadModule("src/item_runtime.lua", ItemSourceCatalog)
+  local EvolutionCategory = loadModule(
+    "src/evolution_category.lua", StableSort)
+  local MechanicsCategory = loadModule(
+    "src/mechanics_category.lua", StableSort, EvolutionCategory)
+  local MechanicsRuntime = loadModule("src/mechanics_runtime.lua")
   local ValidationCategory = loadModule(
     "src/validation_category.lua",
     StableSort, Canonical, Progression, TradePrizeCatalog)
   local SpoilerLog = loadModule("src/spoiler_log.lua")
   local SpoilerBrowser = loadModule(
     "src/spoiler_browser.lua",
-    StableSort, StaticGiftCatalog, TradePrizeCatalog)
+    StableSort, StaticGiftCatalog, TradePrizeCatalog, ItemFilter)
   local SpoilerBrowserScreen = loadModule(
     "src/spoiler_browser_screen.lua", Constants, SpoilerBrowser)
   local Generator = loadModule(
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
-    StaticGiftCategory, TradePrizeCategory, TrainerCategory,
-    Progression, ValidationCategory)
+    StaticGiftCategory, TradePrizeCategory, TrainerCategory, ItemCategory,
+    MechanicsCategory, Progression, ValidationCategory)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)
@@ -101,6 +111,7 @@ return function(mod)
   local Preferences = loadModule(
     "src/preferences.lua", Constants, OptionsSchema, GeneralSettings, Seed)
   local OptionsScreen = loadModule("src/options_screen.lua", Constants)
+  local NewGameSetup = loadModule("src/new_game_setup.lua")
   local ReviewScreen = loadModule("src/review_screen.lua")
   local PublicFacade = loadModule("src/public_facade.lua")
   local Options = {
@@ -114,9 +125,11 @@ return function(mod)
     "src/bootstrap.lua",
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
-    StaticGiftCompat, TradePrizeCompat, TrainerRuntime,
+    StaticGiftCompat, TradePrizeCompat, TrainerRuntime, ItemRuntime,
+    MechanicsRuntime,
+    ItemSourceCatalog,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
-    PublicFacade)
+    NewGameSetup, PublicFacade)
 
   return Bootstrap.start(mod)
 end
