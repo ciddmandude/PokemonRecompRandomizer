@@ -24,19 +24,42 @@ return function(Constants)
     return input and input.wasPressed and input:wasPressed(action)
   end
 
-  function Screen.new(game, preferences, ui, saveStatus, actions)
+  local function flowPages(pages, flow)
+    if not (type(flow) == "table" and flow.onboarding) then return pages end
+    local hidden = {
+      preset = true,
+      copy_active_seed = true,
+      view_spoiler_log = true,
+      export_spoiler_log = true,
+    }
+    local result = {}
+    for _, page in ipairs(pages) do
+      local rows = {}
+      for _, row in ipairs(page.rows) do
+        if not hidden[row.key] then rows[#rows + 1] = row end
+      end
+      if #rows > 0 then
+        result[#result + 1] = { name = page.name, rows = rows }
+      end
+    end
+    return result
+  end
+
+  function Screen.new(game, preferences, ui, saveStatus, actions, flow)
     local self = setmetatable({
       game = game,
       preferences = preferences,
       ui = ui,
       saveStatus = saveStatus,
       actions = actions or {},
-      pages = preferences:pages(game),
+      pages = flowPages(preferences:pages(game), flow),
       page = 1,
       row = 1,
       notice = nil,
       resetPrompt = false,
       presetPrompt = false,
+      finishPrompt = false,
+      flow = flow,
     }, Screen)
     return self
   end
@@ -50,10 +73,26 @@ return function(Constants)
   end
 
   function Screen:refreshPages()
-    self.pages = self.preferences:pages(self.game)
+    self.pages = flowPages(self.preferences:pages(self.game), self.flow)
     self.page = math.max(1, math.min(self.page, #self.pages))
     self.row = math.max(1,
       math.min(self.row, #self:currentPage().rows))
+  end
+
+  function Screen:finishSetup()
+    if self.finishPrompt then return end
+    self.finishPrompt = true
+    local box = self.ui.ChoiceBox.new(self.game, function(confirmed)
+      self.finishPrompt = false
+      if not confirmed then
+        self.notice = "KEEP EDITING"
+        return
+      end
+      local onDone = self.flow and self.flow.onDone
+      self.game.stack:pop()
+      if type(onDone) == "function" then onDone(self.game) end
+    end, { defaultNo = true })
+    self.game.stack:push(box)
   end
 
   function Screen:move(direction)
@@ -243,11 +282,16 @@ return function(Constants)
     elseif pressed(input, "start") then
       self:confirmReset()
     elseif pressed(input, "b") then
-      self.game.stack:pop()
+      if self.flow and self.flow.onboarding then
+        self:finishSetup()
+      else
+        self.game.stack:pop()
+      end
     end
   end
 
   function Screen:runLabel()
+    if self.flow and self.flow.onboarding then return "NEW GAME SETUP" end
     local status = self.saveStatus and self.saveStatus() or {}
     if status.active then
       local run = status.run
@@ -287,12 +331,14 @@ return function(Constants)
     love.graphics.setColor(1, 1, 1, 1)
     Font.drawBox(0, 13, 20, 5)
     love.graphics.setColor(0, 0, 0, 1)
-    local help = self.resetPrompt and "RESET ALL NEXT-RUN OPTIONS?"
+    local help = self.finishPrompt and "START WITH THESE SETTINGS?"
+      or self.resetPrompt and "RESET ALL NEXT-RUN OPTIONS?"
       or self.notice or self:currentRow().help
     local lines = wrapHelp(help)
     Font.draw(lines[1], 8, 112)
     Font.draw(lines[2], 8, 120)
-    Font.draw("SEL:PAGE ST:RESET", 8, 128)
+    Font.draw(self.flow and self.flow.onboarding
+      and "B:DONE SEL:PAGE" or "SEL:PAGE ST:RESET", 8, 128)
     love.graphics.setColor(1, 1, 1, 1)
   end
 

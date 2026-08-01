@@ -29,11 +29,13 @@ existing save.
 
 ## Settings and safeguards
 
-The Randomizer menu is available from the game's Options menu. Casual,
-Standard, and Chaos presets provide quick starting points, while Custom mode
-allows each category to be configured individually. Players can save up to
-eight named presets directly in the game; saved presets include both seed
-options and every next-run setting except the Randomizer master switch.
+Before Oak's first line, each New Game asks whether to enable the randomizer.
+Players may immediately choose a built-in or saved preset, or open the custom
+settings screen. The same settings remain available from the game's Options
+menu. Casual, Standard, and Chaos provide quick starting points, while Custom
+mode allows each category to be configured individually. Players can save up
+to eight named presets directly in the game; saved presets include both seed
+options and every next-run setting.
 
 Options include the species pool, legendary handling, duplicate policy,
 similar-strength or same-evolution-stage matching, level adjustment, boss and

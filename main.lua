@@ -111,6 +111,7 @@ return function(mod)
   local Preferences = loadModule(
     "src/preferences.lua", Constants, OptionsSchema, GeneralSettings, Seed)
   local OptionsScreen = loadModule("src/options_screen.lua", Constants)
+  local NewGameSetup = loadModule("src/new_game_setup.lua")
   local ReviewScreen = loadModule("src/review_screen.lua")
   local PublicFacade = loadModule("src/public_facade.lua")
   local Options = {
@@ -128,7 +129,7 @@ return function(mod)
     MechanicsRuntime,
     ItemSourceCatalog,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
-    PublicFacade)
+    NewGameSetup, PublicFacade)
 
   return Bootstrap.start(mod)
 end

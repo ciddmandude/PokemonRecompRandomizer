@@ -32,8 +32,8 @@ local mod = {
 }
 local preferences = Preferences.new(mod)
 preferences:define()
-equal(#defined, 58, "complete preference row count")
-equal(#preferences:pages(), 20, "paged schema count")
+equal(#defined, 57, "complete preference row count")
+equal(#preferences:pages(), 19, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
   for _, row in ipairs(page.rows) do
@@ -60,7 +60,8 @@ local game = {
 }
 
 local defaults = preferences:snapshot()
-equal(defaults.randomizer, "on", "randomizer default")
+assert(defaults.randomizer == nil,
+  "the enable choice belongs to the New Game intro")
 equal(defaults.preset, "standard", "preset default")
 equal(defaults.seed_text, "", "seed text default")
 equal(defaults.game_corner_pokemon, "randomized", "prize default")
@@ -119,33 +120,34 @@ equal(preferences:get("shops", legacyGame), "randomized",
 equal(preferences:get("ensure_beatable", legacyGame), "on",
   "legacy safe mode enables progression safety")
 
-assert(preferences:set("randomizer", "off", game))
+assert(preferences:set("seed_mode", "manual", game))
 equal(writes, 1, "single preference persistence")
-equal(game.save.options.modOptions.pokemon_randomizer.randomizer,
-  "off", "options.lua namespace write")
-equal(game.mods.modOptions.pokemon_randomizer.randomizer,
-  "off", "loader preference mirror")
-equal(preferences:get("randomizer", game), "off", "live preference read")
+equal(game.save.options.modOptions.pokemon_randomizer.seed_mode,
+  "manual", "options.lua namespace write")
+equal(game.mods.modOptions.pokemon_randomizer.seed_mode,
+  "manual", "loader preference mirror")
+equal(preferences:get("seed_mode", game), "manual", "live preference read")
 
 local ok = preferences:set("starter_level", 99, game)
 assert(not ok, "invalid preference rejected")
 equal(writes, 1, "invalid preference not written")
 
-local randomizerRow = defined[1]
-preferences:step(randomizerRow, 1, game)
-equal(preferences:get("randomizer", game), "on", "choice wraps forward")
-preferences:step(randomizerRow, -1, game)
-equal(preferences:get("randomizer", game), "off", "choice wraps backward")
+local seedModeRow
+for _, row in ipairs(defined) do
+  if row.key == "seed_mode" then seedModeRow = row end
+end
+preferences:step(seedModeRow, 1, game)
+equal(preferences:get("seed_mode", game), "auto", "choice wraps forward")
+preferences:step(seedModeRow, -1, game)
+equal(preferences:get("seed_mode", game), "manual", "choice wraps backward")
 
 preferences:set("seed_text", "CUSTOM", game)
 local beforeReset = writes
 local reset = preferences:reset(game)
 equal(writes, beforeReset + 1, "reset writes once")
-equal(reset.randomizer, "on", "reset randomizer")
 equal(reset.seed_text, "", "reset clears manual seed")
 equal(reset.preset, "standard", "reset restores standard")
 
-preferences:set("randomizer", "off", game)
 preferences:set("seed_mode", "manual", game)
 preferences:set("seed_text", "SAVED SEED", game)
 preferences:set("generate_spoiler_log", "off", game)
@@ -161,9 +163,6 @@ local duplicate, duplicateError = preferences:savePreset("MY RUN", game, false)
 assert(not duplicate and duplicateError == "preset exists",
   "duplicate preset requires overwrite")
 
-preferences:set("randomizer", "on", game)
-equal(preferences:get("preset", game), savedPreset,
-  "master switch is excluded from saved preset identity")
 preferences:set("seed_text", "OTHER SEED", game)
 equal(preferences:get("preset", game), "custom",
   "saved seed edit changes marker to custom")
@@ -176,8 +175,6 @@ equal(preferences:get("generate_spoiler_log", game), "off",
   "loading saved preset restores spoiler option")
 equal(preferences:get("wild_pokemon", game), "area_slots",
   "loading saved preset restores category option")
-equal(preferences:get("randomizer", game), "on",
-  "loading saved preset does not restore master switch")
 local presetPages = preferences:pages(game)
 local foundSavedChoice = false
 for _, page in ipairs(presetPages) do
@@ -276,7 +273,8 @@ equal(screen:runLabel(), "ACTIVE:NONE", "no-run label")
 pressed.right = true
 screen:update()
 pressed = {}
-equal(preferences:get("randomizer", game), "off", "right steps value")
+equal(preferences:get("preset", game), "chaos", "right steps value")
+preferences:reset(game)
 
 for _ = 1, 4 do
   pressed.down = true
@@ -291,7 +289,7 @@ screen:update()
 pressed = {}
 equal(screen.page, 3, "select advances page")
 
-screen.page, screen.row = 1, 4
+screen.page, screen.row = 1, 3
 screen:edit(screen:currentRow())
 assert(namingOptions and namingOptions.maxLen == 32)
 namingOptions.onDone("  my   seed  ")
@@ -329,7 +327,7 @@ equal(#preferences:savedPresets(game), 0,
 equal(screen.notice, "PRESET DELETED", "delete confirmation notice")
 game.stack.pops = 0
 
-screen.page, screen.row = 5, 3
+screen.page, screen.row = 4, 3
 screen:edit(screen:currentRow())
 assert(quantityOptions and quantityOptions.max == 20)
 quantityOptions.onDone(1)
@@ -350,6 +348,42 @@ pressed.b = true
 screen:update()
 pressed = {}
 equal(game.stack.pops, 1, "B returns")
+
+local onboardingDone = false
+local onboarding = Screen.new(game, preferences, ui, function()
+  return { active = false, phase = "idle" }
+end, nil, {
+  onboarding = true,
+  onDone = function() onboardingDone = true end,
+})
+equal(onboarding:runLabel(), "NEW GAME SETUP", "onboarding header")
+local onboardingKeys = {}
+for _, page in ipairs(onboarding.pages) do
+  for _, row in ipairs(page.rows) do onboardingKeys[row.key] = true end
+end
+assert(not onboardingKeys.preset
+    and not onboardingKeys.copy_active_seed
+    and not onboardingKeys.view_spoiler_log
+    and not onboardingKeys.export_spoiler_log,
+  "custom New Game settings hide preset loading and active-run actions")
+assert(onboardingKeys.save_preset and onboardingKeys.delete_preset
+    and onboardingKeys.reset_defaults,
+  "custom New Game settings retain preset management and reset")
+pressed.b = true
+onboarding:update()
+pressed = {}
+assert(onboarding.finishPrompt and not onboardingDone,
+  "B asks before starting with custom settings")
+choiceCallback(false)
+assert(not onboarding.finishPrompt and not onboardingDone
+    and onboarding.notice == "KEEP EDITING",
+  "declining confirmation returns to settings")
+pressed.b = true
+onboarding:update()
+pressed = {}
+choiceCallback(true)
+assert(onboardingDone and game.stack.pops == 2,
+  "confirming custom settings returns to Oak and starts the run")
 
 local locked = Screen.new(game, preferences, ui, function()
   return {

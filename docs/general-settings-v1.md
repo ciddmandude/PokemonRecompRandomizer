@@ -3,29 +3,30 @@
 Milestone 6 implements the Section 5.1 settings semantics for mod version
 `0.6.0`. Category mappings remain assigned to their later milestones.
 
-## Master switch
+## New Game enable choice
 
-`Randomizer = OFF` bypasses the generator and writes a valid disabled run
-namespace with empty mappings, no warning, and `fallbackCount = 0`. It does not
-disable the mod, erase an existing save, or change global preferences.
+The persistent Randomizer ON/OFF option no longer exists. Before Oak's first
+line, every New Game asks whether to enable the randomizer. Choosing NO bypasses
+the generator and writes a valid disabled run namespace with empty mappings,
+no warning, and `fallbackCount = 0`. It does not disable the mod, erase an
+existing save, or change global preferences.
 
-`Randomizer = ON` resolves and validates the seed and pool before invoking the
-generator. Until category generation lands, the generator's intentional
-`GENERATOR_UNAVAILABLE` result produces the existing whole-run vanilla
-fallback.
+Choosing YES offers the built-in and player-saved preset picker or a custom
+settings screen. Completion resolves and validates the seed and pool before
+invoking the generator and resuming Oak.
 
 ## Preset scope
 
 The built-in Casual, Standard, and Chaos presets control their category and
-safeguard fields, enable spoiler access, and leave Randomizer, Seed Mode, and
-Seed Text unchanged. Selecting one applies its complete bundle in one options
-write. Editing a bundled field recalculates the preset marker.
+safeguard fields, enable spoiler access, and leave Seed Mode and Seed Text
+unchanged. Selecting one applies its complete bundle in one options write.
+Editing a bundled field recalculates the preset marker.
 
 Players may also save up to eight named presets. Names are unique after
 trimming, whitespace collapsing, and uppercasing; they contain 1-16 letters,
 digits, spaces, hyphens, or underscores and cannot reuse a built-in name. A
-saved preset captures every next-run option except Randomizer and the Preset
-label itself. Seed Mode and Seed Text are therefore restored when that name is
+saved preset captures every next-run option except the Preset label itself.
+Seed Mode and Seed Text are therefore restored when that name is
 selected from the existing Preset row.
 
 Saving the current settings makes the saved name active. Editing any captured
@@ -162,12 +163,11 @@ visible separately.
 
 The Actions page now provides:
 
-- `REVIEW NEXT RUN`, a scrollable list of all 41 editable values, manual-seed
+- `REVIEW NEXT RUN`, a scrollable list of all editable values, manual-seed
   warnings, eligible pool count, exclusion count, and manifest warnings;
 - `COPY ACTIVE SEED`, which displays the full active seed, run code, algorithm
   version, locked status, and category summary.
-- `SAVE PRESET`, which names and stores every current next-run value except the
-  Randomizer master switch;
+- `SAVE PRESET`, which names and stores every current next-run value;
 - `DELETE PRESET`, which selects and confirms removal of a saved name.
 
 When `love.system.setClipboardText` is available, Copy Active Seed copies the

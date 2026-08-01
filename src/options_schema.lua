@@ -52,8 +52,6 @@ local groups = {
   {
     name = "GENERAL",
     rows = {
-      choice("randomizer", "RANDOMIZER", "on", ON_OFF,
-        "MASTER SWITCH FOR THE NEXT NEW GAME."),
       choice("preset", "PRESET", "standard", {
         { "CUSTOM", "custom" }, { "CASUAL", "casual" },
         { "STANDARD", "standard" }, { "CHAOS", "chaos" },

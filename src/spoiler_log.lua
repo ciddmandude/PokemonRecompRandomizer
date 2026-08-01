@@ -6,7 +6,7 @@ return function()
     {
       "GENERAL",
       {
-        "randomizer", "preset", "seed_mode", "seed_text", "species_pool",
+        "preset", "seed_mode", "seed_text", "species_pool",
         "similar_strength", "legendaries", "duplicate_policy",
         "generate_spoiler_log",
       },
@@ -86,7 +86,6 @@ return function()
     prize_levels = "Prize Levels",
     prize_prices = "Prize Prices",
     progression_guard = "Trainer Safety",
-    randomizer = "Randomizer",
     generate_spoiler_log = "Enable Spoiler Log",
     rival_counterpick = "Rival Counterpick",
     rival_keep_pokemon = "Rival Keep Pokemon",

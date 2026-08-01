@@ -10,15 +10,20 @@ gen1recomp 0.1.45 or newer.
 The Randomizer screen is opened from the main Options menu. These values are
 preferences for the **next** New Game: starting a game validates the settings
 and saves a snapshot with that run. Changing the Options menu later does not
-reroll an existing save. `OFF` on the master Randomizer setting creates a
-vanilla run without deleting saved preferences.
+reroll an existing save.
+
+Before Oak's first introduction line, every New Game asks whether to enable
+the randomizer. Choosing `NO` starts vanilla. Choosing `YES` asks whether to
+load a preset. The preset picker includes the built-in and player-saved
+presets and then starts immediately. Choosing custom settings opens a trimmed
+setup screen; B confirms the run, while Save Preset, Delete Preset, and Reset
+Defaults remain available.
 
 ### General
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
-| Randomizer | `OFF`, `ON` | `ON` | Master switch for the next New Game. |
-| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS`, saved names | `STANDARD` | Applies a built-in bundle or a player-saved preset. Saved presets include Seed Mode, Seed Text, spoiler access, and every category option, but never change the master Randomizer switch. Editing a value captured by an active saved preset changes this to `CUSTOM`. |
+| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS`, saved names | `STANDARD` | Applies a built-in bundle or a player-saved preset. Saved presets include Seed Mode, Seed Text, spoiler access, and every category option. Editing a value captured by an active saved preset changes this to `CUSTOM`. |
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` creates a new 128-bit seed; `MANUAL` uses Seed Text. |
 | Seed Text | 1–32 characters | blank | Manual seed using letters, digits, spaces, hyphens, or underscores. It is trimmed, uppercased, and saved in canonical form. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | Uses only the original 151, or all valid species contributed through the merged registry. |
@@ -180,7 +185,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-- randomizer mod version: `0.45.2`
+- randomizer mod version: `0.46.0`
 - generator contract: `1`
 - algorithm build: `1.17.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -290,8 +295,9 @@ belong in the project’s release-artifact storage.
 - Invalid stored preferences fall back to declared defaults.
 - Reset defaults requires confirmation and persists as one options write.
 - Standard exactly equals the declared default snapshot.
-- Presets never overwrite the master switch or seed. Selecting `CASUAL`,
-  `STANDARD`, or `CHAOS` enables the spoiler log.
+- Built-in presets preserve the seed options. Player-saved presets include
+  both seed options. Selecting `CASUAL`, `STANDARD`, or `CHAOS` enables the
+  spoiler log.
 - Manual seed errors disable generation atomically and remain reviewable.
 - Auto seeds mix the available LÖVE timer/PRNG values, runtime clocks, a
   process counter, and save context as best-effort non-cryptographic

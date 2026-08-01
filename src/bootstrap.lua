@@ -7,7 +7,7 @@ return function(
     MechanicsRuntime,
     ItemSourceCatalog,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
-    PublicFacade)
+    NewGameSetup, PublicFacade)
   local Bootstrap = {}
 
   local REQUIRED_TABLES = {
@@ -52,6 +52,9 @@ return function(
     assertFunction(mod.options, "define", "mod.options:define")
     assertFunction(mod.options, "get", "mod.options:get")
     assertFunction(mod.ui, "insertBefore", "mod.ui.insertBefore")
+    assertFunction(mod.ui, "insertStepBefore", "mod.ui.insertStepBefore")
+    assertFunction(mod.ui.TextBox, "new", "mod.ui.TextBox.new")
+    assertFunction(mod.ui.ListMenu, "new", "mod.ui.ListMenu.new")
     assertFunction(mod.migrations, "add", "mod.migrations:add")
     assertFunction(mod.content.screens, "register",
       "mod.content.screens:register")
@@ -377,7 +380,7 @@ return function(
     end
 
     mod.content.screens:register(Constants.OPTIONS_SCREEN_ID, {
-      new = function(game)
+      new = function(game, model)
         local function reviewNextRun(activeGame)
           local lines = {}
           local settings = preferences:snapshot(activeGame)
@@ -457,7 +460,7 @@ return function(
             copy_active_seed = copyActiveSeed,
             view_spoiler_log = viewSpoilers,
             export_spoiler_log = exportSpoilers,
-          })
+          }, model)
       end,
     })
 
@@ -651,6 +654,7 @@ return function(
     -- LOCKED after every application restart, even when nothing was saved.
     local gameReady = false
     local activeGame
+    local pendingNewGameSave
     local bootSuppressionLogged = false
     mod.events:on("game.ready", function(event)
       gameReady = true
@@ -671,15 +675,58 @@ return function(
         end
         return
       end
-      lifecycle:onCreated(event)
-      local run = lifecycle:activeRun()
-      ItemRuntime.initializeSave(event.save, run)
-      if activeGame then
-        MechanicsRuntime.apply(activeGame, run)
-        ItemRuntime.apply(activeGame, run)
-      end
+      pendingNewGameSave = event.save
+    end)
+    mod.hooks:wrap("intro.oak_speech.build",
+      function(nextFn, steps, speech)
+        local output = nextFn(steps, speech)
+        if type(output) ~= "table" or type(speech) ~= "table"
+            or type(speech.game) ~= "table" then
+          return output
+        end
+        local game = speech.game
+        local save = pendingNewGameSave
+        if type(save) ~= "table" or game.save ~= save then return output end
+        mod.ui.insertStepBefore(output, "oak_welcome", {
+          id = "pokemon_randomizer:new_game_setup",
+          kind = "fn",
+          run = function(_, done)
+            local completed = false
+            local function finishSetup(enabled)
+              if completed or pendingNewGameSave ~= save then return end
+              completed = true
+              pendingNewGameSave = nil
+              local settings = preferences:snapshot(game)
+              settings.randomizer = enabled and "on" or "off"
+              lifecycle:onCreated({ save = save, settings = settings })
+              local run = lifecycle:activeRun()
+              ItemRuntime.initializeSave(save, run)
+              MechanicsRuntime.apply(game, run)
+              ItemRuntime.apply(game, run)
+              done()
+            end
+            local ok, err = pcall(NewGameSetup.start, {
+              game = game,
+              ui = mod.ui,
+              preferences = preferences,
+              openSettings = function(onDone)
+                mod.ui.push(game, Constants.OPTIONS_SCREEN_ID, {
+                  onboarding = true,
+                  onDone = onDone,
+                })
+              end,
+              complete = finishSetup,
+            })
+            if not ok then
+              mod.log:error("New Game setup failed: %s", tostring(err))
+              finishSetup(false)
+            end
+          end,
+        })
+        return output
     end)
     mod.events:on("save.loading", function(event)
+      pendingNewGameSave = nil
       lifecycle:onLoading(event)
       local namespace = type(event) == "table" and type(event.raw) == "table"
         and event.raw.modData and event.raw.modData[Constants.MOD_ID]

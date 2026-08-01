@@ -320,15 +320,16 @@ CFG-C  "CHAOS"                                               seed: TEST C
   rival INCLUDE/KEEP NO, progression guard OFF.
 
 CFG-D  "All categories OFF"                                  seed: TEST D
-  RANDOMIZER = ON, then set every category switch to OFF:
+  At New Game choose RANDOMIZER=YES, USE PRESET=NO, then set every category
+  switch to OFF:
     WILD POKEMON=OFF, FISHING=VANILLA, STARTERS=OFF, STATIC POKEMON=OFF,
     GIFT POKEMON=OFF, IN-GAME TRADES=OFF, PRIZE POKEMON=OFF,
     TRAINER POKEMON=OFF, RIVAL POKEMON=VANILLA
   Covers: vanilla parity while the mod is fully active.
 
-CFG-E  "Master switch OFF"                                   seed: TEST E
-  RANDOMIZER = OFF. Leave every other setting at STANDARD.
-  Covers: the master switch, and that a vanilla run still records a namespace.
+CFG-E  "Decline randomizer"                                  seed: n/a
+  At the first New Game prompt choose NO.
+  Covers: the per-New-Game enable choice and vanilla saved namespace.
 
 CFG-F  "Level and price torture"                             seed: TEST F
   Start from STANDARD, then:
@@ -379,6 +380,19 @@ TEST SUITES
 5. OPTIONS UI AND PREFERENCES
 --------------------------------------------------------------------------------
 
+OPT-00 [P0] Mandatory New Game chooser
+  1. Select NEW GAME and do not press anything when Oak's intro opens.
+  EXPECT: before Oak's first line, TURN ON THE RANDOMIZER? appears and defaults
+          to NO. Choosing NO resumes Oak immediately with a vanilla run.
+  2. Restart NEW GAME, choose YES, then choose YES at USE A SETTINGS PRESET?
+  EXPECT: a preset picker lists CASUAL, STANDARD, CHAOS, and all saved names,
+          but not CUSTOM. Selecting one resumes Oak immediately.
+  3. Restart NEW GAME, choose YES, then NO at USE A SETTINGS PRESET?
+  EXPECT: NEW GAME SETUP opens without PRESET, active-seed, or spoiler-view
+          actions. Every actual setting plus SAVE PRESET, DELETE PRESET, and
+          RESET DEFAULTS remains available. B asks START WITH THESE SETTINGS?;
+          NO returns to editing and YES generates the run and resumes Oak.
+
 OPT-01 [P1] Options row appears and opens - PASSED
   1. Boot the engine with the mod enabled. Title screen > OPTIONS.
   2. Find the RANDOMIZER row.
@@ -412,14 +426,13 @@ OPT-03 [P1] Preset expansion and CUSTOM detection
   EXPECT: after step 4 PRESET reads STANDARD again (it re-detects, it does not
           latch on CUSTOM).
 
-OPT-04 [P1] Preset handling of master / seed / spoiler rows - PASSED
-  1. Set RANDOMIZER = OFF, SEED MODE = MANUAL, SEED TEXT = KEEPME,
-     ENABLE SPOILERS = OFF.
+OPT-04 [P1] Preset handling of seed / spoiler rows - PASSED
+  1. Set SEED MODE = MANUAL, SEED TEXT = KEEPME, ENABLE SPOILERS = OFF.
   2. Set PRESET = CHAOS. Confirm ENABLE SPOILERS, then set it back to OFF.
   3. Set PRESET = CASUAL. Confirm ENABLE SPOILERS, then set it back to OFF.
   4. Set PRESET = STANDARD.
-  EXPECT: RANDOMIZER stays OFF, SEED MODE stays MANUAL, and SEED TEXT stays
-          KEEPME through all three preset changes.
+  EXPECT: SEED MODE stays MANUAL and SEED TEXT stays KEEPME through all three
+          preset changes.
   EXPECT: ENABLE SPOILERS changes to ON whenever CHAOS, CASUAL, or STANDARD is
           selected.
 
@@ -533,15 +546,15 @@ OPT-12 [P1] Absolute BST +/-50 and +/-100
   EXPECT: identical seeds and settings reproduce identical results.
 
 OPT-13 [P1] Named setting presets include seed options
-  1. Set RANDOMIZER = OFF, SEED MODE = MANUAL, SEED TEXT = PRESET SEED,
-     ENABLE SPOILERS = OFF, and change options on at least three other pages.
+  1. Set SEED MODE = MANUAL, SEED TEXT = PRESET SEED, ENABLE SPOILERS = OFF,
+     and change options on at least three other pages.
   2. Choose SAVE PRESET, enter FOREST RUN, and confirm.
   3. Confirm PRESET now reads FOREST RUN. Restart the application and confirm
      FOREST RUN remains in the existing PRESET list.
-  4. Set RANDOMIZER = ON and change Seed Text plus the other recorded options.
+  4. Change Seed Text plus the other recorded options.
   5. Select FOREST RUN from PRESET.
   EXPECT: Seed Mode, Seed Text, spoiler access, and every recorded category
-          value are restored. RANDOMIZER remains ON because it is excluded.
+          value are restored.
   6. Save FOREST RUN again. Choose NO at the overwrite prompt, repeat, then
      choose YES.
   EXPECT: NO preserves the old record; YES replaces it.
@@ -635,14 +648,15 @@ SEED-08 [P1] Entropy diagnostic
           fires rather than merely being silent.
 
 SEED-09 [P1] Invalid manual seed disables cleanly
-  1. SEED MODE = MANUAL, SEED TEXT blank. RANDOMIZER = ON. NEW GAME.
+  1. NEW GAME, choose RANDOMIZER=YES and USE PRESET=NO. Set SEED MODE=MANUAL,
+     leave SEED TEXT blank, then confirm the custom settings.
   2. Check the options header, then play into grass and to Oak's Lab.
   EXPECT: a clear warning that the manual seed is invalid.
   EXPECT: header shows ACTIVE:VANILLA - not LOCKED, not DISABLED.
   EXPECT: encounters, starters, and trainers are all vanilla. The save is NOT
           half-randomized.
 
-SEED-10 [P1] Master switch OFF
+SEED-10 [P1] Decline the New Game randomizer prompt
   1. CFG-E. NEW GAME. Play the opening.
   EXPECT: header ACTIVE:VANILLA. Bulbasaur / Charmander / Squirtle in Oak's Lab.
           Vanilla encounters and trainers everywhere.

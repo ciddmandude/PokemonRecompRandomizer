@@ -54,12 +54,19 @@ The design follows these platform rules:
 
 ### 4.1 Starting a randomized run
 
-1. The player opens `OPTIONS > RANDOMIZER`.
-2. The player selects a preset or changes individual settings.
-3. The player enters a seed or leaves Seed Mode on `AUTO`.
-4. The player returns to the title screen and selects `NEW GAME`.
-5. On `save.created`, the mod snapshots the current randomizer preferences, resolves the seed, validates the eligible species pool, generates every enabled mapping, and writes the run configuration into the new save.
-6. Oak's intro and normal gameplay continue. The starter balls, encounters, trades, prizes, and trainer teams use the stored configuration.
+1. The player selects `NEW GAME`.
+2. Before Oak's first introduction line, the game asks whether to enable the
+   randomizer. `NO` creates a vanilla run and resumes the intro.
+3. `YES` asks whether to use a preset. `YES` opens a picker containing the
+   built-in and player-saved presets; choosing one starts immediately.
+4. Declining the preset picker opens the custom New Game settings screen.
+   Preset loading and active-run actions are hidden, while every editable
+   setting, Save Preset, Delete Preset, and Reset Defaults remain available.
+5. B on the custom screen asks for confirmation. Once confirmed, the mod
+   snapshots the selected preferences, resolves the seed, validates the pool,
+   generates all enabled mappings atomically, and writes the run configuration
+   into the new save.
+6. Oak's intro and normal gameplay continue using that stored configuration.
 
 If generation cannot produce a valid run, New Game must show a clear error and fall back to vanilla content for that new save. It must never produce a partially randomized save.
 
@@ -100,12 +107,16 @@ Add a `RANDOMIZER` row to the main Options menu using `ui.options.rows`. Activat
 
 Every row must show a one- or two-line help description in a bottom panel. Left/Right changes enumerated values, A edits or activates, B returns, and Start opens a confirmation for `RESET DEFAULTS`.
 
+In the custom New Game variant, B instead opens `START WITH THESE SETTINGS?`.
+Confirming generates the run and resumes Oak. The screen hides Preset loading,
+Copy Active Seed, View Spoilers, and Export Spoilers because those either
+belong to the preceding chooser or require an active run.
+
 ### 5.1 General settings
 
 | Option | Values | Default | Detailed behavior |
 |---|---|---:|---|
-| Randomizer | `OFF`, `ON` | `ON` | Master switch for the next New Game. `OFF` creates no randomized mappings and all categories behave as vanilla. It does not disable the mod or erase configuration already stored in a save. |
-| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS`, saved names | `STANDARD` | Applies a documented built-in bundle or a player-saved preset. Built-ins enable spoilers but preserve Seed Mode and Seed Text. Up to eight player presets may be named and displayed in this same list; they restore Seed Mode, Seed Text, spoiler access, and every category/safeguard setting, but never change the Randomizer master switch. Editing a captured value changes an active saved preset to `CUSTOM`. |
+| Preset | `CUSTOM`, `CASUAL`, `STANDARD`, `CHAOS`, saved names | `STANDARD` | Applies a documented built-in bundle or a player-saved preset. Built-ins enable spoilers but preserve Seed Mode and Seed Text. Up to eight player presets may be named and displayed in this same list; they restore Seed Mode, Seed Text, spoiler access, and every category/safeguard setting. Editing a captured value changes an active saved preset to `CUSTOM`. |
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` generates a new 128-bit seed when New Game is confirmed. `MANUAL` uses Seed Text after normalization. Changing this setting never rerolls an existing save. |
 | Seed Text | text, 1–32 characters | blank | Used only in `MANUAL`. Accept uppercase letters, digits, space, hyphen, and underscore. Trim outer spaces, collapse repeated spaces, and uppercase before hashing. Reject an empty canonical seed. The original display text and canonical value are both saved. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | `VANILLA 151` excludes mod-added species. `MERGED DATA` includes every valid merged-registry species that has battle sprites, stats, growth data, and a learnset. Missing or invalid species are excluded with a logged reason. |
@@ -389,7 +400,7 @@ Requirements:
 
 | Feature | Integration |
 |---|---|
-| Save initialization | Listen to `save.created` after `Game:adoptSave`; generate and store the complete run configuration atomically. |
+| Save initialization | Capture the real `save.created` after `Game:adoptSave`, insert the mandatory chooser before `oak_welcome` through `intro.oak_speech.build`, then generate and store the complete run configuration atomically before resuming the intro. |
 | Save verification | Listen to `save.loading`, `save.loaded`, and `save.writing`; use `mod.migrations` for schema changes. |
 | Wild walking/surfing | Wrap `encounter.species` for global mappings. Wrap `encounter.roll` when area-slot mapping or saved level adjustment needs the original slot identity; on 0.1.38+, observe the delegated engine RNG's bucket draw without adding a draw or rerolling. |
 | Fishing | Wrap `encounter.fishing`. |
@@ -513,11 +524,19 @@ All new hook results must be type-checked. Invalid results log an attributed err
 
 ## 10. Functional requirements
 
-`FR-01` The mod shall expose every setting and action in Section 5 through the in-game Options menu.
+`FR-01` The mod shall expose every setting and action in Section 5 through the
+in-game Options menu. The enable/disable decision is a New Game prompt, not a
+persistent option row.
 
-`FR-02` A New Game shall snapshot global randomizer preferences into the new save before gameplay.
+`FR-02` Before Oak's first introduction line, every New Game shall ask whether
+to enable the randomizer. Declining shall create a vanilla run. Accepting shall
+offer a preset picker or a custom settings flow, then snapshot the selected
+preferences into the new save before gameplay.
 
-`FR-02A` The player shall be able to persist, overwrite, load through the existing Preset row, and delete up to eight named setting presets. Each saved preset shall include both seed options and every editable next-run option except the Randomizer master switch.
+`FR-02A` The player shall be able to persist, overwrite, load through the
+existing Preset row and New Game preset picker, and delete up to eight named
+setting presets. Each saved preset shall include both seed options and every
+editable next-run option.
 
 `FR-03` The canonical seed, algorithm version, settings, pool hash, and resolved mappings shall be serialized with player progress.
 
@@ -667,8 +686,8 @@ and cover:
 1. **Project skeleton and contracts** — Add the API-2 manifest, module layout, supported-version checks, logging, pure generator interfaces, and player-facing README.
 2. **Deterministic RNG foundation** — Implement seed normalization, 128-bit hashing, named stream derivation, integer PRNG, rejection sampling, stable sorting, and Fisher–Yates; land golden vectors.
 3. **Species manifest and filters** — Build vanilla/merged eligible pools, metadata export API, BST/type/evolution/legendary filters, pool fingerprints, and relaxation diagnostics.
-4. **Save lifecycle and migrations** — Generate atomically on `save.created`, implement the Section 7 schema, checksum validation, load/write listeners, safe disable, and first migration harness.
-5. **Options shell** — Add the `RANDOMIZER` Options row, custom paged screen, input behavior, help panel, active-run lock display, reset confirmation, and persistence of next-run preferences.
+4. **Save lifecycle and migrations** — Defer a real `save.created` until the mandatory intro chooser completes, then generate atomically before Oak's first line; implement the Section 7 schema, checksum validation, load/write listeners, safe disable, and first migration harness.
+5. **Options shell** — Add the `RANDOMIZER` Options row, mandatory New Game enable/preset chooser, custom paged setup flow, input behavior, help panel, active-run lock display, reset confirmation, and persistence of next-run preferences.
 6. **General options and presets** — Implement every Section 5.1 setting, Casual/Standard/Chaos bundles, custom-state detection, run review, seed/run-code display, and clipboard fallback.
 7. **Wild global mapping** — Implement grass/surf global species mapping through `encounter.species`, unchanged levels, category isolation, and integration tests.
 8. **Wild area, fishing, and levels** — Add stable slot identity support, area-slot mappings, `encounter.fishing`, level modes, catchability validation, and rate/repel regression tests.

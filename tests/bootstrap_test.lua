@@ -18,12 +18,14 @@ local commandRecords = {
 local optionSchema
 local pushedScreen
 local pushedModel
+local setupQuestions = {}
+local setupPicker
 local saveBucket = {}
 local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.45.2",
+  version = "0.46.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -217,6 +219,29 @@ local mod = {
       items[#items + 1] = item
       return items
     end,
+    insertStepBefore = function(steps, anchor, step)
+      for index, row in ipairs(steps) do
+        if row.id == anchor then
+          table.insert(steps, index, step)
+          return steps
+        end
+      end
+      steps[#steps + 1] = step
+      return steps
+    end,
+    TextBox = {
+      new = function(_, text, _, options)
+        local row = { text = text, options = options }
+        setupQuestions[#setupQuestions + 1] = row
+        return row
+      end,
+    },
+    ListMenu = {
+      new = function(_, title, items, options)
+        setupPicker = { title = title, items = items, options = options }
+        return setupPicker
+      end,
+    },
   },
   migrations = {
     add = function(_, since, callback)
@@ -285,7 +310,7 @@ assert(type(mod.exports.preferences.snapshot) == "function")
 assert(type(mod.exports.spoilers.canAccess) == "function")
 assert(type(mod.exports.spoilers.format) == "function")
 assert(type(mod.exports.spoilers.export) == "function")
-assert(#mod.exports.preferences.schema() == 58)
+assert(#mod.exports.preferences.schema() == 57)
 local exportedSchema = mod.exports.preferences.schema()
 exportedSchema[1].label = "MUTATED"
 assert(mod.exports.preferences.schema()[1].label ~= "MUTATED")
@@ -295,12 +320,13 @@ assert(mod.exports.preferences.pages()[1].rows[1].key ~= "mutated")
 local exportedSettings = mod.exports.preferences.snapshot()
 exportedSettings.randomizer = "MUTATED"
 assert(mod.exports.preferences.snapshot().randomizer ~= "MUTATED")
-assert(#optionSchema == 58)
+assert(#optionSchema == 57)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(screens.PokemonRandomizerSpoilerBrowser.new) == "function")
 assert(type(hookCallbacks["ui.options.rows"]) == "function")
 assert(type(hookCallbacks["ui.start_menu.items"]) == "function")
+assert(type(hookCallbacks["intro.oak_speech.build"]) == "function")
 assert(type(hookCallbacks["encounter.species"]) == "function")
 assert(type(hookCallbacks["encounter.roll"]) == "function")
 assert(type(hookCallbacks["encounter.fishing"]) == "function")
@@ -418,9 +444,46 @@ local save = {
   modData = {},
 }
 callbacks["save.created"]({ save = save })
+assert(save.modData.pokemon_randomizer == nil,
+  "New Game generation must wait for the intro chooser")
+local introStack = {
+  values = {},
+  push = function(self, value) self.values[#self.values + 1] = value end,
+  pop = function(self) table.remove(self.values) end,
+}
+local introGame = { save = save, data = {}, stack = introStack }
+local steps = hookCallbacks["intro.oak_speech.build"](
+  function(value) return value end,
+  { { id = "oak_welcome", kind = "say" } },
+  { game = introGame })
+assert(#steps == 2
+    and steps[1].id == "pokemon_randomizer:new_game_setup"
+    and steps[2].id == "oak_welcome",
+  "New Game setup must run before Oak's first line")
+local introContinued = false
+steps[1].run({}, function() introContinued = true end)
+assert(setupQuestions[1].text == "TURN ON THE\nRANDOMIZER?"
+    and setupQuestions[1].options.defaultNo == true,
+  "the first prompt must offer a safe vanilla default")
+setupQuestions[1].options.choice(true)
+assert(setupQuestions[2].text == "USE A SETTINGS\nPRESET?"
+    and setupQuestions[2].options.defaultNo == false,
+  "enabled New Games must offer the preset picker")
+setupQuestions[2].options.choice(true)
+assert(setupPicker and setupPicker.title == "RANDOMIZER PRESET")
+local standard
+for _, item in ipairs(setupPicker.items) do
+  assert(item.value ~= "custom",
+    "the preset picker must not include the custom editor sentinel")
+  if item.value == "standard" then standard = item end
+end
+assert(standard, "the preset picker must include STANDARD")
+setupPicker.options.onChoose(standard)
 love = oldLove
 local run = save.modData.pokemon_randomizer
 assert(type(run) == "table")
+assert(introContinued,
+  "Oak's intro must resume immediately after selecting a preset")
 assert(run.schemaVersion == 1)
 assert(run.enabled == true)
 assert(run.settings.generate_spoiler_log == "on")
@@ -546,7 +609,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.45.2", api = 2 },
+  { id = "pokemon_randomizer", version = "0.46.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })
