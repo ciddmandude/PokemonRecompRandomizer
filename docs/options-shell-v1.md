@@ -55,7 +55,7 @@ never the validated active-run copy.
 
 ## Persistence
 
-The mod registers 36 option rows with `mod.options:define`. Values are stored
+The mod registers 43 option rows with `mod.options:define`. Values are stored
 under:
 
 ```lua
@@ -90,6 +90,7 @@ Rows are grouped and split into pages of at most four entries:
 - Static & Gifts;
 - Trades;
 - Game Corner;
+- Items;
 - Trainers;
 - Actions.
 

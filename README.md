@@ -85,11 +85,25 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 | Prize Levels | `UNCHANGED`, `FIXED 15`, `SCALED` | `UNCHANGED` | Preserves the slot level, fixes it at 15, or compensates for source/destination strength. |
 | Prize Prices | `UNCHANGED`, `BY STRENGTH`, `RANDOM ±25%` | `UNCHANGED` | Preserves coin cost, scales it by base-stat total, or applies a saved ±25% modifier. |
 
-### Field items
+### Items and shops
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
-| Field Items | `OFF`, `SHUFFLED` | `SHUFFLED` | Shuffles visible item balls, hidden items, and the starting PC Potion among their existing locations. Items marked as key items by the merged item registry never enter the pool. The complete placement mapping is saved and restored before the map loads. Scripted gifts, Gym rewards, shops, and Game Corner TM prizes are unchanged. |
+| Non-key Items | `OFF`, `ON` | `OFF` | Shuffles ordinary visible items, hidden items, the starting PC item, and supported scripted rewards as a closed pool. |
+| TM Location | `OFF`, `ON` | `OFF` | Shuffles field, gift, Gym-reward, and supported exchange TMs as a closed pool. When Shops is on, TMs may also be stocked. |
+| HM Location | `OFF`, `SAFE`, `FULL RANDOM` | `OFF` | Shuffles the five HMs. `SAFE` restricts each required HM to a location available by the stage where it is needed; `FULL RANDOM` removes that restriction. HMs are never sold in shops. |
+| Key Items | `OFF`, `SAFE`, `FULL RANDOM` | `OFF` | Shuffles supported progression and utility items. `SAFE` applies progression-stage constraints. `FULL RANDOM` removes those constraints and permits supported key items in shops. |
+| Badges | `VANILLA`, `SHUFFLED`, `RANDOM` | `VANILLA` | Keeps each badge with its Gym Leader, permutes the eight badges among Gym Leaders, or places them among supported one-time pickups and rewards—including starting PC storage—while moving the displaced items to Gym rewards. Badges are never placed in repeatable shops or mutually exclusive fossil choices. |
+| Ensure Beatable | `OFF`, `ON` | `ON` | Applies deterministic progression constraints to badges, HMs, key items, and any item displaced by a badge. If the generator cannot prove a placement safe, it restores vanilla badge locations and records a diagnostic warning. |
+| Shops | `OFF`, `ON` | `OFF` | Randomizes Poké Marts, Celadon Department Store counters, vending machines, and Game Corner TM prizes. Game Corner Pokémon remain controlled by Prize Pokémon. |
+| Shop Prices | `VANILLA`, `RANDOM`, `CHEAP` | `VANILLA` | Uses normal slot/special-shop pricing, deterministic prices from ¥100–¥5000 (or the equivalent coin value), or a price of 100. This setting has no effect while Shops is off. |
+
+All item and badge mappings are generated from the seed, saved with the run, and restored
+when the save is loaded. Each built-in preset leaves every item category and
+Shops off. Fixed gifts implemented with the engine's `give_item` command show
+the randomized item immediately. A small number of direct-function rewards
+retain their vanilla dialogue, then exchange the awarded inventory item for
+the saved randomized result when the dialogue finishes.
 
 ### Trainers
 
@@ -110,7 +124,7 @@ one-time completion flags, nicknames, OT behavior, and trade flow are retained.
 | Review Next Run | Shows every editable setting and any validation warnings before starting. |
 | Reset Defaults | Restores the `STANDARD` preset and clears manual Seed Text after confirmation. |
 | Copy Active Seed | Copies the active seed and run code, or displays them when clipboard access is unavailable. |
-| View Spoiler Log | Opens an unrestricted Pokémon/map browser. Pokémon mode lists every merged-registry species in Pokédex order, supports partial-name search, and shows obtainable/encounter locations. Displayed location names longer than 16 characters are abbreviated without changing their internal map identity. Wild locations display their method and one combined `PCT`/level line for every distinct level directly in the location list and do not drill down. Static locations identify the encounter inline as `STATIC - <Pokémon>` and also do not drill down. Starter and gift locations display their source plus the current Pokémon and level inline, also without drill-down. Trade locations replace the generic category with the complete numbered offer and current `REQUESTED`/`RECEIVED` Pokémon, also without drill-down. Prize locations replace the generic category with the Game Corner version and slot, current Pokémon, level, and coin cost, also without drill-down. Other locations with one result open it directly; locations with multiple results retain a chooser. Map mode uses the Kanto map, groups relevant buildings and floors, and offers populated categories from `GRASS`, `SURF`, `OLD ROD`, `GOOD ROD`, `SUPER ROD`, `TRAINERS`, `STARTERS`, `STATICS`, `GIFTS`, `TRADES`, and `PRIZES`; empty tabs are omitted per map. Starter and gift tabs show each current Pokémon and level inline and do not open detail screens. Encounter tabs show each Pokémon followed by one combined `PCT` line for every distinct level and do not open a separate detail screen. Each rod has its own tab and per-cast `NO BITE` percentage. The Trades tab displays every numbered offer inline with its requested and received Pokémon and has no detail screen. Trainer rows still open complete parties with levels. Browser entries show only the Pokémon, levels, prices, and offers currently present; original Pokémon and prices are omitted. Bottom control legends are hidden except for `SEARCH:SELECT` on the Pokémon list. Settings are omitted. Available only when that run saved Spoiler Log as `ON`. |
+| View Spoiler Log | Opens an unrestricted Pokémon/items/map browser. Pokémon mode lists every merged-registry species in Pokédex order and shows obtainable locations. Items mode alphabetically lists every merged item, supports partial-name search, and shows every current item ball, hidden pickup, PC item, scripted or Gym reward, mart slot, vending slot, and Game Corner TM prize with its source type and applicable price. Item locations are inline and have no additional drill-down. Map mode uses the Kanto map and omits empty tabs; its `ITEMS` tab uses the same complete current placement index. Encounter methods use separate tabs with combined `PCT`/level lines and rod `NO BITE` odds. Trades render complete offers inline; trainer rows open complete parties. Browser entries show only current results, never original randomized values. Bottom legends are hidden except for `SEARCH:SELECT` on the Pokémon and item lists. Settings are omitted. Available only when the run saved Spoiler Log as `ON`. |
 | Export Spoiler Log | Manually writes the same active-run spoiler information without ROM bytes. Available only when that run saved Spoiler Log as `ON`; starting a game never creates the file. Saved at `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. |
 | Save Preset | Names and saves the current next-run options. Up to eight presets with unique 1–16 character names may be stored. Saving an existing name asks before overwriting it. |
 | Delete Preset | Selects a saved preset and asks for confirmation before deleting it. Built-in presets cannot be deleted. |
@@ -123,9 +137,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-- randomizer mod version: `0.40.3`
+- randomizer mod version: `0.42.1`
 - generator contract: `1`
-- algorithm build: `1.9.0-dev`
+- algorithm build: `1.11.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)
@@ -183,9 +197,9 @@ belong in the project’s release-artifact storage.
 - Seed, hash, PRNG, sorting, and shuffle behavior is independent of platform
   bit libraries and table iteration order.
 - Every randomizer category can receive a separately derived named stream.
-- Non-key visible and hidden field items plus the starting PC Potion are
-  shuffled as a closed multiset;
-  key items, scripted gifts, Gym rewards, and marts remain unchanged.
+- Enabled field-item categories are shuffled as closed multisets. Supported
+  scripted gifts and Gym TMs participate; SAFE HM/key-item modes constrain
+  progression placements, and randomized shops never stock HMs.
 - Loading or switching saves restores the merged baseline before applying that
   save's item placements, so saving and continuing require no application
   restart.

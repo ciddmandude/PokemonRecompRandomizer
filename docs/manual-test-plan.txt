@@ -1,8 +1,8 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.40.3
-Algorithm build ...... 1.9.0-dev
+Mod version .......... 0.42.1
+Algorithm build ...... 1.11.0-dev
 Engine compatibility . API 2  (0.1.45 required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.40.3.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.42.1.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -563,7 +563,7 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
-  EXPECT: ALGORITHM reads 1.9.0-dev.
+  EXPECT: ALGORITHM reads 1.11.0-dev.
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -1320,17 +1320,18 @@ PRZ-11 [P2] Ordinary Poke Marts untouched
 
 
 --------------------------------------------------------------------------------
-14. FIELD ITEMS
+14. ITEMS AND SHOPS
 --------------------------------------------------------------------------------
 
-ITM-01 [P0] Key items never move
-  1. Start CFG-A with FIELD ITEMS = SHUFFLED.
-  2. Confirm story key-item locations, including CARD KEY and LIFT KEY.
-  EXPECT: every item whose merged definition is marked keyItem remains at its
-          vanilla location. It does not appear in any shuffled field location.
+ITM-01 [P0] All defaults are off
+  1. Reset defaults and inspect the ITEMS pages.
+  EXPECT: NON-KEY ITEMS, TM LOCATION, HM LOCATION, KEY ITEMS, and SHOPS are OFF.
+  EXPECT: BADGES and SHOP PRICES are VANILLA. ENSURE BEATABLE is ON.
+          Casual and Standard restore the same; Chaos sets ENSURE BEATABLE OFF.
 
 ITM-02 [P0] Visible and hidden placements match the save
-  1. Export the spoiler and open the in-game map browser ITEMS tab.
+  1. Enable NON-KEY ITEMS and start a New Game.
+  2. Export the spoiler and open the in-game map browser ITEMS tab.
   2. Collect ten visible item balls and ten hidden items from listed maps.
   EXPECT: every pickup equals the current item shown for that location.
   EXPECT: item balls say ITEM BALL and hidden entries say HIDDEN in-game.
@@ -1346,24 +1347,100 @@ ITM-04 [P0] Save switching restores the baseline
   EXPECT: each save uses its own spoiler result. No placement leaks from the
           previously loaded save.
 
-ITM-05 [P1] OFF and old-save migration
-  1. Start a New Game with FIELD ITEMS = OFF and verify several pickups.
-  2. Load a valid 0.39.0 save after installing 0.40.3.
-  EXPECT: the new OFF run is vanilla. The old save loads without quarantine,
-          reports FIELD ITEMS = OFF, and retains vanilla item placements.
+ITM-05 [P1] Every category OFF
+  1. Start a New Game with all five item/shop switches OFF.
+  EXPECT: field items, scripted rewards, Gym TMs, marts, vending machines,
+          and Game Corner TM prizes are vanilla.
 
 ITM-06 [P1] Closed multiset and exclusions
-  1. Compare every FIELD ITEMS spoiler row with the imported vanilla data.
-  EXPECT: the multiset of eligible non-key source items exactly equals the
-          multiset of destinations. Scripted gifts, Gym rewards, marts,
-          initial Bag inventory and Game Corner TM prizes remain vanilla.
+  1. Enable NON-KEY ITEMS and TM LOCATION, then compare every non-shop spoiler row
+     with the imported vanilla data.
+  EXPECT: each category's source and destination multisets are identical.
+          Neither pool contains an HM or key item.
 
 ITM-07 [P0] Starting PC Potion participates
-  1. Start a New Game with FIELD ITEMS = SHUFFLED.
+  1. Start a New Game with NON-KEY ITEMS = ON.
   2. Check the ITEMS tab for Red's House 2F, then open the bedroom PC.
   EXPECT: the PC contains one of the shuffled non-key items shown as
           PC STORAGE; its quantity remains one and it is not necessarily a
-          Potion. With FIELD ITEMS = OFF, the PC contains the vanilla Potion.
+          Potion. With NON-KEY ITEMS = OFF, the PC contains the vanilla Potion.
+
+ITM-08 [P0] TM reward coverage
+  1. Enable TM LOCATION and compare field TMs, NPC gifts, drink exchanges, and all
+     eight Gym rewards to the spoiler export.
+  EXPECT: each awards the saved result exactly once. Repeated dialogue never
+          duplicates an item. NON-KEY ITEMS can remain OFF.
+
+ITM-09 [P0] HM SAFE
+  1. Set HM LOCATION = SAFE and inspect all five HM placements in several seeds.
+  2. Play through every HM gate without adding inventory in a debugger.
+  EXPECT: Cut, Surf, and Strength are obtainable no later than their required
+          stages. Flash and Fly remain obtainable. No HM appears in a shop.
+
+ITM-10 [P1] HM FULL RANDOM
+  1. Set HM LOCATION = FULL RANDOM and generate several seeds.
+  EXPECT: all five HMs form a closed shuffle without stage restrictions.
+          The review screen makes no beatability guarantee for this mode.
+
+ITM-11 [P0] Key Item SAFE
+  1. Set KEY ITEMS = SAFE and finish the game without debugger-added items.
+  EXPECT: every required gate can be cleared. Badges remain tied to Gym wins.
+          Key items do not appear in shops in SAFE mode.
+
+ITM-12 [P1] Key Item FULL RANDOM
+  1. Set KEY ITEMS = FULL RANDOM and SHOPS = ON.
+  EXPECT: supported key items may appear in randomized shops. HMs and badges
+          never appear in shop inventory. The mode may produce unbeatable runs.
+
+ITM-13 [P0] Shop coverage
+  1. Enable SHOPS and visit ordinary marts, every Celadon Department Store
+     counter, all rooftop vending machines, and the Game Corner TM counter.
+  EXPECT: all inventories match the spoiler. Game Corner Pokemon are governed
+          only by PRIZE POKEMON and do not change because SHOPS is ON.
+
+ITM-14 [P1] Shop prices
+  1. Repeat a shop purchase with VANILLA, RANDOM, and CHEAP prices.
+  EXPECT: displayed and deducted prices agree. RANDOM is deterministic for
+          the seed and lies from 100 through 5000. CHEAP costs 100.
+
+ITM-15 [P0] In-game item spoiler
+  1. Open VIEW SPOILER LOG and choose ITEMS.
+  2. Search for several ordinary items, TMs, HMs, and key items.
+  EXPECT: the list contains every merged item alphabetically. Each selected
+          item shows all current field, hidden, PC, scripted/Gym, mart,
+          vending, and Game Corner TM-prize locations. Shops show the current
+          price. Locations have no additional detail screen.
+
+ITM-16 [P0] Badge SHUFFLED
+  1. Set BADGES = SHUFFLED and ENSURE BEATABLE = OFF, then start a New Game.
+  2. Defeat all eight Gym Leaders and compare each reward with the spoiler.
+  EXPECT: every Gym awards exactly one of the eight badges, every badge appears
+          exactly once, and no badge appears at an ordinary item location.
+          Re-talking to a defeated leader never duplicates a badge.
+
+ITM-17 [P0] Badge RANDOM
+  1. Set BADGES = RANDOM and ENSURE BEATABLE = OFF, then export the spoiler.
+  2. Collect each listed badge and defeat each Gym Leader whose badge reward
+     was replaced by an ordinary item.
+  EXPECT: all eight badges appear exactly once among supported one-time item
+          checks. Displaced items appear at the eight Gym badge checks. No
+          A badge may be in starting PC storage. No badge is in a repeatable
+          shop or a mutually exclusive fossil choice; postgame checks are
+          allowed because ENSURE BEATABLE is OFF.
+
+ITM-18 [P0] ENSURE BEATABLE ON
+  1. Set BADGES = RANDOM, HM LOCATION = FULL RANDOM, KEY ITEMS = FULL RANDOM, and
+     ENSURE BEATABLE = ON.
+  2. Generate at least ten seeds and finish one without debugger-added items.
+  EXPECT: Boulder and Cascade are available before their first required gates;
+          Soul and the required HMs/key items are available by their modeled
+          progression stages; all eight badges are available before Route 23.
+          Any repair or fallback is recorded in diagnostics.
+
+ITM-19 [P1] ENSURE BEATABLE OFF
+  1. Repeat ITM-18 with ENSURE BEATABLE = OFF.
+  EXPECT: the unrestricted mapping is deterministic but may be impossible.
+          Reloading the same seed reproduces the same badge locations.
 
 
 --------------------------------------------------------------------------------
@@ -1630,7 +1707,7 @@ YEL-07 [P1] Yellow encounters and trainers
   EXPECT: no Red/Blue-only map or trainer assumption causes a fallback or crash.
 
 YEL-08 [P1] Yellow spoiler coverage
-  1. Inspect Pokemon mode and Map mode, then export the text spoiler.
+  1. Inspect Pokemon mode, Items mode, and Map mode, then export the text spoiler.
   EXPECT: the forced starter, rival starter, Yellow-only gifts, Yellow trades,
           prizes, wild encounters, and trainer parties are indexed correctly.
 
@@ -1667,7 +1744,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.40.3.
+          compatibility block, and the archive file name all read 0.42.1.
 
 REL-05 [P1] Unsupported mod API
   1. Install on an engine without mod API 2 if one is available.

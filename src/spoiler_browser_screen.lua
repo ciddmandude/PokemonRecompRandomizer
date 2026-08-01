@@ -61,6 +61,7 @@ return function(Constants, Browser)
 
   local function spacedMode(mode)
     return mode == "locations"
+      or mode == "item_locations"
       or mode == "location_entries"
       or mode == "tabs"
   end
@@ -242,6 +243,17 @@ return function(Constants, Browser)
       return nameOf(self, row.species)
         .. " LV. " .. tostring(row.level or "?")
     elseif row.kind == "item" then
+      if row.sourceKind == "prize_tms" then
+        return "PRIZE " .. tostring(row.price or "?") .. " COINS"
+      elseif row.sourceKind == "vending" then
+        return "VENDING Y" .. tostring(row.price or "?")
+      elseif row.sourceKind == "shop" then
+        return "SHOP Y" .. tostring(row.price or "?")
+      elseif row.sourceKind == "gym" then
+        return "GYM REWARD"
+      elseif row.sourceKind == "gift" then
+        return "GIFT"
+      end
       return row.storage and "PC STORAGE"
         or row.hidden and "HIDDEN" or "ITEM BALL"
     elseif row.species then
@@ -499,12 +511,14 @@ return function(Constants, Browser)
       mode = "root",
       rows = {
         { label = "POKEMON", value = "pokemon" },
+        { label = "ITEMS", value = "items" },
         { label = "MAP", value = "map" },
       },
       selection = 1,
       scroll = 0,
       history = {},
       search = "",
+      itemSearch = "",
       blink = 0,
       background = loadBackground(model.index),
     }, Screen)
@@ -549,14 +563,31 @@ return function(Constants, Browser)
     return rows
   end
 
-  function Screen:openSearch()
+  function Screen:itemRows()
+    local rows, query = {}, self.itemSearch:upper()
+    for _, item in ipairs(self.index.items or {}) do
+      if query == "" or item.name:upper():find(query, 1, true) then
+        rows[#rows + 1] = { label = item.name, item = item }
+      end
+    end
+    return rows
+  end
+
+  function Screen:openSearch(kind)
+    local items = kind == "items"
     self.game.stack:push(self.ui.NamingScreen.new(self.game, {
-      title = "POKEMON SEARCH",
+      title = items and "ITEM SEARCH" or "POKEMON SEARCH",
       maxLen = 12,
       onDone = function(value)
-        self.search = tostring(value or ""):upper():gsub("^%s+", "")
+        local query = tostring(value or ""):upper():gsub("^%s+", "")
           :gsub("%s+$", "")
-        self.rows = self:speciesRows()
+        if items then
+          self.itemSearch = query
+          self.rows = self:itemRows()
+        else
+          self.search = query
+          self.rows = self:speciesRows()
+        end
         self.selection, self.scroll = 1, 0
       end,
     }))
@@ -670,6 +701,8 @@ return function(Constants, Browser)
       self:saveState()
       if row.value == "pokemon" then
         self:setMode("pokemon", self:speciesRows())
+      elseif row.value == "items" then
+        self:setMode("items", self:itemRows())
       else
         self.mode, self.rows, self.selection, self.scroll =
           "map", {}, 1, 0
@@ -690,6 +723,19 @@ return function(Constants, Browser)
       end
       self.selectedSpecies = row.species
       self:setMode("locations", rows)
+    elseif self.mode == "items" and row then
+      self:saveState()
+      self.selectedItem = row.item
+      local rows = {}
+      for _, location in ipairs(self.index.locationsByItem[row.item.id] or {}) do
+        rows[#rows + 1] = {
+          label = location.location,
+          right = rowSecondary(self, location),
+          itemLocation = location,
+        }
+      end
+      if #rows == 0 then rows[1] = { label = "NOT FOUND", empty = true } end
+      self:setMode("item_locations", rows)
     elseif self.mode == "locations" and row and not row.empty then
       self.selectedLocation = row.location
       local results = row.location.rows or {}
@@ -766,8 +812,9 @@ return function(Constants, Browser)
         self:choose()
       end
     else
-      if self.mode == "pokemon" and pressed(input, "select") then
-        self:openSearch()
+      if (self.mode == "pokemon" or self.mode == "items")
+          and pressed(input, "select") then
+        self:openSearch(self.mode)
       elseif pressed(input, "up") then self:move(-1)
       elseif pressed(input, "down") then self:move(1)
       elseif pressed(input, "left") then self:move(-1, true)
@@ -937,6 +984,17 @@ return function(Constants, Browser)
       return self:drawList("POKEMON" .. suffix, function(row)
         return row.label
       end, SEARCH_FOOTER)
+    elseif self.mode == "items" then
+      local suffix = self.itemSearch ~= ""
+        and (" [" .. self.itemSearch .. "]") or ""
+      return self:drawList("ITEMS" .. suffix, function(row)
+        return row.label
+      end, SEARCH_FOOTER)
+    elseif self.mode == "item_locations" then
+      return self:drawList(self.selectedItem and self.selectedItem.name or "ITEM",
+        function(row)
+          return abbreviateLocation(row.label), row.right
+        end, nil, true)
     elseif self.mode == "locations" then
       return self:drawLocationsList(self.selectedSpecies.name)
     elseif self.mode == "location_entries" then

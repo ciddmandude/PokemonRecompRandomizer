@@ -33,6 +33,14 @@ for _, vector in ipairs(Vectors) do
   -- These vectors predate field-item randomization and remain locked to the
   -- original ten-category algorithm. Item vectors live in item_randomizer_test.
   request.settings.field_items = nil
+  request.settings.non_key_items = nil
+  request.settings.tms = nil
+  request.settings.hms = nil
+  request.settings.key_items = nil
+  request.settings.badges = nil
+  request.settings.ensure_beatable = nil
+  request.settings.shops = nil
+  request.settings.shop_prices = nil
   equal(Harness.hash(request), expected.input, vector.id .. " input")
   equal(Harness.hash(request.species),
     expected.manifest, vector.id .. " manifest")

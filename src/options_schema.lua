@@ -170,9 +170,30 @@ local groups = {
   {
     name = "ITEMS",
     rows = {
-      choice("field_items", "FIELD ITEMS", "shuffled", {
-        { "OFF", "off" }, { "SHUFFLED", "shuffled" },
-      }, "SHUFFLE NON-KEY FIELD ITEMS."),
+      choice("non_key_items", "NON-KEY ITEMS", "off", ON_OFF,
+        "RANDOMIZE ORDINARY ITEM LOCATIONS."),
+      choice("tms", "TM LOCATION", "off", ON_OFF,
+        "RANDOMIZE TM LOCATIONS."),
+      choice("hms", "HM LOCATION", "off", {
+        { "OFF", "off" }, { "SAFE", "safe" },
+        { "FULL RANDOM", "full_random" },
+      }, "KEEP REQUIRED HM LOCATIONS EARLY."),
+      choice("key_items", "KEY ITEMS", "off", {
+        { "OFF", "off" }, { "SAFE", "safe" },
+        { "FULL RANDOM", "full_random" },
+      }, "KEEP KEY ITEMS EARLY."),
+      choice("badges", "BADGES", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "RANDOM", "random" },
+      }, "SHUFFLE OR PLACE BADGES ANYWHERE."),
+      choice("ensure_beatable", "ENSURE BEATABLE", "on", ON_OFF,
+        "REPAIR ITEM LOGIC. KEEP RUN BEATABLE."),
+      choice("shops", "SHOPS", "off", ON_OFF,
+        "RANDOMIZE SHOP INVENTORIES."),
+      choice("shop_prices", "SHOP PRICES", "vanilla", {
+        { "VANILLA", "vanilla" }, { "RANDOM", "random" },
+        { "CHEAP", "cheap" },
+      }, "PRICE RANDOMIZED SHOP ITEMS."),
     },
   },
   {

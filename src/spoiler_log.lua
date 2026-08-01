@@ -36,7 +36,8 @@ return function()
     },
     {
       "ITEMS",
-      { "field_items" },
+      { "non_key_items", "tms", "hms", "key_items", "badges",
+        "ensure_beatable", "shops", "shop_prices" },
     },
     {
       "TRAINERS",
@@ -53,7 +54,14 @@ return function()
     duplicate_policy = "Duplicate Policy",
     game_corner_pokemon = "Prize Pokemon",
     gift_pokemon = "Gift Pokemon",
-    field_items = "Field Items",
+    non_key_items = "Non-key Items",
+    tms = "TM Location",
+    hms = "HM Location",
+    key_items = "Key Items",
+    badges = "Badges",
+    ensure_beatable = "Ensure Beatable",
+    shops = "Shops",
+    shop_prices = "Shop Prices",
     in_game_trades = "In-game Trades",
     legendaries = "Legendaries",
     party_size = "Party Size",
@@ -493,18 +501,24 @@ return function()
   end
 
   local function formatFieldItems(lines, placements)
-    section(lines, "FIELD ITEMS")
+    section(lines, "ITEM LOCATIONS AND SHOPS")
     if #placements == 0 then
-      add(lines, "  Field items are vanilla.")
+      add(lines, "  Items and shops are vanilla.")
       return
     end
     for _, row in ipairs(placements) do
       local position = row.kind == "hidden"
         and ("hidden at " .. tostring(row.x) .. "," .. tostring(row.y))
         or row.kind == "pc" and "starting PC storage"
+        or row.kind == "scripted" and row.badge and "Gym badge reward"
+        or row.kind == "scripted" and ("scripted gift " .. tostring(row.id))
+        or row.kind == "shop" and ("shop " .. tostring(row.talkKey)
+          .. " slot " .. tostring(row.slot))
         or ("object " .. tostring(row.objectIndex or "?"))
-      add(lines, ("  [%s; %s] %s -> %s"):format(
-        locationText(row.mapId), position,
+      local price = type(row.price) == "number"
+        and ("; price " .. tostring(row.price)) or ""
+      add(lines, ("  [%s; %s%s] %s -> %s"):format(
+        locationText(row.mapId), position, price,
         readableId(row.original), readableId(row.item)))
     end
   end

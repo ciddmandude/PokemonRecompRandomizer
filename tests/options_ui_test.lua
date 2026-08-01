@@ -32,8 +32,8 @@ local mod = {
 }
 local preferences = Preferences.new(mod)
 preferences:define()
-equal(#defined, 36, "complete preference row count")
-equal(#preferences:pages(), 14, "paged schema count")
+equal(#defined, 43, "complete preference row count")
+equal(#preferences:pages(), 15, "paged schema count")
 for _, page in ipairs(preferences:pages()) do
   assert(#page.rows >= 1 and #page.rows <= 4, "page row limit")
   for _, row in ipairs(page.rows) do
@@ -67,7 +67,15 @@ equal(defaults.game_corner_pokemon, "randomized", "prize default")
 equal(defaults.generate_spoiler_log, "on", "spoiler access default")
 equal(defaults.rival_pokemon, "include", "rival mode default")
 equal(defaults.rival_keep_pokemon, "yes", "rival continuity default")
-local strengthRow
+equal(defaults.non_key_items, "off", "ordinary item default")
+equal(defaults.tms, "off", "TM default")
+equal(defaults.hms, "off", "HM default")
+equal(defaults.key_items, "off", "key-item default")
+equal(defaults.badges, "vanilla", "badge default")
+equal(defaults.ensure_beatable, "on", "beatability default")
+equal(defaults.shops, "off", "shop default")
+equal(defaults.shop_prices, "vanilla", "shop-price default")
+local strengthRow, tmLocationRow, hmLocationRow
 for _, row in ipairs(defined) do
   if row.key == "similar_strength" then strengthRow = row break end
 end
@@ -75,6 +83,12 @@ assert(strengthRow and strengthRow.choices[4][2] == "bst_50"
     and strengthRow.choices[5][2] == "bst_100"
     and strengthRow.choices[6][2] == "same_stage",
   "similar strength exposes BST ranges and SAME STAGE")
+for _, row in ipairs(defined) do
+  if row.key == "tms" then tmLocationRow = row end
+  if row.key == "hms" then hmLocationRow = row end
+end
+equal(tmLocationRow and tmLocationRow.label, "TM LOCATION", "TM display label")
+equal(hmLocationRow and hmLocationRow.label, "HM LOCATION", "HM display label")
 
 assert(preferences:set("randomizer", "off", game))
 equal(writes, 1, "single preference persistence")

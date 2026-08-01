@@ -161,6 +161,22 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
     end
   end
 
+  local function itemName(id, records)
+    local row = type(records) == "table" and records[id]
+    local name = type(row) == "table" and (row.name or row.label)
+    return type(name) == "string" and name ~= "" and name or words(id)
+  end
+
+  local function addItemRow(index, mapId, row)
+    if type(row.item) ~= "string" or not index.sources.items[row.item] then return end
+    row.kind = "item"
+    row.label = itemName(row.item, index.sources.items)
+    row.location = mapName(mapId, index.sources.maps, index.townLocations)
+    addMapRow(index, mapId, "items", row)
+    index.locationsByItem[row.item] = index.locationsByItem[row.item] or {}
+    index.locationsByItem[row.item][#index.locationsByItem[row.item] + 1] = row
+  end
+
   local function wildDestination(run, mapId, terrain, slotIndex, source)
     local settings = run.settings or {}
     local mappings = run.mappings or {}
@@ -439,18 +455,137 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
   local function addFieldItems(index)
     local placements = type(index.run.mappings) == "table"
       and index.run.mappings.fieldItems or {}
-    local itemRecords = index.sources.items or {}
-    for _, placement in ipairs(type(placements) == "table"
-        and placements or {}) do
-      local definition = itemRecords[placement.item]
-      local label = type(definition) == "table"
-        and (definition.name or definition.label) or words(placement.item)
-      addMapRow(index, placement.mapId, "items", {
-        kind = "item", label = label,
-        item = placement.item, hidden = placement.kind == "hidden",
-        storage = placement.kind == "pc",
-        x = placement.x, y = placement.y,
+    local mapped = { visible = {}, hidden = {}, scripted = {}, shop = {} }
+    for _, row in ipairs(type(placements) == "table" and placements or {}) do
+      if row.kind == "visible" then
+        mapped.visible[row.mapId .. "\0" .. tostring(row.objectIndex)] = row
+      elseif row.kind == "hidden" then
+        mapped.hidden[row.mapId .. "\0" .. tostring(row.hiddenIndex)] = row
+      elseif row.kind == "scripted" then
+        mapped.scripted[row.id] = row
+      elseif row.kind == "shop" then
+        mapped.shop[(row.pointerId or row.mapId) .. "\0" .. row.talkKey
+          .. "\0" .. tostring(row.slot)] = row
+      end
+    end
+
+    for _, mapId in ipairs(StableSort.keys(index.sources.maps or {})) do
+      local map = index.sources.maps[mapId]
+      for arrayIndex, object in ipairs(type(map) == "table" and map.objects or {}) do
+        if type(object) == "table" and type(object.item) == "string" then
+          local objectIndex = object.index or arrayIndex
+          local replacement = mapped.visible[mapId .. "\0" .. tostring(objectIndex)]
+          addItemRow(index, mapId, { item = replacement and replacement.item or object.item,
+            sourceKind = "visible", objectIndex = objectIndex })
+        end
+      end
+    end
+    local hidden = type(index.sources.field) == "table"
+      and index.sources.field.hiddenItems or {}
+    for _, mapId in ipairs(StableSort.keys(hidden or {})) do
+      for hiddenIndex, object in ipairs(hidden[mapId] or {}) do
+        local replacement = mapped.hidden[mapId .. "\0" .. tostring(hiddenIndex)]
+        addItemRow(index, mapId, { item = replacement and replacement.item or object.item,
+          sourceKind = "hidden", hidden = true, hiddenIndex = hiddenIndex,
+          x = object.x, y = object.y })
+      end
+    end
+
+    local pcFound = false
+    for _, row in ipairs(type(placements) == "table" and placements or {}) do
+      if row.kind == "pc" then
+        pcFound = true
+        addItemRow(index, row.mapId, { item = row.item,
+          sourceKind = "pc", storage = true, quantity = row.quantity })
+      end
+    end
+    if not pcFound then
+      addItemRow(index, "REDS_HOUSE_2F", { item = "POTION",
+        sourceKind = "pc", storage = true, quantity = 1 })
+    end
+
+    for _, source in ipairs(index.sources.scriptedItems or {}) do
+      local replacement = mapped.scripted[source.id]
+      addItemRow(index, source.mapId, {
+        item = replacement and replacement.item or source.item,
+        sourceKind = source.battle and "gym" or "gift",
+        sourceId = source.id,
       })
+    end
+
+    local mapIdsByLabel = {}
+    for mapId, map in pairs(index.sources.maps or {}) do
+      if type(map) == "table" and type(map.label) == "string" then
+        mapIdsByLabel[map.label] = mapId
+      end
+    end
+    for _, pointerId in ipairs(StableSort.keys(index.sources.textPointers or {})) do
+      local pointer = index.sources.textPointers[pointerId]
+      for _, talkKey in ipairs(StableSort.keys(pointer or {})) do
+        local mart = type(pointer[talkKey]) == "table" and pointer[talkKey].mart
+        for slot, sourceItem in ipairs(type(mart) == "table" and mart or {}) do
+          local replacement = mapped.shop[pointerId .. "\0" .. talkKey
+            .. "\0" .. tostring(slot)]
+          local item = replacement and replacement.item or sourceItem
+          local definition = index.sources.items[item]
+          addItemRow(index, replacement and replacement.mapId
+              or mapIdsByLabel[pointerId] or pointerId, {
+            item = item, sourceKind = "shop", shop = true,
+            price = replacement and replacement.price
+              or type(definition) == "table" and definition.price,
+            talkKey = talkKey, slot = slot,
+          })
+        end
+      end
+    end
+
+    local specials = {
+      { mapId = "CELADON_MART_ROOF", talkKey = "vending",
+        currency = "Y", rows = {
+          { "FRESH_WATER", 200 }, { "SODA_POP", 300 }, { "LEMONADE", 350 },
+        } },
+      { mapId = "GAME_CORNER_PRIZE_ROOM", talkKey = "prize_tms",
+        currency = "COINS", rows = {
+          { "TM_DRAGON_RAGE", 3300 }, { "TM_HYPER_BEAM", 5500 },
+          { "TM_SUBSTITUTE", 7700 },
+        } },
+    }
+    for _, special in ipairs(specials) do
+      for slot, source in ipairs(special.rows) do
+        local key = special.mapId .. "\0" .. special.talkKey
+          .. "\0" .. tostring(slot)
+        local replacement = mapped.shop[key]
+        addItemRow(index, special.mapId, {
+          item = replacement and replacement.item or source[1],
+          sourceKind = special.talkKey, shop = true,
+          price = replacement and replacement.price or source[2],
+          currency = special.currency, slot = slot,
+        })
+      end
+    end
+  end
+
+  local function buildItems(index)
+    for id, record in pairs(index.sources.items or {}) do
+      if type(id) == "string" and type(record) == "table" then
+        index.items[#index.items + 1] = {
+          id = id, name = itemName(id, index.sources.items),
+        }
+      end
+    end
+    table.sort(index.items, function(a, b)
+      if a.name ~= b.name then return a.name < b.name end
+      return a.id < b.id
+    end)
+  end
+
+  local function finalizeItems(index)
+    for _, rows in pairs(index.locationsByItem) do
+      table.sort(rows, function(a, b)
+        if a.location ~= b.location then return a.location < b.location end
+        if a.sourceKind ~= b.sourceKind then return a.sourceKind < b.sourceKind end
+        return (a.slot or 0) < (b.slot or 0)
+      end)
     end
   end
 
@@ -644,14 +779,17 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
       townLocations = locations,
       townMap = townMap,
       species = {},
+      items = {},
       names = {},
       locationsBySpecies = {},
+      locationsByItem = {},
       maps = {},
       areas = {},
       tabs = copyArray(TABS),
       tabLabels = TAB_LABELS,
     }
     buildSpecies(index)
+    buildItems(index)
     addWild(index)
     addStarters(index)
     addStaticGifts(index)
@@ -659,6 +797,7 @@ return function(StableSort, StaticGiftCatalog, TradePrizeCatalog)
     addFieldItems(index)
     addTrainers(index)
     finalizeSpecies(index)
+    finalizeItems(index)
     buildAreas(index)
     return index
   end

@@ -242,17 +242,30 @@ return function(
       end
     end
 
-    if request.settings.field_items == "shuffled" then
+    if request.settings.non_key_items == "on"
+        or request.settings.tms == "on"
+        or (request.settings.hms ~= nil and request.settings.hms ~= "off")
+        or (request.settings.key_items ~= nil
+          and request.settings.key_items ~= "off")
+        or (request.settings.badges ~= nil
+          and request.settings.badges ~= "vanilla")
+        or request.settings.shops == "on" then
       local ok, category = pcall(ItemCategory.generate,
         request.sources or {}, request.settings,
-        Foundation.Rng.fromSeed(request.seed.canonical, "items.field"))
+        Foundation.Rng.fromSeed(request.seed.canonical, "items"))
       if ok then
         result.mappings.fieldItems = category.placements
+        for _, row in ipairs(category.warnings or {}) do
+          result.diagnostics.warnings[
+            #result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount =
+          result.diagnostics.fallbackCount + (category.fallbackCount or 0)
       else
         result.mappings.fieldItems = {}
         result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
           code = "FIELD_ITEM_GENERATION_FAILED",
-          message = "field-item generation failed; items are vanilla",
+          message = "item generation failed; items and shops are vanilla",
         }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 1

@@ -4,6 +4,7 @@ return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime, ItemRuntime,
+    ItemSourceCatalog,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
     PublicFacade)
   local Bootstrap = {}
@@ -126,6 +127,16 @@ return function(
       return records
     end
 
+    local function mergedTextPointerRecords()
+      local registry = mod.content.text_pointers
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
     local function mergedFieldRecords(save)
       local registry = mod.content.field
       local fishing = registry:get("fishing")
@@ -208,6 +219,8 @@ return function(
           trainers = mergedTrainerRecords(),
           maps = mergedMapRecords(),
           items = mergedItemRecords(),
+          textPointers = mergedTextPointerRecords(),
+          scriptedItems = ItemSourceCatalog,
           startingPcItems = type(save) == "table" and save.pcItems or {},
           field = field,
           gameVersion = version,
@@ -222,6 +235,8 @@ return function(
     StaticGiftCompat.install(
       mod, function() return lifecycle:activeRun() end)
     TradePrizeCompat.install(
+      mod, function() return lifecycle:activeRun() end)
+    ItemRuntime.install(
       mod, function() return lifecycle:activeRun() end)
     local function spoilerBrowserModel(game, run)
       local data = type(game) == "table" and game.data or {}
@@ -251,6 +266,10 @@ return function(
         tostring(maps),
         tostring(type(data.field) == "table" and data.field
           or mod.content.field),
+        tostring(type(data.items) == "table" and data.items
+          or mod.content.items),
+        tostring(type(data.text_pointers) == "table" and data.text_pointers
+          or mod.content.text_pointers),
       }, "|")
       return {
         index = SpoilerBrowser.buildCached(run, {
@@ -260,6 +279,9 @@ return function(
           maps = maps,
           field = field,
           items = type(data.items) == "table" and data.items or {},
+          textPointers = type(data.text_pointers) == "table"
+            and data.text_pointers or mergedTextPointerRecords(),
+          scriptedItems = ItemSourceCatalog,
           gameVersion = type(save) == "table"
               and save.version or generatedVersion,
           saveIdentity = table.concat({
@@ -558,9 +580,10 @@ return function(
     mod.events:on("save.writing", function(event)
       lifecycle:onWriting(event)
     end)
-    mod.events:on("battle.ended", function()
+    mod.events:on("battle.ended", function(event)
       if not activeGame then return end
       local run = lifecycle:activeRun()
+      ItemRuntime.prepareBattleRewards(event, run)
       ItemRuntime.afterBattle(activeGame, run, mod.world)
     end)
 

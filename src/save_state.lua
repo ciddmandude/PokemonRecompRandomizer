@@ -362,7 +362,8 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
           local path = ("mappings.fieldItems[%d]"):format(index)
           if type(row) ~= "table"
               or (row.kind ~= "visible" and row.kind ~= "hidden"
-                and row.kind ~= "pc")
+                and row.kind ~= "pc" and row.kind ~= "scripted"
+                and row.kind ~= "shop")
               or type(row.mapId) ~= "string" or row.mapId == ""
               or type(row.original) ~= "string" or row.original == ""
               or type(row.item) ~= "string" or row.item == "" then
@@ -384,6 +385,16 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
                 or row.quantity % 1 ~= 0) then
             addError(errors, path .. ".quantity", "VALUE",
               "PC item row requires a positive integer quantity")
+          elseif row.kind == "scripted"
+              and (type(row.id) ~= "string" or row.id == "") then
+            addError(errors, path .. ".id", "VALUE",
+              "scripted item row requires an id")
+          elseif row.kind == "shop"
+              and (type(row.talkKey) ~= "string" or row.talkKey == ""
+                or type(row.slot) ~= "number" or row.slot < 1
+                or row.slot % 1 ~= 0) then
+            addError(errors, path, "VALUE",
+              "shop item row requires a talk key and positive slot")
           end
         end
       end

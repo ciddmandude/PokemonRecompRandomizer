@@ -64,7 +64,14 @@ Standard and clears Seed Text.
 | Game Corner Pokémon | Randomized | Randomized | Randomized |
 | Prize Levels | Unchanged | Unchanged | Scaled |
 | Prize Prices | Unchanged | Unchanged | Random +/-25% |
-| Field Items | Shuffled | Shuffled | Shuffled |
+| Non-key Items | Off | Off | Off |
+| TM Location | Off | Off | Off |
+| HM Location | Off | Off | Off |
+| Key Items | Off | Off | Off |
+| Badges | Vanilla | Vanilla | Vanilla |
+| Ensure Beatable | On | On | Off |
+| Shops | Off | Off | Off |
+| Shop Prices | Vanilla | Vanilla | Vanilla |
 | Trainer Pokémon | Global Map | By Slot | By Slot |
 | Trainer Levels | Unchanged | Unchanged | +/-10% |
 | Boss Trainers | Vanilla | Themed | Include |
@@ -122,7 +129,7 @@ Later category generators consume these normalized rules.
 
 ## Settings identity
 
-The saved namespace retains the complete 36-field snapshot. The settings hash,
+The saved namespace retains the complete 41-field snapshot. The settings hash,
 however, includes only behavior-affecting fields. It excludes:
 
 - Preset, because it is a label for the expanded bundle;
@@ -154,7 +161,7 @@ visible separately.
 
 The Actions page now provides:
 
-- `REVIEW NEXT RUN`, a scrollable list of all 36 editable values, manual-seed
+- `REVIEW NEXT RUN`, a scrollable list of all 41 editable values, manual-seed
   warnings, eligible pool count, exclusion count, and manifest warnings;
 - `COPY ACTIVE SEED`, which displays the full active seed, run code, algorithm
   version, locked status, and category summary.

@@ -115,6 +115,15 @@ local run = {
         kind = "visible", mapId = "ROUTE_1", objectIndex = 2,
         original = "POTION", item = "ANTIDOTE",
       },
+      {
+        kind = "scripted", id = "brock_tm", mapId = "ROUTE_1_GATE",
+        original = "TM_BIDE", item = "ANTIDOTE", battle = true,
+      },
+      {
+        kind = "shop", mapId = "ROUTE_1_GATE", pointerId = "TestMart",
+        talkKey = "CLERK", slot = 1, original = "POKE_BALL",
+        item = "POTION", price = 100,
+      },
     },
   },
 }
@@ -122,6 +131,10 @@ local run = {
 local sources = {
   items = {
     ANTIDOTE = { id = "ANTIDOTE", name = "Antidote" },
+    POTION = { id = "POTION", name = "Potion", price = 300 },
+    POKE_BALL = { id = "POKE_BALL", name = "Poke Ball", price = 200 },
+    TM_BIDE = { id = "TM_BIDE", name = "TM34", price = 2000,
+      machine = { kind = "TM" } },
   },
   species = {
     PIDGEY = { dex = 16, name = "Pidgey" },
@@ -155,9 +168,10 @@ local sources = {
       label = "Route 1",
       objects = {
         { trainerClass = "OPP_YOUNGSTER", trainerParty = 1 },
+        { index = 2, item = "POTION" },
       },
     },
-    ROUTE_1_GATE = { label = "Route 1 Gate", objects = {} },
+    ROUTE_1_GATE = { label = "TestMart", name = "Route 1 Gate", objects = {} },
   },
   field = {
     fishing = {
@@ -194,6 +208,13 @@ local sources = {
         },
       },
     },
+  },
+  textPointers = {
+    TestMart = { CLERK = { mart = { "POKE_BALL" } } },
+  },
+  scriptedItems = {
+    { id = "brock_tm", mapId = "ROUTE_1_GATE", item = "TM_BIDE",
+      battle = true },
   },
   gameVersion = "red",
 }
@@ -233,7 +254,7 @@ local routeArea
 for _, area in ipairs(index.areas) do
   if area.name == "ROUTE 1" then routeArea = area break end
 end
-assert(routeArea and #routeArea.maps == 1,
+assert(routeArea and #routeArea.maps == 2,
   "area lists retain only buildings/maps with spoiler content")
 local routeTabs = BrowserScreen.availableTabs(index, index.maps.ROUTE_1)
 assert(#routeTabs == 6
@@ -314,6 +335,37 @@ local ui = {
 }
 local screen = BrowserScreen.new(game, { index = index }, ui)
 assert(screen.mode == "root")
+assert(#screen.rows == 3 and screen.rows[1].label == "POKEMON"
+  and screen.rows[2].label == "ITEMS" and screen.rows[3].label == "MAP",
+  "spoiler root offers Pokemon, Items, and Map")
+local itemScreen = BrowserScreen.new(game, { index = index }, ui)
+itemScreen.selection = 2
+itemScreen:choose()
+assert(itemScreen.mode == "items" and #itemScreen.rows == 4
+  and itemScreen.rows[1].item.id == "ANTIDOTE"
+  and itemScreen.rows[3].item.id == "POTION"
+  and itemScreen.rows[4].item.id == "TM_BIDE",
+  "item browser lists every merged item alphabetically")
+itemScreen:openSearch("items")
+assert(namingOptions and namingOptions.title == "ITEM SEARCH")
+namingOptions.onDone("anti")
+assert(itemScreen.itemSearch == "ANTI" and #itemScreen.rows == 1)
+itemScreen:choose()
+assert(itemScreen.mode == "item_locations" and #itemScreen.rows == 2
+  and itemScreen.rows[1].label == "Route 1"
+  and itemScreen.rows[1].right == "ITEM BALL"
+  and itemScreen.rows[2].right == "GYM REWARD",
+  "selecting an item opens all current locations with source type inline")
+itemScreen:choose()
+assert(itemScreen.mode == "item_locations",
+  "item locations do not add another drill-down screen")
+local shopLocation
+for _, location in ipairs(index.locationsByItem.POTION or {}) do
+  if location.sourceKind == "shop" then shopLocation = location break end
+end
+assert(shopLocation and BrowserScreen.rowSecondary(itemScreen, shopLocation)
+    == "SHOP Y100",
+  "item locations include current randomized shop stock and price")
 assert(BrowserScreen.rowSecondary(screen, routeWild[1])
   == "100 PCT LV.3-5",
   "encounter rows use their second line for current level information")
