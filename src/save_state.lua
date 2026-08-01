@@ -15,6 +15,8 @@ return function(Constants, Seed, Hash128, Canonical, StableSort, Contracts)
     "prizes",
     "trainerParties",
     "fieldItems",
+    "pokemonMechanics",
+    "moveData",
   }
 
   local function addError(errors, path, code, message)

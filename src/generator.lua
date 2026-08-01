@@ -2,7 +2,7 @@
 return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
     StaticGiftCategory, TradePrizeCategory, TrainerCategory, ItemCategory,
-    Progression, ValidationCategory)
+    MechanicsCategory, Progression, ValidationCategory)
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -271,6 +271,58 @@ return function(
         }
         result.diagnostics.fallbackCount =
           result.diagnostics.fallbackCount + 1
+      end
+    end
+
+    local function mechanicsEnabled(settings)
+      return settings.base_stats ~= nil and settings.base_stats ~= "vanilla"
+        or settings.pokemon_types ~= nil
+          and settings.pokemon_types ~= "vanilla"
+        or settings.pokemon_movesets ~= nil
+          and settings.pokemon_movesets ~= "vanilla"
+        or settings.tmhm_compatibility ~= nil
+          and settings.tmhm_compatibility ~= "vanilla"
+        or settings.move_types ~= nil and settings.move_types ~= "vanilla"
+        or settings.move_data ~= nil and settings.move_data ~= "vanilla"
+    end
+    if mechanicsEnabled(request.settings) then
+      local ok, category = pcall(MechanicsCategory.generate,
+        manifest, request.sources or {}, request.settings, {
+          stats = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.base_stats"),
+          pokemonTypes = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.pokemon_types"),
+          movesets = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.movesets"),
+          compatibility = Foundation.Rng.fromSeed(
+            request.seed.canonical, "mechanics.tmhm"),
+          moveData = {
+            types = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_types"),
+            power = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_power"),
+            accuracy = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_accuracy"),
+            pp = Foundation.Rng.fromSeed(
+              request.seed.canonical, "mechanics.move_pp"),
+          },
+        })
+      if ok then
+        result.mappings.pokemonMechanics = category.pokemonMechanics
+        result.mappings.moveData = category.moveData
+        for _, row in ipairs(category.warnings or {}) do
+          result.diagnostics.warnings[#result.diagnostics.warnings + 1] = row
+        end
+        result.diagnostics.fallbackCount = result.diagnostics.fallbackCount
+          + (category.fallbackCount or 0)
+      else
+        result.mappings.pokemonMechanics = {}
+        result.mappings.moveData = {}
+        result.diagnostics.warnings[#result.diagnostics.warnings + 1] = {
+          code = "MECHANICS_GENERATION_FAILED",
+          message = "mechanics generation failed; Pokemon and moves are vanilla",
+        }
+        result.diagnostics.fallbackCount = result.diagnostics.fallbackCount + 1
       end
     end
 

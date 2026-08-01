@@ -42,6 +42,17 @@ for _, vector in ipairs(Vectors) do
   request.settings.ensure_beatable = nil
   request.settings.shops = nil
   request.settings.shop_prices = nil
+  request.settings.base_stats = nil
+  request.settings.stat_family_consistency = nil
+  request.settings.pokemon_types = nil
+  request.settings.type_family_consistency = nil
+  request.settings.pokemon_movesets = nil
+  request.settings.early_damage = nil
+  request.settings.learnset_levels = nil
+  request.settings.tmhm_compatibility = nil
+  request.settings.move_types = nil
+  request.settings.move_data = nil
+  request.settings.move_safety = nil
   equal(Harness.hash(request), expected.input, vector.id .. " input")
   equal(Harness.hash(request.species),
     expected.manifest, vector.id .. " manifest")
@@ -70,7 +81,7 @@ for _, vector in ipairs(Vectors) do
   equalArray({
     validation.repairSwaps,
     validation.reachableSpecies,
-    validation.mappingEntries - 2,
+    validation.mappingEntries - 6,
     #Harness.Canonical.encode(legacyMappings),
   }, expected.validation, vector.id .. " validation")
 end

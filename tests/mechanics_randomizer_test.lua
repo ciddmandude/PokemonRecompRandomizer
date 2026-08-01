@@ -1,0 +1,160 @@
+local function loadFactory(path, ...)
+  local value = assert(loadfile(path))()
+  return type(value) == "function" and value(...) or value
+end
+
+local Constants = loadFactory("src/constants.lua")
+local UInt32 = loadFactory("src/uint32.lua")
+local Hash128 = loadFactory("src/hash128.lua", Constants, UInt32)
+local StableSort = loadFactory("src/stable_sort.lua")
+local Rng = loadFactory("src/rng.lua", Constants, UInt32, Hash128)
+local Mechanics = loadFactory("src/mechanics_category.lua", StableSort)
+local Runtime = loadFactory("src/mechanics_runtime.lua")
+
+local function streams(seed)
+  return {
+    stats = Rng.fromSeed(seed, "mechanics.base_stats"),
+    pokemonTypes = Rng.fromSeed(seed, "mechanics.pokemon_types"),
+    movesets = Rng.fromSeed(seed, "mechanics.movesets"),
+    compatibility = Rng.fromSeed(seed, "mechanics.tmhm"),
+    moveData = {
+      types = Rng.fromSeed(seed, "mechanics.move_types"),
+      power = Rng.fromSeed(seed, "mechanics.move_power"),
+      accuracy = Rng.fromSeed(seed, "mechanics.move_accuracy"),
+      pp = Rng.fromSeed(seed, "mechanics.move_pp"),
+    },
+  }
+end
+
+local species = {
+  {
+    id = "A_CHILD", bst = 350,
+    stats = { hp = 70, attack = 80, defense = 70, speed = 60, special = 70 },
+    types = { "GRASS", "POISON" }, level1Moves = { "TACKLE" },
+    learnset = { { level = 7, move = "GROWL" } },
+    tmhm = { "CUT", "MEGA_DRAIN" }, evolutions = {},
+  },
+  {
+    id = "Z_ROOT", bst = 250,
+    stats = { hp = 45, attack = 49, defense = 49, speed = 45, special = 62 },
+    types = { "GRASS", "POISON" }, level1Moves = { "GROWL" },
+    learnset = { { level = 7, move = "LEECH_SEED" } },
+    tmhm = { "CUT" },
+    evolutions = { { species = "A_CHILD", method = "level", level = 16 } },
+  },
+  {
+    id = "SOLO", bst = 300,
+    stats = { hp = 60, attack = 60, defense = 60, speed = 60, special = 60 },
+    types = { "WATER" }, level1Moves = {},
+    learnset = { { level = 10, move = "GROWL" } },
+    tmhm = { "MEGA_DRAIN" }, evolutions = {},
+  },
+}
+local moves = {
+  TACKLE = { id = "TACKLE", type = "NORMAL", power = 35,
+    accuracy = 95, pp = 35, effect = "NO_ADDITIONAL_EFFECT" },
+  MEGA_DRAIN = { id = "MEGA_DRAIN", type = "GRASS", power = 40,
+    accuracy = 100, pp = 10, effect = "DRAIN_HP_EFFECT" },
+  CUT = { id = "CUT", type = "NORMAL", power = 50,
+    accuracy = 95, pp = 30, effect = "NO_ADDITIONAL_EFFECT" },
+  GROWL = { id = "GROWL", type = "NORMAL", power = 0,
+    accuracy = 100, pp = 40, effect = "ATTACK_DOWN1_EFFECT" },
+  LEECH_SEED = { id = "LEECH_SEED", type = "GRASS", power = 0,
+    accuracy = 90, pp = 10, effect = "LEECH_SEED_EFFECT" },
+  BIDE = { id = "BIDE", type = "NORMAL", power = 0,
+    accuracy = 100, pp = 10, effect = "BIDE_EFFECT" },
+}
+local settings = {
+  base_stats = "redistributed", stat_family_consistency = "on",
+  pokemon_types = "randomized", type_family_consistency = "on",
+  pokemon_movesets = "type_aware", early_damage = "on",
+  learnset_levels = "shuffled", tmhm_compatibility = "shuffled",
+  move_types = "randomized", move_data = "full_random", move_safety = "on",
+}
+local source = { moves = moves,
+  typeIds = { "GRASS", "NORMAL", "POISON", "WATER" } }
+local first = Mechanics.generate({ entries = species }, source, settings,
+  streams("MECHANICS TEST"))
+local second = Mechanics.generate({ entries = species }, source, settings,
+  streams("MECHANICS TEST"))
+
+local function encode(value)
+  if type(value) ~= "table" then return tostring(value) end
+  local parts = {}
+  for _, key in ipairs(StableSort.keys(value)) do
+    parts[#parts + 1] = tostring(key) .. "=" .. encode(value[key])
+  end
+  return "{" .. table.concat(parts, ",") .. "}"
+end
+assert(encode(first) == encode(second), "mechanics must be deterministic")
+
+for _, entry in ipairs(species) do
+  local final = assert(first.pokemonMechanics[entry.id].baseStats)
+  local total = 0
+  for _, key in ipairs({ "hp", "attack", "defense", "speed", "special" }) do
+    assert(final[key] >= 1 and final[key] <= 255)
+    total = total + final[key]
+  end
+  assert(total == entry.bst, "redistribution must preserve BST")
+end
+assert(first.pokemonMechanics.A_CHILD.types[1]
+  == first.pokemonMechanics.Z_ROOT.types[1],
+  "family types must inherit primary type even when child sorts first")
+
+for _, entry in ipairs(species) do
+  local row = first.pokemonMechanics[entry.id]
+  local hasDamage = false
+  for _, id in ipairs(row.level1Moves) do
+    hasDamage = hasDamage or first.moveData[id].power > 0
+  end
+  for _, learned in ipairs(row.learnset) do
+    if learned.level <= 5 then
+      hasDamage = hasDamage or first.moveData[learned.move].power > 0
+    end
+  end
+  assert(hasDamage, "early-damage protection must cover every species")
+end
+
+for _, field in ipairs({ "power", "accuracy", "pp" }) do
+  assert(first.moveData.BIDE[field] == moves.BIDE[field],
+    "special move data must remain immutable")
+end
+local function compatibilityCount(move)
+  local count = 0
+  for _, entry in ipairs(species) do
+    for _, id in ipairs(first.pokemonMechanics[entry.id].tmhm) do
+      if id == move then count = count + 1 end
+    end
+  end
+  return count
+end
+assert(compatibilityCount("CUT") == 2)
+assert(compatibilityCount("MEGA_DRAIN") == 2)
+
+local game = { data = { pokemon = {}, moves = {} } }
+for _, entry in ipairs(species) do
+  game.data.pokemon[entry.id] = {
+    baseStats = entry.stats, types = entry.types,
+    level1Moves = entry.level1Moves, learnset = entry.learnset, tmhm = entry.tmhm,
+  }
+end
+for id, move in pairs(moves) do game.data.moves[id] = move end
+Runtime.capture(game)
+Runtime.apply(game, { mappings = first })
+assert(game.data.pokemon.Z_ROOT.baseStats.hp
+  == first.pokemonMechanics.Z_ROOT.baseStats.hp)
+assert(game.data.moves.TACKLE.type == first.moveData.TACKLE.type)
+Runtime.apply(game, nil)
+assert(game.data.pokemon.Z_ROOT.baseStats.hp == species[2].stats.hp)
+assert(game.data.moves.TACKLE.type == moves.TACKLE.type)
+
+local full = Mechanics.generate({ entries = species }, source, {
+  base_stats = "full_random", stat_family_consistency = "off",
+}, streams("FULL STATS"))
+for _, row in pairs(full.pokemonMechanics) do
+  for _, value in pairs(row.baseStats) do
+    assert(value >= 1 and value <= 255 and value == math.floor(value))
+  end
+end
+
+io.write("mechanics_randomizer_test: ok\n")

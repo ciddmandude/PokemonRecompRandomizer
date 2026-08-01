@@ -4,6 +4,7 @@ return function(
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime, ItemRuntime,
+    MechanicsRuntime,
     ItemSourceCatalog,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
     PublicFacade)
@@ -104,6 +105,43 @@ return function(
       local records = {}
       for id, record in registry:each() do records[id] = record end
       return records
+    end
+
+    local function mergedMoveRecords()
+      local registry = mod.content.moves
+      if type(registry) ~= "table" or type(registry.each) ~= "function" then
+        return {}
+      end
+      local records = {}
+      for id, record in registry:each() do records[id] = record end
+      return records
+    end
+
+    local function mergedTypeIds()
+      local found = {}
+      local registry = mod.content.type_chart
+      if type(registry) == "table" and type(registry.each) == "function" then
+        for id in registry:each() do
+          if type(id) == "string" then
+            local attacking, defending = id:match("^([^>]+)>(.+)$")
+            if attacking then found[attacking], found[defending] = true, true end
+          end
+        end
+      end
+      for _, record in pairs(mergedSpeciesRecords()) do
+        for _, id in ipairs(type(record) == "table" and record.types or {}) do
+          found[id] = true
+        end
+      end
+      for _, record in pairs(mergedMoveRecords()) do
+        if type(record) == "table" and type(record.type) == "string" then
+          found[record.type] = true
+        end
+      end
+      local ids = {}
+      for id in pairs(found) do ids[#ids + 1] = id end
+      table.sort(ids)
+      return ids
     end
 
 
@@ -225,6 +263,8 @@ return function(
           field = field,
           gameVersion = version,
           typeEffectiveness = mergedTypeEffectiveness(),
+          moves = mergedMoveRecords(),
+          typeIds = mergedTypeIds(),
         }
       end,
     })
@@ -533,6 +573,44 @@ return function(
         for key, value in pairs(stamped) do namespace[key] = value end
       end)
 
+    mod.migrations:add(
+      Constants.MECHANICS_MIGRATION_VERSION, function(namespace)
+        if type(namespace) ~= "table"
+            or namespace.schemaVersion ~= Constants.SAVE_SCHEMA_VERSION
+            or type(namespace.settings) ~= "table"
+            or type(namespace.compatibility) ~= "table"
+            or type(namespace.mappings) ~= "table" then
+          return
+        end
+        local migrated = SaveState.clone(namespace)
+        local defaults = {
+          base_stats = "vanilla", stat_family_consistency = "on",
+          pokemon_types = "vanilla", type_family_consistency = "on",
+          pokemon_movesets = "vanilla", early_damage = "on",
+          learnset_levels = "vanilla", tmhm_compatibility = "vanilla",
+          move_types = "vanilla", move_data = "vanilla",
+          move_safety = "on",
+        }
+        for key, value in pairs(defaults) do
+          if migrated.settings[key] == nil then migrated.settings[key] = value end
+        end
+        migrated.mappings.pokemonMechanics =
+          type(migrated.mappings.pokemonMechanics) == "table"
+            and migrated.mappings.pokemonMechanics or {}
+        migrated.mappings.moveData =
+          type(migrated.mappings.moveData) == "table"
+            and migrated.mappings.moveData or {}
+        migrated.compatibility.settingsHash =
+          SaveState.hashBehaviorSettings(migrated.settings)
+        local stamped, errors = SaveState.stamp(migrated)
+        if not stamped then
+          error(("mechanics migration failed validation (%d issue%s)")
+            :format(#errors, #errors == 1 and "" or "s"))
+        end
+        for key in pairs(namespace) do namespace[key] = nil end
+        for key, value in pairs(stamped) do namespace[key] = value end
+      end)
+
     -- Recomp constructs a disposable New Game-shaped save during boot so
     -- title-screen systems have options and player defaults available.  It
     -- emits save.created for that skeleton before game.ready, then emits a
@@ -545,7 +623,10 @@ return function(
     mod.events:on("game.ready", function(event)
       gameReady = true
       activeGame = type(event) == "table" and event.game or activeGame
-      if activeGame then ItemRuntime.capture(activeGame) end
+      if activeGame then
+        ItemRuntime.capture(activeGame)
+        MechanicsRuntime.capture(activeGame)
+      end
     end)
     mod.events:on("save.created", function(event)
       if not gameReady then
@@ -561,7 +642,10 @@ return function(
       lifecycle:onCreated(event)
       local run = lifecycle:activeRun()
       ItemRuntime.initializeSave(event.save, run)
-      if activeGame then ItemRuntime.apply(activeGame, run) end
+      if activeGame then
+        MechanicsRuntime.apply(activeGame, run)
+        ItemRuntime.apply(activeGame, run)
+      end
     end)
     mod.events:on("save.loading", function(event)
       lifecycle:onLoading(event)
@@ -570,8 +654,9 @@ return function(
       if activeGame then
         local valid = type(namespace) == "table"
           and SaveState.validate(namespace, nil, true)
-        ItemRuntime.apply(activeGame,
-          valid and namespace.enabled and namespace or nil)
+        local run = valid and namespace.enabled and namespace or nil
+        MechanicsRuntime.apply(activeGame, run)
+        ItemRuntime.apply(activeGame, run)
       end
     end)
     mod.events:on("save.loaded", function(event)

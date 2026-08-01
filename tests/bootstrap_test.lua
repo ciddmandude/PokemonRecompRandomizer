@@ -22,7 +22,7 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
-  version = "0.43.6",
+  version = "0.44.0",
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -238,7 +238,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.15.0-dev")
+assert(mod.exports.algorithmVersion == "1.16.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -272,7 +272,7 @@ assert(type(mod.exports.preferences.snapshot) == "function")
 assert(type(mod.exports.spoilers.canAccess) == "function")
 assert(type(mod.exports.spoilers.format) == "function")
 assert(type(mod.exports.spoilers.export) == "function")
-assert(#mod.exports.preferences.schema() == 44)
+assert(#mod.exports.preferences.schema() == 55)
 local exportedSchema = mod.exports.preferences.schema()
 exportedSchema[1].label = "MUTATED"
 assert(mod.exports.preferences.schema()[1].label ~= "MUTATED")
@@ -282,7 +282,7 @@ assert(mod.exports.preferences.pages()[1].rows[1].key ~= "mutated")
 local exportedSettings = mod.exports.preferences.snapshot()
 exportedSettings.randomizer = "MUTATED"
 assert(mod.exports.preferences.snapshot().randomizer ~= "MUTATED")
-assert(#optionSchema == 44)
+assert(#optionSchema == 55)
 assert(type(screens.PokemonRandomizerOptions.new) == "function")
 assert(type(screens.PokemonRandomizerReview.new) == "function")
 assert(type(screens.PokemonRandomizerSpoilerBrowser.new) == "function")
@@ -311,10 +311,11 @@ assert(type(callbacks["save.loading"]) == "function")
 assert(type(callbacks["save.loaded"]) == "function")
 assert(type(callbacks["save.writing"]) == "function")
 assert(type(callbacks["battle.ended"]) == "function")
-assert(#migrations == 3)
+assert(#migrations == 4)
 assert(migrations[1].since == "0.4.0")
 assert(migrations[2].since == "0.6.0")
 assert(migrations[3].since == "0.40.0")
+assert(migrations[4].since == "0.44.0")
 
 mod.exports.registerSpeciesMeta("TESTMON", { legendary = true })
 mod.exports.registerSpeciesMeta("TESTMON", {
@@ -508,7 +509,7 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
-  { id = "pokemon_randomizer", version = "0.43.6", api = 2 },
+  { id = "pokemon_randomizer", version = "0.44.0", api = 2 },
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

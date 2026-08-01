@@ -79,6 +79,9 @@ return function(mod)
   local ItemCategory = loadModule(
     "src/item_category.lua", StableSort, Progression, ItemFilter)
   local ItemRuntime = loadModule("src/item_runtime.lua", ItemSourceCatalog)
+  local MechanicsCategory = loadModule(
+    "src/mechanics_category.lua", StableSort)
+  local MechanicsRuntime = loadModule("src/mechanics_runtime.lua")
   local ValidationCategory = loadModule(
     "src/validation_category.lua",
     StableSort, Canonical, Progression, TradePrizeCatalog)
@@ -92,7 +95,7 @@ return function(mod)
     "src/generator.lua",
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
     StaticGiftCategory, TradePrizeCategory, TrainerCategory, ItemCategory,
-    Progression, ValidationCategory)
+    MechanicsCategory, Progression, ValidationCategory)
   local SaveState = loadModule(
     "src/save_state.lua",
     Constants, Seed, Hash128, Canonical, StableSort, Contracts)
@@ -120,6 +123,7 @@ return function(mod)
     Constants, Contracts, Generator, Species, SaveState, SaveLifecycle,
     Options, WildRuntime, StarterOffer, StarterCompat, StarterRuntime,
     StaticGiftCompat, TradePrizeCompat, TrainerRuntime, ItemRuntime,
+    MechanicsRuntime,
     ItemSourceCatalog,
     SpoilerController, SpoilerLog, SpoilerBrowser, SpoilerBrowserScreen,
     PublicFacade)

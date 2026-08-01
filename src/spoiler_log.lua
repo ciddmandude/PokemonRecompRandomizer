@@ -48,6 +48,18 @@ return function()
         "progression_guard",
       },
     },
+    {
+      "POKEMON DATA",
+      {
+        "base_stats", "stat_family_consistency", "pokemon_types",
+        "type_family_consistency", "pokemon_movesets", "early_damage",
+        "learnset_levels", "tmhm_compatibility",
+      },
+    },
+    {
+      "MOVE DATA",
+      { "move_types", "move_data", "move_safety" },
+    },
   }
 
   local SETTING_LABELS = {
@@ -85,6 +97,17 @@ return function()
     trade_evolution_safety = "Trade Validity",
     trainer_pokemon = "Trainer Pokemon",
     wild_pokemon = "Wild Pokemon",
+    base_stats = "Base Stats",
+    stat_family_consistency = "Family Stats",
+    pokemon_types = "Pokemon Types",
+    type_family_consistency = "Family Types",
+    pokemon_movesets = "Pokemon Movesets",
+    early_damage = "Early Damage",
+    learnset_levels = "Learnset Levels",
+    tmhm_compatibility = "TM/HM Compatibility",
+    move_types = "Move Types",
+    move_data = "Move Data",
+    move_safety = "Move Safety",
   }
 
   local SPECIAL_NAMES = {
@@ -525,6 +548,57 @@ return function()
     end
   end
 
+  local function formatPokemonMechanics(lines, mappings)
+    section(lines, "POKEMON MECHANICS")
+    if next(mappings or {}) == nil then
+      add(lines, "  Pokemon data is vanilla.")
+      return
+    end
+    for _, id in ipairs(sortedKeys(mappings)) do
+      local row = mappings[id]
+      add(lines, "  " .. speciesName(id))
+      if type(row.baseStats) == "table" then
+        add(lines, ("    Stats: HP %s / ATK %s / DEF %s / SPD %s / SPC %s")
+          :format(tostring(row.baseStats.hp), tostring(row.baseStats.attack),
+            tostring(row.baseStats.defense), tostring(row.baseStats.speed),
+            tostring(row.baseStats.special)))
+      end
+      if type(row.types) == "table" then
+        local names = {}
+        for index, typeId in ipairs(row.types) do names[index] = readableId(typeId) end
+        add(lines, "    Types: " .. table.concat(names, " / "))
+      end
+      if type(row.level1Moves) == "table" then
+        local names = {}
+        for index, move in ipairs(row.level1Moves) do names[index] = readableId(move) end
+        add(lines, "    Level 1: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+      end
+      for _, learned in ipairs(row.learnset or {}) do
+        add(lines, ("    Level %s: %s"):format(
+          tostring(learned.level), readableId(learned.move)))
+      end
+      if type(row.tmhm) == "table" then
+        local names = {}
+        for index, move in ipairs(row.tmhm) do names[index] = readableId(move) end
+        add(lines, "    TM/HM: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+      end
+    end
+  end
+
+  local function formatMoveData(lines, mappings)
+    section(lines, "MOVE DATA")
+    if next(mappings or {}) == nil then
+      add(lines, "  Move data is vanilla.")
+      return
+    end
+    for _, id in ipairs(sortedKeys(mappings)) do
+      local row = mappings[id]
+      add(lines, ("  %-16s TYPE %-9s POWER %-3s ACC %-3s PP %s"):format(
+        readableId(id), readableId(row.type), tostring(row.power),
+        tostring(row.accuracy), tostring(row.pp)))
+    end
+  end
+
   local function formatDiagnostics(lines, diagnostics)
     section(lines, "DIAGNOSTICS")
     diagnostics = diagnostics or {}
@@ -614,6 +688,8 @@ return function()
     formatPrizes(lines, mappings.prizes or {})
     formatTrainers(lines, mappings.trainerParties or {})
     formatFieldItems(lines, mappings.fieldItems or {})
+    formatPokemonMechanics(lines, mappings.pokemonMechanics or {})
+    formatMoveData(lines, mappings.moveData or {})
     formatDiagnostics(lines, run.diagnostics or {})
     add(lines, "")
     add(lines, "END OF SPOILER LOG")

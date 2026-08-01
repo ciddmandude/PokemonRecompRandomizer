@@ -118,6 +118,34 @@ the saved randomized result when the dialogue finishes.
 | Party Size | `UNCHANGED`, `1–6 RANDOM` | `UNCHANGED` | Preserves party count or generates a saved count, with early-game limits when Trainer Safety is on. |
 | Trainer Safety | `OFF`, `ON` | `ON` | Enforces valid, nonempty required parties and guards the first rival and other early mandatory battles against extreme results. |
 
+### Pokemon data and learned moves
+
+All settings in this section default to vanilla in `CASUAL`, `STANDARD`, and
+`CHAOS`. They affect only a newly created save. The generated definitions are
+stored with that save and restored when a different save is loaded.
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Base Stats | `VANILLA`, `SHUFFLED`, `REDISTRIBUTE`, `FULL RANDOM` | `VANILLA` | `SHUFFLED` permutes each species' five existing values. `REDISTRIBUTE` creates a new spread while preserving that species' exact five-stat total. `FULL RANDOM` rolls HP, Attack, Defense, Speed, and Special independently from 1 through 255. |
+| Family Stats | `OFF`, `ON` | `ON` | Reuses a deterministic stat shape or permutation through an evolution family. Full Random still rolls every included stat independently. |
+| Pokemon Types | `VANILLA`, `SHUFFLED`, `RANDOMIZED` | `VANILLA` | `SHUFFLED` applies a global one-to-one type permutation. `RANDOMIZED` generates one or two valid merged-registry types per species. |
+| Family Types | `OFF`, `ON` | `ON` | Evolution families retain the generated primary type. An evolution may gain a secondary type or replace its existing secondary type. |
+| Movesets | `VANILLA`, `RANDOMIZED`, `TYPE-AWARE`, `FULL RANDOM` | `VANILLA` | Randomizes starting moves and level-up move IDs while preserving entry counts. `RANDOMIZED` uses moves present in source species learnsets, `TYPE-AWARE` prefers moves matching either final Pokemon type, and `FULL RANDOM` uses every eligible registered move. |
+| Early Damage | `OFF`, `ON` | `ON` | When Movesets is enabled, guarantees an ordinary damaging move by level 5 whenever the merged move pool contains one. OHKO, fixed-damage, conditional, and self-KO moves do not satisfy the guard. |
+| Learn Levels | `VANILLA`, `SHUFFLED` | `VANILLA` | Keeps the original learning levels or shuffles those levels within each species and sorts the final learnset. |
+| TM/HM Compatibility | `VANILLA`, `SHUFFLED` | `VANILLA` | Shuffles each machine's compatibility column across the species pool, preserving how many species can learn each TM or HM. TM and HM item locations remain separate settings. |
+
+### Move data
+
+Move effects and special behavior are always preserved. The mod changes only
+type, ordinary power, ordinary accuracy, and PP.
+
+| Setting | Values | Default | Effect |
+|---|---|---|---|
+| Move Types | `VANILLA`, `SHUFFLED`, `RANDOMIZED` | `VANILLA` | Keeps types, globally permutes type IDs, or independently assigns a valid type to each move. |
+| Move Data | `VANILLA`, `SHUFFLED`, `BALANCED`, `FULL RANDOM` | `VANILLA` | Shuffles compatible numeric fields; generates bounded power, accuracy, and PP; or rolls ordinary power 1-255, accuracy 1-100, and PP 1-64. Status moves remain non-damaging. |
+| Move Safety | `OFF`, `ON` | `ON` | Protects special-damage and effect-defined moves and limits extreme high-power combinations. Effects, fixed damage, multi-hit rules, priority, critical flags, charge behavior, and animations are never randomized. |
+
 ### Actions
 
 | Action | Effect |
@@ -138,9 +166,9 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-- randomizer mod version: `0.43.6`
+- randomizer mod version: `0.44.0`
 - generator contract: `1`
-- algorithm build: `1.15.0-dev`
+- algorithm build: `1.16.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)

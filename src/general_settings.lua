@@ -42,6 +42,17 @@ return function(SaveState)
     "rival_keep_pokemon",
     "party_size",
     "progression_guard",
+    "base_stats",
+    "stat_family_consistency",
+    "pokemon_types",
+    "type_family_consistency",
+    "pokemon_movesets",
+    "early_damage",
+    "learnset_levels",
+    "tmhm_compatibility",
+    "move_types",
+    "move_data",
+    "move_safety",
   }
 
   local PRESET_KEY_SET = {}
@@ -87,6 +98,17 @@ return function(SaveState)
     rival_keep_pokemon = "yes",
     party_size = "unchanged",
     progression_guard = "on",
+    base_stats = "vanilla",
+    stat_family_consistency = "on",
+    pokemon_types = "vanilla",
+    type_family_consistency = "on",
+    pokemon_movesets = "vanilla",
+    early_damage = "on",
+    learnset_levels = "vanilla",
+    tmhm_compatibility = "vanilla",
+    move_types = "vanilla",
+    move_data = "vanilla",
+    move_safety = "on",
   }
 
   local CASUAL = {
@@ -129,6 +151,17 @@ return function(SaveState)
     rival_keep_pokemon = "yes",
     party_size = "unchanged",
     progression_guard = "on",
+    base_stats = "vanilla",
+    stat_family_consistency = "on",
+    pokemon_types = "vanilla",
+    type_family_consistency = "on",
+    pokemon_movesets = "vanilla",
+    early_damage = "on",
+    learnset_levels = "vanilla",
+    tmhm_compatibility = "vanilla",
+    move_types = "vanilla",
+    move_data = "vanilla",
+    move_safety = "on",
   }
 
   local CHAOS = {
@@ -171,6 +204,17 @@ return function(SaveState)
     rival_keep_pokemon = "no",
     party_size = "random_1_6",
     progression_guard = "off",
+    base_stats = "vanilla",
+    stat_family_consistency = "on",
+    pokemon_types = "vanilla",
+    type_family_consistency = "on",
+    pokemon_movesets = "vanilla",
+    early_damage = "on",
+    learnset_levels = "vanilla",
+    tmhm_compatibility = "vanilla",
+    move_types = "vanilla",
+    move_data = "vanilla",
+    move_safety = "on",
   }
 
   local PRESETS = {

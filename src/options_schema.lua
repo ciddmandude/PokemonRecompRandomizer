@@ -230,6 +230,51 @@ local groups = {
         "LIMIT EXTREME REQUIRED BATTLES."),
     },
   },
+  {
+    name = "POKEMON DATA",
+    rows = {
+      choice("base_stats", "BASE STATS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "REDISTRIBUTE", "redistributed" },
+        { "FULL RANDOM", "full_random" },
+      }, "SHUFFLE, PRESERVE BST, OR RANDOMIZE."),
+      choice("stat_family_consistency", "FAMILY STATS", "on", ON_OFF,
+        "USE ONE STAT SHAPE PER EVO FAMILY."),
+      choice("pokemon_types", "POKEMON TYPES", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "RANDOMIZED", "randomized" },
+      }, "SHUFFLE OR RANDOMIZE TYPES."),
+      choice("type_family_consistency", "FAMILY TYPES", "on", ON_OFF,
+        "EVOLUTIONS MAY CHANGE TYPE."),
+      choice("pokemon_movesets", "MOVESETS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "RANDOMIZED", "randomized" },
+        { "TYPE-AWARE", "type_aware" }, { "FULL RANDOM", "full_random" },
+      }, "RANDOMIZE LEARNED MOVES."),
+      choice("early_damage", "EARLY DAMAGE", "on", ON_OFF,
+        "GUARANTEE DAMAGE BY LEVEL 5."),
+      choice("learnset_levels", "LEARN LEVELS", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+      }, "KEEP OR SHUFFLE LEARNING LEVELS."),
+      choice("tmhm_compatibility", "TM/HM COMPAT", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+      }, "SHUFFLE MACHINE COMPATIBILITY."),
+    },
+  },
+  {
+    name = "MOVE DATA",
+    rows = {
+      choice("move_types", "MOVE TYPES", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "RANDOMIZED", "randomized" },
+      }, "RANDOMIZE MOVE TYPES."),
+      choice("move_data", "MOVE DATA", "vanilla", {
+        { "VANILLA", "vanilla" }, { "SHUFFLED", "shuffled" },
+        { "BALANCED", "balanced" }, { "FULL RANDOM", "full_random" },
+      }, "CHANGE POWER, ACCURACY AND PP."),
+      choice("move_safety", "MOVE SAFETY", "on", ON_OFF,
+        "PROTECT SPECIAL MOVE RULES."),
+    },
+  },
 }
 
 return {
