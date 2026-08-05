@@ -290,6 +290,7 @@ return function(ItemSourceCatalog)
     local baseVending = type(roofTalk) == "table"
       and roofTalk.TEXT_CELADONMARTROOF_VENDING_MACHINE1 or nil
     local function vending(game, overworld, npc, done)
+      local Bag = require("src.inventory.Bag")
       local mapped = specialShopRows(activeRun(), "CELADON_MART_ROOF", "vending")
       if next(mapped) == nil and type(baseVending) == "function" then
         return baseVending(game, overworld, npc, done)
@@ -311,14 +312,10 @@ return function(ItemSourceCatalog)
             list.footer = "Not enough money!"
             return
           end
-          local inventory, distinct = game.save.inventory or {}, 0
-          game.save.inventory = inventory
-          for _, count in pairs(inventory) do if count and count > 0 then distinct = distinct + 1 end end
-          if not inventory[value.item] and distinct >= 20 then
+          if not Bag.add(game.save, value.item, 1, game.data) then
             list.footer = "No room in BAG!"
             return
           end
-          inventory[value.item] = (inventory[value.item] or 0) + 1
           game.save.money = game.save.money - value.price
           list.footer = "Item purchased!"
         end,

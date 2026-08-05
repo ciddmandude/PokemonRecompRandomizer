@@ -13,5 +13,5 @@
   "description": "Deterministic per-save randomization for Pokémon Gen 1 Recomp.",
   "profile": "overhaul",
   "affects_link": true,
-  "permissions": ["filesystem"]
+  "permissions": ["engine_internals", "filesystem"]
 }

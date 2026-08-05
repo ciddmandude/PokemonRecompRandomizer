@@ -277,4 +277,44 @@ assert(game.save.inventory.BOULDERBADGE == nil
     and game.save.inventory.CASCADEBADGE == 1,
   "post-battle exchange replaces the Gym's vanilla badge")
 
+local vendingRegistration, vendingList
+local vendingRun = { mappings = { fieldItems = {
+  { kind = "shop", mapId = "CELADON_MART_ROOF", talkKey = "vending",
+    slot = 1, item = "FRESH_WATER", price = 200 },
+} } }
+local vendingMod = {
+  content = {
+    commands = { get = function() return nil end },
+    map_scripts = {
+      get = function() return { talk = {} } end,
+      register = function(_, _, value) vendingRegistration = value end,
+    },
+  },
+  ui = { ListMenu = { new = function(_, _, items, opts)
+    vendingList = { items = items, opts = opts }
+    return vendingList
+  end } },
+}
+Runtime.install(vendingMod, function() return vendingRun end)
+
+local inventory, bagOrder = {}, {}
+for i = 1, 20 do
+  local id = "ITEM_" .. i
+  inventory[id], bagOrder[i] = 1, id
+end
+local vendingGame = {
+  data = {
+    constants = { bagSize = 999 },
+    items = { FRESH_WATER = { name = "Fresh Water" } },
+  },
+  save = { money = 200, inventory = inventory, bagOrder = bagOrder },
+  stack = { push = function() end },
+}
+vendingRegistration.talk.TEXT_CELADONMARTROOF_VENDING_MACHINE1(
+  vendingGame, {}, {}, function() end)
+vendingList.opts.onChoose(vendingList.items[1])
+assert(vendingGame.save.inventory.FRESH_WATER == 1
+    and vendingGame.save.money == 0,
+  "randomized vending honors the active bag capacity")
+
 io.write("item_options_test: ok\n")
