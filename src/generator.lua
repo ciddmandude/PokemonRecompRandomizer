@@ -3,6 +3,7 @@ return function(
     Constants, Contracts, Foundation, Species, WildCategory, StarterCategory,
     StaticGiftCategory, TradePrizeCategory, TrainerCategory, ItemCategory,
     MechanicsCategory, Progression, ValidationCategory)
+  local Streams = Constants.STREAMS
   local Generator = {
     interfaceVersion = Constants.CONTRACT_VERSION,
     algorithmVersion = Constants.ALGORITHM_VERSION,
@@ -38,11 +39,11 @@ return function(
       local ok, category = pcall(WildCategory.generate,
         manifest, request.sources or {}, request.settings, {
           global = Foundation.Rng.fromSeed(
-            request.seed.canonical, "wild.global"),
+            request.seed.canonical, Streams.wild.global),
           area = Foundation.Rng.fromSeed(
-            request.seed.canonical, "wild.area"),
+            request.seed.canonical, Streams.wild.area),
           levels = Foundation.Rng.fromSeed(
-            request.seed.canonical, "wild.levels"),
+            request.seed.canonical, Streams.wild.levels),
         })
       if ok then
         wildReachability = category.reachability or wildReachability
@@ -73,9 +74,9 @@ return function(
       local ok, category = pcall(StarterCategory.generate,
         manifest, request.settings, {
           starters = Foundation.Rng.fromSeed(
-            request.seed.canonical, "starters"),
+            request.seed.canonical, Streams.starters.selection),
           rival = Foundation.Rng.fromSeed(
-            request.seed.canonical, "rival.counterpick"),
+            request.seed.canonical, Streams.starters.rivalCounterpick),
         }, request.sources and request.sources.typeEffectiveness,
         request.sources and (request.sources.gameVersion
           or request.sources.version))
@@ -108,13 +109,13 @@ return function(
       local ok, category = pcall(StaticGiftCategory.generate,
         manifest, request.settings, {
           staticSpecies = Foundation.Rng.fromSeed(
-            request.seed.canonical, "static.encounters"),
+            request.seed.canonical, Streams.staticGift.staticSpecies),
           staticLevels = Foundation.Rng.fromSeed(
-            request.seed.canonical, "static.levels"),
+            request.seed.canonical, Streams.staticGift.staticLevels),
           giftSpecies = Foundation.Rng.fromSeed(
-            request.seed.canonical, "gifts"),
+            request.seed.canonical, Streams.staticGift.giftSpecies),
           giftLevels = Foundation.Rng.fromSeed(
-            request.seed.canonical, "gift.levels"),
+            request.seed.canonical, Streams.staticGift.giftLevels),
         }, request.sources or {})
       if ok then
         result.mappings.staticEncounters = category.staticEncounters
@@ -176,9 +177,9 @@ return function(
       local ok, category = pcall(TradePrizeCategory.generate,
         manifest, request.sources or {}, request.settings, {
           trades = Foundation.Rng.fromSeed(
-            request.seed.canonical, "trades"),
+            request.seed.canonical, Streams.tradePrize.trades),
           prizes = Foundation.Rng.fromSeed(
-            request.seed.canonical, "prizes"),
+            request.seed.canonical, Streams.tradePrize.prizes),
         }, reachable)
       if ok then
         result.mappings.trades = category.trades
@@ -214,13 +215,13 @@ return function(
       local ok, category = pcall(TrainerCategory.generate,
         manifest, trainerSources, request.settings, {
           species = Foundation.Rng.fromSeed(
-            request.seed.canonical, "trainers.species"),
+            request.seed.canonical, Streams.trainers.species),
           levels = Foundation.Rng.fromSeed(
-            request.seed.canonical, "trainers.levels"),
+            request.seed.canonical, Streams.trainers.levels),
           sizes = Foundation.Rng.fromSeed(
-            request.seed.canonical, "trainers.sizes"),
+            request.seed.canonical, Streams.trainers.sizes),
           rival = Foundation.Rng.fromSeed(
-            request.seed.canonical, "trainers.rival"),
+            request.seed.canonical, Streams.trainers.rival),
         })
       if ok then
         result.mappings.trainerParties = category.trainerParties
@@ -254,7 +255,8 @@ return function(
         or itemOptionEnabled(request.settings.shops) then
       local ok, category = pcall(ItemCategory.generate,
         request.sources or {}, request.settings,
-        Foundation.Rng.fromSeed(request.seed.canonical, "items"))
+        Foundation.Rng.fromSeed(
+          request.seed.canonical, Streams.items.placements))
       if ok then
         result.mappings.fieldItems = category.placements
         for _, row in ipairs(category.warnings or {}) do
@@ -310,26 +312,26 @@ return function(
       local ok, category = pcall(MechanicsCategory.generate,
         manifest, request.sources or {}, request.settings, {
           stats = Foundation.Rng.fromSeed(
-            request.seed.canonical, "mechanics.base_stats"),
+            request.seed.canonical, Streams.mechanics.baseStats),
           pokemonTypes = Foundation.Rng.fromSeed(
-            request.seed.canonical, "mechanics.pokemon_types"),
+            request.seed.canonical, Streams.mechanics.pokemonTypes),
           movesets = Foundation.Rng.fromSeed(
-            request.seed.canonical, "mechanics.movesets"),
+            request.seed.canonical, Streams.mechanics.movesets),
           compatibility = Foundation.Rng.fromSeed(
-            request.seed.canonical, "mechanics.tmhm"),
+            request.seed.canonical, Streams.mechanics.compatibility),
           evolutions = Foundation.Rng.fromSeed(
-            request.seed.canonical, "mechanics.evolutions"),
+            request.seed.canonical, Streams.mechanics.evolutions),
           tradeEvolutions = Foundation.Rng.fromSeed(
-            request.seed.canonical, "mechanics.trade_evolutions"),
+            request.seed.canonical, Streams.mechanics.tradeEvolutions),
           moveData = {
             types = Foundation.Rng.fromSeed(
-              request.seed.canonical, "mechanics.move_types"),
+              request.seed.canonical, Streams.mechanics.moveTypes),
             power = Foundation.Rng.fromSeed(
-              request.seed.canonical, "mechanics.move_power"),
+              request.seed.canonical, Streams.mechanics.movePower),
             accuracy = Foundation.Rng.fromSeed(
-              request.seed.canonical, "mechanics.move_accuracy"),
+              request.seed.canonical, Streams.mechanics.moveAccuracy),
             pp = Foundation.Rng.fromSeed(
-              request.seed.canonical, "mechanics.move_pp"),
+              request.seed.canonical, Streams.mechanics.movePp),
           },
         }, { progressionSpecies = progressionSpecies })
       if ok then
@@ -353,7 +355,7 @@ return function(
 
     local ok, validation = pcall(ValidationCategory.apply,
       result.mappings, request.settings, Foundation.Rng.fromSeed(
-        request.seed.canonical, "validation.swaps"), {
+        request.seed.canonical, Streams.validation.swaps), {
           sources = request.sources or {},
           manifest = manifest,
           wildReachability = wildReachability,

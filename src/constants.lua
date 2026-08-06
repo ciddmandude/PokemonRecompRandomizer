@@ -1,12 +1,69 @@
 -- Shared version and identity constants. This module has no engine
 -- dependencies and is safe to load in headless tests.
+local STREAM_DEFINITIONS = {
+  { "wild", "global", "wild.global" },
+  { "wild", "area", "wild.area" },
+  { "wild", "levels", "wild.levels" },
+  { "starters", "selection", "starters" },
+  { "starters", "rivalCounterpick", "rival.counterpick" },
+  { "staticGift", "staticSpecies", "static.encounters" },
+  { "staticGift", "staticLevels", "static.levels" },
+  { "staticGift", "giftSpecies", "gifts" },
+  { "staticGift", "giftLevels", "gift.levels" },
+  { "tradePrize", "trades", "trades" },
+  { "tradePrize", "prizes", "prizes" },
+  { "trainers", "species", "trainers.species" },
+  { "trainers", "levels", "trainers.levels" },
+  { "trainers", "sizes", "trainers.sizes" },
+  { "trainers", "rival", "trainers.rival" },
+  { "items", "placements", "items" },
+  { "mechanics", "baseStats", "mechanics.base_stats" },
+  { "mechanics", "pokemonTypes", "mechanics.pokemon_types" },
+  { "mechanics", "movesets", "mechanics.movesets" },
+  { "mechanics", "compatibility", "mechanics.tmhm" },
+  { "mechanics", "evolutions", "mechanics.evolutions" },
+  { "mechanics", "tradeEvolutions", "mechanics.trade_evolutions" },
+  { "mechanics", "moveTypes", "mechanics.move_types" },
+  { "mechanics", "movePower", "mechanics.move_power" },
+  { "mechanics", "moveAccuracy", "mechanics.move_accuracy" },
+  { "mechanics", "movePp", "mechanics.move_pp" },
+  { "validation", "swaps", "validation.swaps" },
+}
+
+local function buildStreamRegistry(definitions)
+  assert(type(definitions) == "table",
+    "stream definitions must be a table")
+  local structured = {}
+  local names = {}
+  local seenNames = {}
+  for index, definition in ipairs(definitions) do
+    assert(type(definition) == "table",
+      ("stream definition %d must be a table"):format(index))
+    local group, key, name = definition[1], definition[2], definition[3]
+    assert(type(group) == "string" and group ~= "",
+      ("stream definition %d has an invalid group"):format(index))
+    assert(type(key) == "string" and key ~= "",
+      ("stream definition %d has an invalid key"):format(index))
+    assert(type(name) == "string"
+        and name:match("^[a-z][a-z0-9._%-]*$") ~= nil,
+      ("stream definition %d has an invalid name: %s"):format(
+        index, tostring(name)))
+    assert(not seenNames[name], "duplicate stream name: " .. name)
+    structured[group] = structured[group] or {}
+    assert(structured[group][key] == nil,
+      ("duplicate stream key: %s.%s"):format(group, key))
+    structured[group][key] = name
+    names[#names + 1] = name
+    seenNames[name] = true
+  end
+  return structured, names
+end
+
+local Streams, StreamNames = buildStreamRegistry(STREAM_DEFINITIONS)
+
 return {
   MOD_ID = "pokemon_randomizer",
-<<<<<<< Updated upstream
-  MOD_VERSION = "0.46.0",
-=======
   MOD_VERSION = "0.46.3",
->>>>>>> Stashed changes
   MOD_API = 2,
 
   CONTRACT_VERSION = 1,
@@ -27,23 +84,7 @@ return {
   HASH_VERSION = "fnv1a32x4-v1",
   PRNG_VERSION = "xoshiro128ss-v1",
 
-  STREAM_NAMES = {
-    "wild.global",
-    "wild.area",
-    "wild.levels",
-    "starters",
-    "rival.counterpick",
-    "static.encounters",
-    "static.levels",
-    "gifts",
-    "gift.levels",
-    "trades",
-    "prizes",
-    "trainers.species",
-    "trainers.levels",
-    "trainers.sizes",
-    "trainers.rival",
-    "items",
-    "validation.swaps",
-  },
+  STREAMS = Streams,
+  STREAM_NAMES = StreamNames,
+  buildStreamRegistry = buildStreamRegistry,
 }

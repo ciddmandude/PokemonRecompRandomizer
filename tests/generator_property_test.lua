@@ -8,8 +8,6 @@ local function containsCode(result, code)
   return false
 end
 
-<<<<<<< Updated upstream
-=======
 local ALL_NEW_SETTINGS = {
   non_key_items = "mixed", tms = "mixed", hms = "mixed",
   key_items = "mixed", badges = "mixed", hidden_items = "mixed",
@@ -280,7 +278,6 @@ local function mechanicsProperties(request, result, label, byId)
   end
 end
 
->>>>>>> Stashed changes
 local function propertyCheck(request, result, label)
   local byId = {}
   for _, entry in ipairs(request.species) do byId[entry.id] = entry end
@@ -447,6 +444,9 @@ local function propertyCheck(request, result, label)
     end
   end
 
+  itemProperties(request, result, label)
+  mechanicsProperties(request, result, label, byId)
+
   local encoded = Harness.Canonical.encode(result)
   local decoded = Harness.Canonical.decode(encoded)
   assert(Harness.hash(decoded) == Harness.hash(result),
@@ -469,10 +469,105 @@ for _, profile in ipairs({ "casual", "standard", "chaos" }) do
   end
 end
 
+for seedIndex = 1, 3 do
+  cases = cases + 1
+  local label = "round3/all/" .. seedIndex
+  local enabledSettings = copyMap(ALL_NEW_SETTINGS)
+  if seedIndex == 3 then enabledSettings.move_safety = "on" end
+  local request = Harness.request(
+    "R3 PROPERTY ALL " .. seedIndex, "standard", enabledSettings)
+  local result = assert(Harness.Generator.generate(request))
+  propertyCheck(request, result, label)
+end
+
+-- Capture the real generator boundary so a missing, misspelled, or reused
+-- hard-coded stream is reported by its identifier.
+local streamRequest = Harness.request(
+  "R3 STREAM COVERAGE", "standard", ALL_NEW_SETTINGS)
+local streamCalls = {}
+local streamResult = generateWithStreamTransform(streamRequest,
+  function(seed, name)
+    streamCalls[name] = (streamCalls[name] or 0) + 1
+    return seed, name
+  end)
+assertStreamCalls(streamCalls)
+propertyCheck(streamRequest, streamResult, "round3/stream-coverage")
+
+local misspelled = copyMap(streamCalls)
+misspelled[Streams.mechanics.movePp] = nil
+misspelled["mechanics.move_p"] = 1
+local misspelledOk, misspelledError = pcall(assertStreamCalls, misspelled)
+assert(not misspelledOk and tostring(misspelledError):find(
+  "unexpected stream name mechanics.move_p", 1, true),
+  "stream audit did not focus a misspelled identifier")
+local reused = copyMap(streamCalls)
+reused[Streams.mechanics.movePower] = 2
+local reusedOk, reusedError = pcall(assertStreamCalls, reused)
+assert(not reusedOk and tostring(reusedError):find(
+  "reused stream mechanics.move_power", 1, true),
+  "stream audit did not focus a reused identifier")
+
+-- Disabled/vanilla categories must stay empty, and generator failures must be
+-- bounded and attributed instead of escaping the public boundary.
+local disabled = Harness.request("R3 DISABLED", "standard", {
+  non_key_items = "vanilla", tms = "vanilla", hms = "vanilla",
+  key_items = "vanilla", badges = "vanilla", hidden_items = "vanilla",
+  shops = "vanilla", base_stats = "vanilla", evolutions = "vanilla",
+  evolution_trade_safety = "vanilla", pokemon_types = "vanilla",
+  pokemon_movesets = "vanilla", tmhm_compatibility = "vanilla",
+  move_types = "vanilla", move_data = "vanilla",
+})
+local disabledResult = assert(Harness.Generator.generate(disabled))
+for _, key in ipairs({ "fieldItems", "pokemonMechanics", "moveData" }) do
+  assert(next(disabledResult.mappings[key]) == nil,
+    "vanilla setting unexpectedly populated " .. key)
+end
+
+local impossibleItems = Harness.request("R3 ITEM FALLBACK", "standard", {
+  key_items = "shuffled", ensure_beatable = "on",
+})
+impossibleItems.sources.maps = {
+  CINNABAR_ISLAND = { objects = {
+    { index = 1, item = "OAKS_PARCEL" },
+  } },
+}
+impossibleItems.sources.startingPcItems = {}
+impossibleItems.sources.scriptedItems = {}
+impossibleItems.sources.field.hiddenItems = {}
+local impossibleItemResult = assert(
+  Harness.Generator.generate(impossibleItems))
+assert(containsCode(impossibleItemResult, "PROGRESSION_ITEM_FALLBACK")
+    and next(impossibleItemResult.mappings.fieldItems) == nil,
+  "bounded item failure was not attributed")
+
+local invalidStats = Harness.request("R3 MECHANICS FALLBACK", "standard", {
+  base_stats = "shuffled",
+})
+invalidStats.species[1].stats = nil
+local invalidStatsResult = assert(Harness.Generator.generate(invalidStats))
+assert(containsCode(invalidStatsResult, "MECHANICS_GENERATION_FAILED")
+    and next(invalidStatsResult.mappings.pokemonMechanics) == nil,
+  "bounded mechanics failure was not attributed")
+
+local invalidEvolution = Harness.request(
+  "R3 EVOLUTION FALLBACK", "standard", {
+    evolutions = "full_random", evolution_trade_safety = "vanilla",
+  })
+invalidEvolution.species[1].evolutions[1].species = "NOT_A_SPECIES"
+local invalidEvolutionResult = assert(
+  Harness.Generator.generate(invalidEvolution))
+assert(containsCode(invalidEvolutionResult, "EVOLUTION_GRAPH_FALLBACK")
+    and next(invalidEvolutionResult.mappings.pokemonMechanics) == nil,
+  "bounded evolution failure was not attributed")
+
 -- Named streams isolate categories from unrelated option toggles.
 local baseRequest = Harness.request(
   "M4 STREAM ISOLATION", "standard", { catchability_guard = "off" })
 local base = assert(Harness.Generator.generate(baseRequest))
+local OLD_MAPPING_KEYS = {
+  "wildGlobal", "wildAreaSlots", "fishing", "starters", "starterFlags",
+  "staticEncounters", "gifts", "trades", "prizes", "trainerParties",
+}
 local function isolated(overrides, unchanged)
   local request = Harness.request(
     "M4 STREAM ISOLATION", "standard", overrides)
@@ -491,6 +586,150 @@ isolated({ trainer_pokemon = "off" }, {
 isolated({ gift_pokemon = "off" }, { "staticEncounters" })
 isolated({ game_corner_pokemon = "off" }, { "trades" })
 isolated({ fishing = "vanilla" }, { "wildGlobal", "wildAreaSlots" })
+
+for _, toggle in ipairs({
+  { non_key_items = "shuffled" },
+  { base_stats = "full_random" },
+  { pokemon_types = "randomized" },
+  { pokemon_movesets = "randomized" },
+  { tmhm_compatibility = "shuffled" },
+  { evolutions = "full_random" },
+  { evolution_trade_safety = "fixed_37" },
+  { move_types = "randomized" },
+  { move_data = "full_random" },
+}) do
+  isolated(toggle, OLD_MAPPING_KEYS)
+end
+
+local itemIsolationRequest = Harness.request(
+  "R3 ITEM STREAM ISOLATION", "standard", {
+    non_key_items = "mixed", tms = "mixed", hms = "mixed",
+    key_items = "mixed", badges = "mixed", hidden_items = "mixed",
+    ensure_beatable = "on", shops = "randomized", shop_prices = "random",
+  })
+local itemIsolationBase = assert(
+  Harness.Generator.generate(itemIsolationRequest))
+propertyCheck(itemIsolationRequest, itemIsolationBase,
+  "round3/item-stream-base")
+local itemIsolationChanged = generateWithStreamTransform(
+  itemIsolationRequest, function(seed, name)
+    if name == Streams.items.placements then
+      return seed, name .. ".isolation"
+    end
+    return seed, name
+  end)
+assert(Harness.hash(itemIsolationBase.mappings.fieldItems)
+    ~= Harness.hash(itemIsolationChanged.mappings.fieldItems),
+  "items stream perturbation did not change fieldItems")
+for _, key in ipairs(Harness.Contracts.mappingKeys()) do
+  if key ~= "fieldItems" then
+    assert(Harness.hash(itemIsolationBase.mappings[key])
+        == Harness.hash(itemIsolationChanged.mappings[key]),
+      key .. " changed when only the items stream changed")
+  end
+end
+
+local PROJECTION_NAMES = {
+  "baseStats", "types", "movesets", "tmhm",
+  "evolutionDestinations", "evolutionTriggers",
+  "moveType", "movePower", "moveAccuracy", "movePp",
+}
+
+local function mechanicsProjection(result, projection)
+  local output = {}
+  if projection == "moveType" or projection == "movePower"
+      or projection == "moveAccuracy" or projection == "movePp" then
+    local field = projection == "moveType" and "type"
+      or projection == "movePower" and "power"
+      or projection == "moveAccuracy" and "accuracy" or "pp"
+    for id, row in pairs(result.mappings.moveData or {}) do
+      output[id] = row[field]
+    end
+    return output
+  end
+  for id, row in pairs(result.mappings.pokemonMechanics or {}) do
+    if projection == "baseStats" and row.baseStats then
+      output[id] = row.baseStats
+    elseif projection == "types" and row.types then
+      output[id] = row.types
+    elseif projection == "movesets"
+        and (row.level1Moves or row.learnset) then
+      output[id] = {
+        level1Moves = row.level1Moves or {}, learnset = row.learnset or {},
+      }
+    elseif projection == "tmhm" and row.tmhm then
+      output[id] = row.tmhm
+    elseif projection == "evolutionDestinations" and row.evolutions then
+      output[id] = {}
+      for index, evolution in ipairs(row.evolutions) do
+        output[id][index] = evolution.species
+      end
+    elseif projection == "evolutionTriggers" and row.evolutions then
+      output[id] = {}
+      for index, evolution in ipairs(row.evolutions) do
+        output[id][index] = {
+          method = evolution.method, level = evolution.level,
+          item = evolution.item,
+        }
+      end
+    end
+  end
+  return output
+end
+
+local mechanicsIsolationRequest = Harness.request(
+  "R3 MECHANICS STREAM ISOLATION", "standard", {
+    base_stats = "full_random", stat_family_consistency = "off",
+    pokemon_types = "randomized", type_family_consistency = "off",
+    pokemon_movesets = "randomized", early_damage = "off",
+    learnset_levels = "shuffled", tmhm_compatibility = "shuffled",
+    evolutions = "full_random", evolution_repeats = "avoid",
+    evolution_trade_safety = "random_30_40",
+    move_types = "randomized", move_data = "full_random",
+    move_safety = "off",
+  })
+local mechanicsIsolationBase = assert(
+  Harness.Generator.generate(mechanicsIsolationRequest))
+local mechanicsStreams = {
+  { Streams.mechanics.baseStats, "baseStats" },
+  { Streams.mechanics.pokemonTypes, "types" },
+  { Streams.mechanics.movesets, "movesets" },
+  { Streams.mechanics.compatibility, "tmhm" },
+  { Streams.mechanics.evolutions, "evolutionDestinations" },
+  { Streams.mechanics.tradeEvolutions, "evolutionTriggers" },
+  { Streams.mechanics.moveTypes, "moveType" },
+  { Streams.mechanics.movePower, "movePower" },
+  { Streams.mechanics.moveAccuracy, "moveAccuracy" },
+  { Streams.mechanics.movePp, "movePp" },
+}
+for _, stream in ipairs(mechanicsStreams) do
+  local streamName, changedProjection = stream[1], stream[2]
+  local changed = generateWithStreamTransform(
+    mechanicsIsolationRequest, function(seed, name)
+      if name == streamName then return seed, name .. ".isolation" end
+      return seed, name
+    end)
+  for _, projection in ipairs(PROJECTION_NAMES) do
+    local unchanged = projection ~= changedProjection
+    local same = Harness.hash(mechanicsProjection(
+      mechanicsIsolationBase, projection))
+      == Harness.hash(mechanicsProjection(changed, projection))
+    if unchanged then
+      assert(same, projection .. " changed with " .. streamName)
+    else
+      assert(not same, projection .. " did not change with " .. streamName)
+    end
+  end
+  for _, key in ipairs(OLD_MAPPING_KEYS) do
+    assert(Harness.hash(mechanicsIsolationBase.mappings[key])
+        == Harness.hash(changed.mappings[key]),
+      key .. " changed with " .. streamName)
+  end
+  assert(Harness.hash(mechanicsIsolationBase.mappings.fieldItems)
+      == Harness.hash(changed.mappings.fieldItems),
+    "fieldItems changed with " .. streamName)
+  collectgarbage("collect")
+end
 
 -- Gift reachability can influence guarded trade requests, but its named
 -- streams must not perturb unrelated mapping categories.
@@ -517,4 +756,4 @@ end
 local elapsed = os.clock() - start
 assert(elapsed < 45, "property suite exceeded 45-second CI budget")
 io.write(("generator_property_test: ok (%d real generations, %.2fs)\n")
-  :format(cases + 7, elapsed))
+  :format(cases + 34, elapsed))

@@ -121,4 +121,92 @@ return {
       catchability_guard = "off",
     },
   },
+
+  -- Round-3 milestone 2: enabled item and mechanics combinations use the
+  -- complete settings surface and the realistic sources in the harness.
+  {
+    id = "R3_ITEMS_CLOSED",
+    seed = "R3 ITEMS CLOSED",
+    profile = "standard",
+    round3 = true,
+    overrides = { non_key_items = "shuffled" },
+  },
+  {
+    id = "R3_ITEMS_PROGRESSION",
+    seed = "R3 ITEMS PROGRESSION",
+    profile = "standard",
+    round3 = true,
+    overrides = {
+      non_key_items = "mixed", tms = "mixed", hms = "mixed",
+      key_items = "mixed", badges = "mixed", hidden_items = "mixed",
+      ensure_beatable = "on",
+    },
+  },
+  {
+    id = "R3_SHOPS_RANDOM",
+    seed = "R3 SHOPS RANDOM",
+    profile = "standard",
+    round3 = true,
+    overrides = {
+      tms = "shuffled", shops = "randomized", shop_prices = "random",
+    },
+  },
+  {
+    id = "R3_STATS_TYPES",
+    seed = "R3 STATS TYPES",
+    profile = "standard",
+    round3 = true,
+    overrides = {
+      base_stats = "redistributed", stat_family_consistency = "on",
+      pokemon_types = "randomized", type_family_consistency = "on",
+    },
+  },
+  {
+    id = "R3_MOVESETS_COMPAT",
+    seed = "R3 MOVESETS COMPAT",
+    profile = "standard",
+    round3 = true,
+    overrides = {
+      pokemon_movesets = "randomized", early_damage = "on",
+      learnset_levels = "shuffled", tmhm_compatibility = "shuffled",
+    },
+  },
+  {
+    id = "R3_EVOLUTIONS",
+    seed = "R3 EVOLUTIONS",
+    profile = "standard",
+    round3 = true,
+    overrides = {
+      evolutions = "preserve_stages", evolution_repeats = "avoid",
+      evolution_trade_safety = "fixed_37",
+    },
+  },
+  {
+    id = "R3_MOVE_DATA",
+    seed = "R3 MOVE DATA",
+    profile = "standard",
+    round3 = true,
+    overrides = {
+      move_types = "shuffled", move_data = "balanced", move_safety = "on",
+    },
+  },
+  {
+    id = "R3_ALL_ENABLED",
+    seed = "R3 ALL ENABLED",
+    profile = "standard",
+    round3 = true,
+    overrides = {
+      non_key_items = "mixed", tms = "mixed", hms = "mixed",
+      key_items = "mixed", badges = "mixed", hidden_items = "mixed",
+      ensure_beatable = "on", shops = "randomized", shop_prices = "cheap",
+      base_stats = "full_random", stat_family_consistency = "off",
+      evolutions = "full_random", evolution_repeats = "avoid",
+      evolution_trade_safety = "random_30_40",
+      pokemon_types = "randomized", type_family_consistency = "on",
+      pokemon_movesets = "type_aware", early_damage = "on",
+      learnset_levels = "shuffled", tmhm_compatibility = "shuffled",
+      move_types = "randomized", move_data = "full_random",
+      move_safety = "on",
+    },
+  },
 }

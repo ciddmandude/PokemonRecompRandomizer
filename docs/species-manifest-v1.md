@@ -96,7 +96,9 @@ Generation I BST is the sum of five stats because Special is a single stat.
 
 ## Evolution stages
 
-Stages are derived from the eligible pool's evolution graph:
+Stages are derived from the eligible pool's original merged-data evolution
+graph when the manifest is built, before any evolution destinations are
+randomized:
 
 - `basic`: no eligible species evolves into this species;
 - `middle`: at least one eligible species evolves into it and it has an
@@ -107,6 +109,11 @@ Stages are derived from the eligible pool's evolution graph:
 A standalone species is `basic`, even though it does not evolve. Metadata may
 override a stage for mod-added mechanics the base evolution list cannot
 describe.
+
+Starter Stage `BASIC ONLY`, Similar Strength `SAME STAGE`, and Evolution
+`KEEP STAGES` all use this saved original-lineage classification. A generated
+evolution graph may later give an originally basic species a pre-evolution;
+that does not retroactively change its manifest stage.
 
 ## Legendary metadata
 

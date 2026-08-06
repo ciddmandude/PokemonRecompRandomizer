@@ -16,6 +16,12 @@ Any nonzero exit code fails immediately with the test filename. Its final
 summary reports both the discovered test count and the total recursively
 syntax-checked Lua file count.
 
+`tools/release.ps1` then runs `tools/benchmark-round3-m7.lua` before building
+the release artifact. The benchmark reports seeded evolution time, RNG draws,
+search nodes, relaxation counts, success/fallback state, and mechanics
+baseline memory for the required 151-, 500-, and 1,000-species fixtures. Its
+measured disposition is recorded in `docs/round3-m7-performance.md`.
+
 The discovery self-test creates a temporary directory containing one
 `sentinel_test.lua` and one helper. It proves that only the sentinel is
 selected and executed, then separately proves that empty input and synthetic

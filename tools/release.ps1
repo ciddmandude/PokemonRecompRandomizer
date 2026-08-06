@@ -26,20 +26,21 @@ foreach ($required in @(
   }
 }
 
-$luaCommand = Get-Command lua -ErrorAction SilentlyContinue
-$luaPath = if ($luaCommand) { $luaCommand.Source } else { $null }
-$fallback = if ($env:LOCALAPPDATA) {
-  Join-Path $env:LOCALAPPDATA 'Programs\Lua\5.1.5\lua.exe'
-} else {
-  $null
-}
-if (-not $luaPath -and $fallback -and (Test-Path -LiteralPath $fallback)) {
-  $luaPath = $fallback
-}
-if (-not $luaPath) { throw 'Lua 5.1 is required for release qualification' }
+. (Join-Path $PSScriptRoot 'resolve-lua51.ps1')
+$luaPath = Resolve-Lua51Executable
 
 & (Join-Path $PSScriptRoot 'test.ps1') -ProjectRoot $ProjectRoot
 if ($LASTEXITCODE -ne 0) { throw 'complete release test suite failed' }
+
+Push-Location $ProjectRoot
+try {
+  & $luaPath (Join-Path $ProjectRoot 'tools/benchmark-round3-m7.lua')
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Round-3 Milestone-7 benchmark failed'
+  }
+} finally {
+  Pop-Location
+}
 
 & (Join-Path $PSScriptRoot 'package.ps1') `
   -ProjectRoot $ProjectRoot -OutputPath $OutputPath | Out-Null
@@ -80,6 +81,12 @@ try {
 
 $artifact = Get-Item -LiteralPath $OutputPath
 $hash = Get-FileHash -LiteralPath $artifact.FullName -Algorithm SHA256
+$checksumPath = Join-Path $artifact.DirectoryName 'sha256sums.txt'
+$checksumLine = '{0}  {1}{2}' -f (
+  $hash.Hash.ToLowerInvariant()), $artifact.Name, [Environment]::NewLine
+[IO.File]::WriteAllText(
+  $checksumPath, $checksumLine, [Text.UTF8Encoding]::new($false))
 Write-Output (
-  'release: ok ({0}, SHA-256 {1})' -f $artifact.Name, $hash.Hash)
+  'release: ok ({0}, SHA-256 {1}; checksum {2})' -f `
+    $artifact.Name, $hash.Hash, ([IO.Path]::GetFileName($checksumPath)))
 $artifact

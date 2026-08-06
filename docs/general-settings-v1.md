@@ -15,6 +15,12 @@ Choosing YES offers the built-in and player-saved preset picker or a custom
 settings screen. Completion resolves and validates the seed and pool before
 invoking the generator and resuming Oak.
 
+Choosing a preset through this New Game flow writes it to global next-run
+preferences. Confirming custom settings persists those values and the `CUSTOM`
+marker. That selection is the starting configuration for later New Games until
+the player changes it; the generated save still receives its own locked
+snapshot.
+
 ## Preset scope
 
 The built-in Casual, Standard, and Chaos presets control their category and

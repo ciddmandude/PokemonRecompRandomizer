@@ -1,5 +1,6 @@
 # Release archives are generated locally and published outside source history.
 /dist/*.zip
+/dist/sha256sums.txt
 
 # Packaging uses a short-lived, versioned staging directory.
 /.package-*/

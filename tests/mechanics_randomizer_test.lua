@@ -84,6 +84,8 @@ local first = Mechanics.generate({ entries = species }, source, settings,
   streams("MECHANICS TEST"))
 local second = Mechanics.generate({ entries = species }, source, settings,
   streams("MECHANICS TEST"))
+local alternate = Mechanics.generate({ entries = species }, source, settings,
+  streams("MECHANICS TEST B"))
 
 local function encode(value)
   if type(value) ~= "table" then return tostring(value) end
@@ -92,6 +94,12 @@ local function encode(value)
     parts[#parts + 1] = tostring(key) .. "=" .. encode(value[key])
   end
   return "{" .. table.concat(parts, ",") .. "}"
+end
+local function clone(value)
+  if type(value) ~= "table" then return value end
+  local result = {}
+  for key, child in pairs(value) do result[key] = clone(child) end
+  return result
 end
 assert(encode(first) == encode(second), "mechanics must be deterministic")
 
@@ -170,14 +178,6 @@ end
 assert(compatibilityCount("CUT") == 2)
 assert(compatibilityCount("MEGA_DRAIN") == 2)
 
-<<<<<<< Updated upstream
-local game = { data = { pokemon = {}, moves = {} } }
-for _, entry in ipairs(species) do
-  game.data.pokemon[entry.id] = {
-    baseStats = entry.stats, evolutions = entry.evolutions, types = entry.types,
-    level1Moves = entry.level1Moves, learnset = entry.learnset, tmhm = entry.tmhm,
-  }
-=======
 local hmSafe = Mechanics.generate({ entries = species }, source, {
   tmhm_compatibility = "shuffled", ensure_beatable = "on",
 }, streams("HM SAFETY"), { progressionSpecies = { "SOLO" } })
@@ -200,21 +200,84 @@ local function makeGame()
   end
   for id, move in pairs(moves) do game.data.moves[id] = clone(move) end
   return game
->>>>>>> Stashed changes
 end
-for id, move in pairs(moves) do game.data.moves[id] = move end
-Runtime.capture(game)
-Runtime.apply(game, { mappings = first })
+
+local game = makeGame()
+-- A nil supported field must be removed again after an overlay introduces it.
+game.data.pokemon.Z_ROOT.tmhm = nil
+local pokemonRecord = game.data.pokemon.Z_ROOT
+local moveRecord = game.data.moves.TACKLE
+local externalField = pokemonRecord.externalField
+local baseline = encode(game.data)
+local runA = { enabled = true, mappings = first }
+local runB = { enabled = true, mappings = alternate }
+
+assert(Runtime.capture(game))
+Runtime.apply(game, runA)
 assert(game.data.pokemon.Z_ROOT.baseStats.hp
   == first.pokemonMechanics.Z_ROOT.baseStats.hp)
 assert(game.data.pokemon.Z_ROOT.evolutions[1].species
   == first.pokemonMechanics.Z_ROOT.evolutions[1].species)
 assert(game.data.moves.TACKLE.type == first.moveData.TACKLE.type)
+assert(game.data.pokemon.Z_ROOT.tmhm ~= nil)
+local appliedA = encode(game.data)
+
+-- Repeated game.ready calls capture again; an already known data identity must
+-- retain its pristine snapshot instead of promoting this overlay.
+assert(Runtime.capture(game))
 Runtime.apply(game, nil)
+assert(encode(game.data) == baseline,
+  "repeated capture promoted randomized mechanics into the baseline")
 assert(game.data.pokemon.Z_ROOT.baseStats.hp == species[2].stats.hp)
 assert(game.data.pokemon.Z_ROOT.evolutions[1].species
   == species[2].evolutions[1].species)
 assert(game.data.moves.TACKLE.type == moves.TACKLE.type)
+assert(game.data.pokemon.Z_ROOT.tmhm == nil,
+  "restore did not remove an overlay-introduced optional field")
+
+Runtime.apply(game, runA)
+Runtime.apply(game, runA)
+assert(encode(game.data) == appliedA, "repeated apply accumulated changes")
+Runtime.apply(game, runB)
+assert(encode(game.data) ~= appliedA,
+  "switching to a second randomized save retained run A")
+Runtime.apply(game, nil)
+assert(encode(game.data) == baseline, "vanilla switch did not restore baseline")
+Runtime.apply(game, runA)
+assert(encode(game.data) == appliedA,
+  "A -> B -> vanilla -> A did not reproduce run A")
+
+for _, inactive in ipairs({
+  { enabled = false, mappings = first },
+  { enabled = true, quarantined = true, mappings = first },
+  { enabled = true, valid = false, mappings = first },
+  { enabled = true, mappings = {} },
+  { enabled = true, mappings = { wildGlobal = { A = "B" } } },
+}) do
+  Runtime.apply(game, inactive)
+  assert(encode(game.data) == baseline,
+    "inactive or mechanics-free run did not restore baseline")
+end
+
+assert(game.data.pokemon.Z_ROOT == pokemonRecord
+    and game.data.moves.TACKLE == moveRecord,
+  "runtime replaced an entire merged content record")
+assert(game.data.pokemon.Z_ROOT.externalField == externalField,
+  "runtime replaced an unsupported cross-mod field")
+
+-- Distinct merged data identities retain independent pristine snapshots.
+local otherGame = makeGame()
+otherGame.data.pokemon.Z_ROOT.baseStats.hp = 99
+local otherBaseline = encode(otherGame.data)
+Runtime.capture(otherGame)
+Runtime.apply(otherGame, runA)
+Runtime.apply(game, runB)
+Runtime.restore(otherGame)
+Runtime.restore(game)
+assert(encode(otherGame.data) == otherBaseline,
+  "second game.data identity restored the first identity's baseline")
+assert(encode(game.data) == baseline,
+  "first game.data identity lost its own baseline")
 
 local full = Mechanics.generate({ entries = species }, source, {
   base_stats = "full_random", stat_family_consistency = "off",

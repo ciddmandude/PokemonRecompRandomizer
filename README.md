@@ -19,6 +19,11 @@ presets and then starts immediately. Choosing custom settings opens a trimmed
 setup screen; B confirms the run, while Save Preset, Delete Preset, and Reset
 Defaults remain available.
 
+Selecting a built-in or player-saved preset in this New Game chooser writes it
+to the global next-run preferences. Confirming custom settings likewise leaves
+those custom values selected. Either choice therefore becomes the starting
+configuration for future New Games until the player changes it.
+
 ### General
 
 | Setting | Values | Default | Effect |
@@ -27,7 +32,7 @@ Defaults remain available.
 | Seed Mode | `AUTO`, `MANUAL` | `AUTO` | `AUTO` creates a new 128-bit seed; `MANUAL` uses Seed Text. |
 | Seed Text | 1–32 characters | blank | Manual seed using letters, digits, spaces, hyphens, or underscores. It is trimmed, uppercased, and saved in canonical form. |
 | Species Pool | `VANILLA 151`, `MERGED DATA` | `VANILLA 151` | Uses only the original 151, or all valid species contributed through the merged registry. |
-| Similar Strength | `OFF`, `±10%`, `±20%`, `BST ±50`, `BST ±100`, `SAME STAGE` | `±20%` | Percentage modes use a relative BST band. `BST ±50` and `BST ±100` use an absolute five-stat-total difference. Empty BST bands widen deterministically. `SAME STAGE` ignores base stats and requires matching evolutionary stages. |
+| Similar Strength | `OFF`, `±10%`, `±20%`, `BST ±50`, `BST ±100`, `SAME STAGE` | `±20%` | Percentage modes use a relative BST band. `BST ±50` and `BST ±100` use an absolute five-stat-total difference. Empty BST bands widen deterministically. `SAME STAGE` ignores base stats and requires matching stages from each species' original merged-data lineage, captured before evolution randomization. |
 | Legendaries | `EXCLUDE`, `MATCH`, `ALLOW` | `MATCH` | Excludes legendaries, maps legendary status like-for-like, or treats them like any species. |
 | Duplicate Policy | `ALLOW`, `ONE-TO-ONE` | `ONE-TO-ONE` | Samples with replacement or maximizes unique destinations until the eligible pool is exhausted. |
 | Enable Spoiler Log | `OFF`, `ON` | `ON` | Saved with the new run. `ON` allows the in-game viewer and manual file export; `OFF` blocks both. Starting a game never exports a file automatically. It does not affect the seed or mappings. |
@@ -48,7 +53,7 @@ Encounter rates, slot probability buckets, and Repel behavior remain vanilla.
 | Setting | Values | Default | Effect |
 |---|---|---|---|
 | Starters | `OFF`, `RANDOM`, `TYPE TRIAD` | `RANDOM` | In Red/Blue, keeps or replaces the original trio. In Yellow, `OFF` keeps Pikachu and Eevee; either enabled mode replaces the forced Pikachu and the rival's Eevee with two distinct saved species. `TYPE TRIAD` uses a triad as its candidate basis where possible. |
-| Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | Allows any eligible species or only species without a pre-evolution. |
+| Starter Stage | `ANY`, `BASIC ONLY` | `BASIC ONLY` | Allows any eligible species or only species without a pre-evolution in its original merged-data lineage. Later evolution randomization does not reclassify starter candidates. |
 | Starter Level | `2`–`20` | `5` | Sets the level shown in Oak's Lab and the level of the received starter. |
 | Rival Counterpick | `BALL ORDER`, `TYPE ADVANTAGE`, `RANDOM OTHER` | `TYPE ADVANTAGE` | Uses the vanilla ball relationship, strongest matchup, or another starter. In Yellow, `TYPE ADVANTAGE` chooses the strongest eligible rival matchup; the other modes choose a distinct saved rival species. |
 
@@ -144,7 +149,7 @@ stored with that save and restored when a different save is loaded.
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
-| Evolutions | `VANILLA`, `KEEP STAGES`, `SIMILAR`, `FULL RANDOM` | `VANILLA` | Keeps vanilla destinations, replaces each destination with a species at the original destination's evolutionary stage, follows the global Similar Strength rule, or uses any eligible species. Every mode preserves which species evolve, branch counts, and the original trigger until Trade Evolutions converts it. |
+| Evolutions | `VANILLA`, `KEEP STAGES`, `SIMILAR`, `FULL RANDOM` | `VANILLA` | Keeps vanilla destinations, replaces each destination with a species at the original destination's stage in the original merged-data lineage, follows the global Similar Strength rule, or uses any eligible species. Every mode preserves which species evolve, branch counts, and the original trigger until Trade Evolutions converts it. |
 | Evolution Repeats | `AVOID`, `ALLOW` | `AVOID` | Avoids reusing a destination across the generated graph until the pool is exhausted. Separate branches from one species are always distinct. |
 | Trade Evolutions | `VANILLA`, `LEVEL 37`, `RANDOM 30-40` | `VANILLA` | Keeps trade triggers or converts them to level evolutions. This works independently, so vanilla evolution families can be retained while making trade evolutions obtainable without trading. |
 
@@ -153,6 +158,14 @@ rules are never relaxed. If a complete graph cannot satisfy destination
 uniqueness or the selected stage/strength preference, uniqueness is relaxed
 first, followed by the soft preference. A graph that still cannot be completed
 falls back atomically to vanilla and records a diagnostic.
+
+All three stage-sensitive settings—Starter Stage `BASIC ONLY`, Similar
+Strength `SAME STAGE`, and Evolutions `KEEP STAGES`—use the original
+merged-data lineage captured before any randomized evolution graph is built.
+Consequently, a species that was originally basic can receive a new
+pre-evolution under `SIMILAR` or `FULL RANDOM`; that does not violate Starter
+Stage. The spoiler viewer's evolution rows always show the current randomized
+graph, not the original-stage classification used during generation.
 
 ### Move data
 
@@ -164,6 +177,15 @@ type, ordinary power, ordinary accuracy, and PP.
 | Move Types | `VANILLA`, `SHUFFLED`, `RANDOMIZED` | `VANILLA` | Keeps types, globally permutes type IDs, or independently assigns a valid type to each move. |
 | Move Data | `VANILLA`, `SHUFFLED`, `BALANCED`, `FULL RANDOM` | `VANILLA` | Shuffles compatible numeric fields; generates bounded power, accuracy, and PP; or rolls ordinary power 1-255, accuracy 1-100, and PP 1-64. Status moves remain non-damaging. |
 | Move Safety | `OFF`, `ON` | `ON` | Protects special-damage and effect-defined moves and limits extreme high-power combinations. Effects, fixed damage, multi-hit rules, priority, critical flags, charge behavior, and animations are never randomized. |
+
+These mechanics are reversible runtime overlays. The mod captures the
+post-merge `game.data` PokÃ©mon and move fields once for each distinct data
+table, restores that pristine baseline before every save application, and then
+writes only the supported fields for the active randomized save. Switching to
+a vanilla, disabled, or invalid save restores the baseline; no restart is
+required. PokÃ©mon and move records themselves, including fields owned by other
+mods, are never replaced. Other mods that read the supported active fields
+while a randomized save is running will observe the randomized values.
 
 ### Actions
 
@@ -177,6 +199,19 @@ type, ordinary power, ordinary accuracy, and PP.
 | Save Preset | Names and saves the current next-run options. Up to eight presets with unique 1–16 character names may be stored. Saving an existing name asks before overwriting it. |
 | Delete Preset | Selects a saved preset and asks for confirmation before deleting it. Built-in presets cannot be deleted. |
 
+### Run codes and upgrades
+
+A run code binds the canonical seed, behavior-settings hash, and eligible-pool
+hash. It is a compact comparison aid, not a complete permanent identity. When
+a save migration adds behavior-setting defaults, the mod recomputes the
+settings hash so the upgraded save remains valid. This can change the displayed
+run code without rerolling or modifying any gameplay mapping.
+
+Compare run codes only when both players use the same randomizer mod version
+and saved algorithm version. The saved algorithm version identifies the
+generator that produced the mappings, including after the mod itself is
+upgraded.
+
 For exact formulas, fallback order, supported encounter IDs, presets, and
 validation rules, see the linked design documents above or the
 [complete randomizer specification](docs/randomizer-spec.md).
@@ -185,11 +220,7 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
-<<<<<<< Updated upstream
-- randomizer mod version: `0.46.0`
-=======
 - randomizer mod version: `0.46.3`
->>>>>>> Stashed changes
 - generator contract: `1`
 - algorithm build: `1.19.0-dev`
 - hash: `fnv1a32x4-v1`
@@ -218,9 +249,11 @@ Run the following command from PowerShell for a release-qualified archive:
 tools/release.ps1 -EngineRoot C:\path\to\gen1recomp
 ```
 
-This single command runs the complete suite, builds the versioned archive
-under `dist/`, validates that exact ZIP, extracts it, loads the extracted
-payload through the Recomp 0.1.45 ROM-free fixture, and prints its SHA-256.
+This single command runs the complete suite and the repeatable Round-3
+evolution/baseline-memory benchmark, builds the versioned archive under
+`dist/`, validates that exact ZIP, extracts it, loads the extracted payload
+through the Recomp 0.1.45 ROM-free fixture, and writes the archive plus
+`dist/sha256sums.txt`.
 `tools/package.ps1` remains available for a faster packaging-only development
 build.
 
@@ -255,7 +288,10 @@ belong in the project’s release-artifact storage.
 - Loading or switching saves restores the merged baseline before applying that
   save's item placements, so saving and continuing require no application
   restart.
-- Twenty-four real combined-generator vectors lock every mapping bucket,
+- PokÃ©mon and move mechanics use a reversible per-`game.data` overlay. Other
+  mods inspecting supported active fields observe the current save's values;
+  record identity and unsupported cross-mod fields remain untouched.
+- Thirty-two real combined-generator vectors lock every mapping bucket,
   diagnostics, and complete input identity across Casual, Standard, Chaos,
   and targeted custom runs.
 - Bounded properties execute the real generator for every shipped preset and
@@ -307,8 +343,10 @@ belong in the project’s release-artifact storage.
   process counter, and save context as best-effort non-cryptographic
   uniqueness material. The hashed result is saved as a deterministic
   26-character Crockford Base32 identity.
-- Run codes bind canonical seed, behavior settings, and eligible pool.
-- Settings-hash migration never rerolls an existing mapping.
+- Run codes bind canonical seed, behavior settings, and eligible pool, and are
+  comparable only under the same mod and saved algorithm versions.
+- Settings-hash migration can change the displayed run code but never rerolls
+  an existing mapping.
 - Clipboard absence cannot hide the seed or run code from the player.
 - Sparse or future saved settings display as `UNKNOWN` or `UNAVAILABLE` in
   the Active Run view instead of interrupting the Options screen.
@@ -340,7 +378,9 @@ belong in the project’s release-artifact storage.
 - Oak, rival battles, parcel and Pokédex delivery, and lab movement remain
   engine-owned.
 - Three randomized player choices are unique and generated only once.
-- Basic Only never silently admits an evolved form.
+- Basic Only never silently admits a species evolved in its original
+  merged-data lineage; a later randomized graph may give it a new
+  pre-evolution by design.
 - Type Triad uses a directional primary-type effectiveness cycle or records
   its deterministic fallback to Random.
 - The saved offer drives the preview, confirmation, gift, level, removed

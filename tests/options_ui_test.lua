@@ -78,13 +78,35 @@ equal(defaults.ensure_beatable, "on", "beatability default")
 equal(defaults.shops, "vanilla", "shop default")
 equal(defaults.shop_prices, "vanilla", "shop-price default")
 local strengthRow, nonKeyRow, tmLocationRow, hmLocationRow, hiddenItemsRow
+local starterStageRow, evolutionsRow
 for _, row in ipairs(defined) do
-  if row.key == "similar_strength" then strengthRow = row break end
+  if row.key == "similar_strength" then strengthRow = row end
+  if row.key == "starter_stage" then starterStageRow = row end
+  if row.key == "evolutions" then evolutionsRow = row end
 end
 assert(strengthRow and strengthRow.choices[4][2] == "bst_50"
     and strengthRow.choices[5][2] == "bst_100"
     and strengthRow.choices[6][2] == "same_stage",
   "similar strength exposes BST ranges and SAME STAGE")
+for _, row in ipairs({ strengthRow, starterStageRow, evolutionsRow }) do
+  assert(row and row.help:find("ORIGINAL", 1, true),
+    "stage-sensitive help must identify original lineage")
+end
+
+local function readFile(path)
+  local file = assert(io.open(path, "rb"))
+  local contents = file:read("*a")
+  file:close()
+  return contents
+end
+
+for _, path in ipairs({
+  "README.md", "docs/randomizer-spec.md", "docs/manual-test-plan.txt",
+}) do
+  local contents = readFile(path):lower()
+  assert(contents:find("original merged%-data lineage"),
+    path .. " must define original merged-data lineage")
+end
 for _, row in ipairs(defined) do
   if row.key == "tms" then tmLocationRow = row end
   if row.key == "non_key_items" then nonKeyRow = row end

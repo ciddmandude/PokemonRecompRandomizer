@@ -1,11 +1,7 @@
 {
   "id": "pokemon_randomizer",
   "name": "Pokémon Gen 1 Randomizer",
-<<<<<<< Updated upstream
-  "version": "0.46.0",
-=======
   "version": "0.46.3",
->>>>>>> Stashed changes
   "entry": "main.lua",
   "api": 2,
   "priority": 100,

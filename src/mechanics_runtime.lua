@@ -1,8 +1,12 @@
 -- Projects saved mechanics into the active game's mutable merged tables.
--- A captured post-mod baseline is restored before every save switch.
+-- Each distinct game.data identity owns one immutable post-merge baseline.
 return function()
   local Runtime = {}
-  local baseline
+  local baselines = setmetatable({}, { __mode = "k" })
+  local POKEMON_FIELDS = {
+    "baseStats", "evolutions", "types", "level1Moves", "learnset", "tmhm",
+  }
+  local MOVE_FIELDS = { "type", "power", "accuracy", "pp" }
 
   local function copy(value, seen)
     if type(value) ~= "table" then return value end
@@ -40,39 +44,62 @@ return function()
     return applied
   end
 
+  local function restoreFields(records, snapshot, fields)
+    local restored = 0
+    for id, baselineRow in pairs(
+        type(snapshot) == "table" and snapshot or {}) do
+      local target = type(records) == "table" and records[id]
+      if type(target) == "table" then
+        for _, field in ipairs(fields) do
+          -- Assignment is intentional even when the pristine value was nil:
+          -- an overlay may have introduced that optional field.
+          target[field] = copy(baselineRow[field])
+        end
+        restored = restored + 1
+      end
+    end
+    return restored
+  end
+
+  local function gameData(game)
+    return type(game) == "table" and type(game.data) == "table"
+      and game.data or nil
+  end
+
   function Runtime.capture(game)
-    local data = type(game) == "table" and game.data or {}
-    baseline = {
-      pokemon = captureFields(data.pokemon, {
-        "baseStats", "evolutions", "types", "level1Moves", "learnset", "tmhm",
-      }),
-      moves = captureFields(data.moves, { "type", "power", "accuracy", "pp" }),
+    local data = gameData(game)
+    if not data then return false end
+    if baselines[data] then return true end
+    baselines[data] = {
+      pokemon = captureFields(data.pokemon, POKEMON_FIELDS),
+      moves = captureFields(data.moves, MOVE_FIELDS),
     }
     return true
   end
 
   function Runtime.restore(game)
-    if not baseline then Runtime.capture(game) end
-    local data = type(game) == "table" and game.data or {}
-    local pokemon = project(data.pokemon, baseline and baseline.pokemon, {
-      "baseStats", "evolutions", "types", "level1Moves", "learnset", "tmhm",
-    })
-    local moves = project(data.moves, baseline and baseline.moves, {
-      "type", "power", "accuracy", "pp",
-    })
+    local data = gameData(game)
+    if not data then return 0 end
+    if not baselines[data] then Runtime.capture(game) end
+    local baseline = baselines[data]
+    local pokemon = restoreFields(
+      data.pokemon, baseline and baseline.pokemon, POKEMON_FIELDS)
+    local moves = restoreFields(
+      data.moves, baseline and baseline.moves, MOVE_FIELDS)
     return pokemon + moves
   end
 
   function Runtime.apply(game, run)
     Runtime.restore(game)
-    local data = type(game) == "table" and game.data or {}
+    local data = gameData(game)
+    if not data then return 0 end
+    if type(run) ~= "table" or run.enabled == false
+        or run.quarantined == true or run.phase == "quarantined"
+        or run.valid == false then return 0 end
     local mappings = type(run) == "table" and run.mappings or {}
-    local pokemon = project(data.pokemon, mappings.pokemonMechanics, {
-      "baseStats", "evolutions", "types", "level1Moves", "learnset", "tmhm",
-    })
-    local moves = project(data.moves, mappings.moveData, {
-      "type", "power", "accuracy", "pp",
-    })
+    local pokemon = project(
+      data.pokemon, mappings.pokemonMechanics, POKEMON_FIELDS)
+    local moves = project(data.moves, mappings.moveData, MOVE_FIELDS)
     return pokemon + moves
   end
 
