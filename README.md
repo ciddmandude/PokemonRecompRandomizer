@@ -185,9 +185,13 @@ validation rules, see the linked design documents above or the
 
 - gen1recomp `0.1.45+` is required for Yellow
 - mod API: `2`
+<<<<<<< Updated upstream
 - randomizer mod version: `0.46.0`
+=======
+- randomizer mod version: `0.46.3`
+>>>>>>> Stashed changes
 - generator contract: `1`
-- algorithm build: `1.17.0-dev`
+- algorithm build: `1.19.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
 - requested permissions: `filesystem` (spoiler export only)

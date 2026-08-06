@@ -3,7 +3,11 @@
   "title": "Pokemon Gen 1 Randomizer",
   "author": "ciddmandude",
   "summary": "A deterministic per-save randomizer for Pokemon Red, Blue, and Yellow in Gen1Recomp.",
+<<<<<<< Updated upstream
   "version": "0.46.0",
+=======
+  "version": "0.46.3",
+>>>>>>> Stashed changes
   "categories": [
     "GAMEPLAY",
     "BALANCE",

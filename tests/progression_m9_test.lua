@@ -34,6 +34,59 @@ assert(Progression.isPreEliteFour(walk))
 assert(Progression.describe(walk):find("Pallet/Viridian", 1, true))
 assert(Progression.locationName("ROUTE_11_GATE_2F") == "Route 11 Gate 2F")
 
+local routeTwo = Progression.access("ROUTE_2", "walk", nil, "red")
+assert(routeTwo.stage == Progression.STAGES.START,
+  "ordinary Route 2 access remains available at the start")
+local routeTwoItem = Progression.itemAccess({
+  kind = "visible", mapId = "ROUTE_2", objectIndex = 1,
+}, "red")
+assert(routeTwoItem.stage == Progression.STAGES.VERMILION,
+  "Route 2 item balls require the Cut stage")
+assert(table.concat(routeTwoItem.requirements, ",")
+    == "CASCADE_BADGE,HM01_CUT",
+  "Route 2 item balls record both halves of the Cut gate")
+
+local routeTwentyFiveItem = Progression.itemAccess({
+  kind = "visible", mapId = "ROUTE_25", original = "TM_SEISMIC_TOSS",
+}, "red")
+assert(routeTwentyFiveItem.stage == Progression.STAGES.VERMILION
+    and table.concat(routeTwentyFiveItem.requirements, ",")
+      == "CASCADE_BADGE,HM01_CUT",
+  "Route 25's item ball records its Cut gate")
+
+local routeTwelveIsland = Progression.itemAccess({
+  kind = "visible", mapId = "ROUTE_12", original = "TM_PAY_DAY",
+}, "red")
+assert(routeTwelveIsland.stage == Progression.STAGES.SURF
+    and table.concat(routeTwelveIsland.requirements, ",")
+      == "HM03_SURF,POKE_FLUTE,SOUL_BADGE",
+  "Route 12's island item records its Surf gate")
+
+local safariIsland = Progression.itemAccess({
+  kind = "visible", mapId = "SAFARI_ZONE_CENTER", original = "NUGGET",
+}, "red")
+assert(safariIsland.stage == Progression.STAGES.SURF
+    and table.concat(safariIsland.requirements, ",")
+      == "HM03_SURF,SAFARI_PASS,SOUL_BADGE",
+  "Safari Zone Center's island item records its Surf gate")
+
+local dreamEater = Progression.itemAccess({
+  kind = "scripted", id = "tm_dream_eater", mapId = "VIRIDIAN_CITY",
+  original = "TM_DREAM_EATER",
+}, "red")
+assert(dreamEater.stage == Progression.STAGES.VERMILION
+    and #dreamEater.anyRequirements == 2,
+  "Dream Eater records its alternative Cut-or-Surf routes")
+
+local flash = Progression.itemAccess({
+  kind = "scripted", id = "hm_flash", mapId = "ROUTE_2_GATE",
+  original = "HM_FLASH",
+}, "red")
+assert(flash.stage == Progression.STAGES.VERMILION
+    and table.concat(flash.requirements, ",")
+      == "CASCADE_BADGE,CAUGHT_10_POKEMON,HM01_CUT",
+  "Oak's Aide check records both Cut access and the caught-count gate")
+
 local routeOneWater = Progression.access("ROUTE_1", "surf", nil, "red")
 assert(routeOneWater.stage == Progression.STAGES.SURF)
 assert(routeOneWater.stage > walk.stage)

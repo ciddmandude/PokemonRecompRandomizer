@@ -25,7 +25,11 @@ local options = {}
 
 local mod = {
   id = "pokemon_randomizer",
+<<<<<<< Updated upstream
   version = "0.46.0",
+=======
+  version = "0.46.3",
+>>>>>>> Stashed changes
   path = ".",
   manifest = { api = 2 },
   content = {
@@ -276,7 +280,7 @@ assert(type(entry) == "function")
 entry(mod)
 
 assert(mod.exports.contractVersion == 1)
-assert(mod.exports.algorithmVersion == "1.17.0-dev")
+assert(mod.exports.algorithmVersion == "1.19.0-dev")
 assert(mod.exports.hashVersion == "fnv1a32x4-v1")
 assert(mod.exports.prngVersion == "xoshiro128ss-v1")
 assert(mod.exports.generator.foundationAvailable == true)
@@ -609,7 +613,11 @@ assert(isolatedRun.settings.wild_pokemon == exposedWild)
 assert(isolatedRun.mappings.wildGlobal.__EXTERNAL == nil)
 
 save.meta.mods = {
+<<<<<<< Updated upstream
   { id = "pokemon_randomizer", version = "0.46.0", api = 2 },
+=======
+  { id = "pokemon_randomizer", version = "0.46.3", api = 2 },
+>>>>>>> Stashed changes
   { id = "test_dependency", version = "1.2.3", api = 2 },
 }
 callbacks["save.loaded"]({ save = save, meta = save.meta, modsDiff = {} })

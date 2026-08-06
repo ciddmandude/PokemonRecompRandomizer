@@ -6,7 +6,11 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local modRoot = arg[1] or "E:/PokemonRecompRandomizer"
 local engineVersion = arg[2] or "0.1.38"
+<<<<<<< Updated upstream
 local modVersion = arg[3] or "0.46.0"
+=======
+local modVersion = arg[3] or "0.46.3"
+>>>>>>> Stashed changes
 require("src.core.Version").engine = engineVersion
 local T = require("tests.modkit")
 local Runtime = require("src.mods.Runtime")

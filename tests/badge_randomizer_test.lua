@@ -97,4 +97,50 @@ for _, row in ipairs(shuffled.placements) do
     "shuffled badges must remain Gym rewards")
 end
 
+local firstRng = {
+  value = 0,
+  nextU32 = function(self) self.value = self.value + 1 return self.value end,
+  nextInt = function(_, first) return first end,
+  shuffle = function(_, values)
+    local output = {}
+    for index, value in ipairs(values) do output[index] = value end
+    return output
+  end,
+}
+local routeTwoRegression = Category.generate({
+  items = {
+    POTION = { name = "POTION" },
+    CASCADEBADGE = { name = "CASCADEBADGE", keyItem = true },
+    HM_CUT = { name = "HM_CUT", machine = { kind = "HM" } },
+  },
+  maps = {
+    ROUTE_2 = { objects = { { index = 1, item = "POTION" } } },
+  },
+  field = { hiddenItems = {} },
+  scriptedItems = {
+    {
+      id = "misty_badge", mapId = "CERULEAN_GYM",
+      item = "CASCADEBADGE", flag = "BEAT_MISTY",
+      battle = true, command = false, badge = true,
+    },
+    {
+      id = "cut_hm", mapId = "CERULEAN_CITY", item = "HM_CUT",
+      command = true, battle = false,
+    },
+  },
+  gameVersion = "red",
+}, {
+  non_key_items = "mixed", tms = "off", hms = "mixed", key_items = "off",
+  badges = "mixed", ensure_beatable = "on", hidden_items = "off",
+  shops = "off",
+}, firstRng)
+assert(#routeTwoRegression.warnings == 0,
+  "Cut-gated Route 2 fixture should have a safe solution")
+for _, row in ipairs(routeTwoRegression.placements) do
+  if row.kind == "visible" and row.mapId == "ROUTE_2" then
+    assert(row.item ~= "CASCADEBADGE" and row.item ~= "HM_CUT",
+      "neither Cascade Badge nor HM Cut may be placed behind Route 2 trees")
+  end
+end
+
 io.write("badge_randomizer_test: ok\n")

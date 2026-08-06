@@ -366,7 +366,7 @@ return function(StableSort, EvolutionCategory)
     return result
   end
 
-  local function shuffledCompatibility(species, rng)
+  local function shuffledCompatibility(species, rng, protectedSpecies)
     local machines, source = {}, {}
     for index, entry in ipairs(species) do
       source[index] = {}
@@ -387,10 +387,25 @@ return function(StableSort, EvolutionCategory)
         end
       end
     end
+    local requiredHms = { "CUT", "FLASH", "STRENGTH", "SURF" }
+    for _, speciesId in ipairs(protectedSpecies or {}) do
+      local list = result[speciesId]
+      if list then
+        local present = {}
+        for _, move in ipairs(list) do present[move] = true end
+        for _, move in ipairs(requiredHms) do
+          if machines[move] and not present[move] then
+            list[#list + 1] = move
+            present[move] = true
+          end
+        end
+        table.sort(list)
+      end
+    end
     return result
   end
 
-  function Mechanics.generate(manifest, sources, settings, rngs)
+  function Mechanics.generate(manifest, sources, settings, rngs, context)
     local species = sortedSpecies(manifest.entries)
     local moves = sortedMoves(sources.moves or {})
     local types = uniqueTypes(species, moves, sources.typeIds)
@@ -413,7 +428,9 @@ return function(StableSort, EvolutionCategory)
     local movesets = generateMovesets(
       species, moves, movesData, pokemonTypes, settings, rngs.movesets)
     local compatibility = settings.tmhm_compatibility == "shuffled"
-      and shuffledCompatibility(species, rngs.compatibility) or {}
+      and shuffledCompatibility(species, rngs.compatibility,
+        settings.ensure_beatable == "on" and context
+          and context.progressionSpecies or nil) or {}
     local pokemon = {}
     for _, entry in ipairs(species) do
       local row = {}

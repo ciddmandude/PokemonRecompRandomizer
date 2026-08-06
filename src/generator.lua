@@ -289,6 +289,24 @@ return function(
         or settings.move_data ~= nil and settings.move_data ~= "vanilla"
     end
     if mechanicsEnabled(request.settings) then
+      local progressionSpecies, seenProgressionSpecies = {}, {}
+      for _, starter in pairs(result.mappings.starters or {}) do
+        local speciesId = type(starter) == "table" and starter.species or starter
+        if type(speciesId) == "string" and not seenProgressionSpecies[speciesId] then
+          seenProgressionSpecies[speciesId] = true
+          progressionSpecies[#progressionSpecies + 1] = speciesId
+        end
+      end
+      if #progressionSpecies == 0 then
+        local version = string.lower(tostring(request.sources
+          and (request.sources.gameVersion or request.sources.version) or "red"))
+        local vanilla = version == "yellow" and { "PIKACHU" }
+          or { "BULBASAUR", "CHARMANDER", "SQUIRTLE" }
+        for _, speciesId in ipairs(vanilla) do
+          progressionSpecies[#progressionSpecies + 1] = speciesId
+        end
+      end
+      table.sort(progressionSpecies)
       local ok, category = pcall(MechanicsCategory.generate,
         manifest, request.sources or {}, request.settings, {
           stats = Foundation.Rng.fromSeed(
@@ -313,7 +331,7 @@ return function(
             pp = Foundation.Rng.fromSeed(
               request.seed.canonical, "mechanics.move_pp"),
           },
-        })
+        }, { progressionSpecies = progressionSpecies })
       if ok then
         result.mappings.pokemonMechanics = category.pokemonMechanics
         result.mappings.moveData = category.moveData

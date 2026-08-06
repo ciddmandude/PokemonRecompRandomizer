@@ -87,6 +87,23 @@ its ROM-specific nine-trade table, and stable Yellow Game Corner IDs. Red and
 Blue golden mappings remain byte-for-byte unchanged. Existing saved runs keep
 their stored mappings and are never regenerated.
 
+Algorithm build `1.18.0-dev` distinguishes item-check access from general map
+access. In particular, Route 2 remains an early map, while its two visible
+item balls are modeled at the Vermilion/Cut stage with Cascade Badge and HM01
+requirements. This prevents Progression Safety from placing Cascade Badge
+behind the trees whose removal it enables. Existing saved runs keep their
+stored mappings and are never regenerated.
+
+Algorithm build `1.19.0-dev` expands that model to the known Cut- and
+Surf-gated checks on Routes 12 and 25, Route 2 Gate, Vermilion Gym, Viridian
+City, Safari Zone Center, Celadon Gym, the Warden, Bike Shop, Fly house, and
+Museum rewards. Safety-constrained item shuffles now run a deterministic
+dependency-sphere check and reject multi-item cycles, randomized shops retain
+one Saffron-access vending drink, and shuffled TM/HM compatibility grants the
+possible player starters compatibility with the required field HMs. These
+changes intentionally alter newly generated mappings; existing saved runs
+keep their stored mappings.
+
 ## 1. Numeric model
 
 All words are unsigned 32-bit integers in the inclusive range

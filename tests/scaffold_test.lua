@@ -54,13 +54,17 @@ nil, Progression, ValidationCategory)
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
+<<<<<<< Updated upstream
 assert(Constants.MOD_VERSION == "0.46.0")
+=======
+assert(Constants.MOD_VERSION == "0.46.3")
+>>>>>>> Stashed changes
 assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
 assert(Constants.OPTIONS_SCREEN_ID == "PokemonRandomizerOptions")
 assert(Constants.REVIEW_SCREEN_ID == "PokemonRandomizerReview")
 assert(Generator.available == true)
 assert(Generator.foundationAvailable == true)
-assert(Generator.algorithmVersion == "1.17.0-dev")
+assert(Generator.algorithmVersion == "1.19.0-dev")
 assert(type(SaveState.validate) == "function")
 
 local request = {

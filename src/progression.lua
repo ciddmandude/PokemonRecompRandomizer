@@ -71,9 +71,12 @@ return function(StableSort)
 
   local EXACT_MAPS = {
     PALLET_TOWN = { stage = 0 },
+    OAKS_LAB = { stage = 0 },
+    REDS_HOUSE_1F = { stage = 0 },
     REDS_HOUSE_2F = { stage = 0 },
     ROUTE_1 = { stage = 0 },
     VIRIDIAN_CITY = { stage = 0 },
+    VIRIDIAN_MART = { stage = 0 },
     ROUTE_22 = { stage = 0 },
     ROUTE_2 = { stage = 0 },
     VIRIDIAN_FOREST = { stage = 0 },
@@ -91,13 +94,27 @@ return function(StableSort)
     CERULEAN_MELANIES_HOUSE = { stage = 2 },
     ROUTE_24 = { stage = 2 },
     ROUTE_25 = { stage = 2 },
+    BILLS_HOUSE = { stage = 2 },
+    BIKE_SHOP = { stage = 2 },
 
     ROUTE_5 = { stage = 2 },
     UNDERGROUND_PATH_ROUTE_5 = { stage = 2 },
     ROUTE_6 = { stage = 3 },
     VERMILION_CITY = { stage = 3 },
     VERMILION_GYM = { stage = 3 },
+    VERMILION_OLD_ROD_HOUSE = { stage = 3 },
+    POKEMON_FAN_CLUB = { stage = 3 },
+    SS_ANNE_CAPTAINS_ROOM = {
+      stage = 3, requirements = { "S_S_TICKET" },
+    },
     ROUTE_11 = { stage = 3 },
+    ROUTE_11_GATE_2F = { stage = 3 },
+    ROUTE_2_GATE = {
+      stage = 3, requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    },
+    ROUTE_2_TRADE_HOUSE = {
+      stage = 3, requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    },
     DIGLETTS_CAVE = { stage = 3 },
     DIGLETTS_CAVE_ENTRANCE_ROUTE_2 = { stage = 3, requirements = { "HM01_CUT" } },
     DIGLETTS_CAVE_ENTRANCE_ROUTE_11 = { stage = 3 },
@@ -115,24 +132,47 @@ return function(StableSort)
     POKEMON_TOWER_6F = { stage = 4, requirements = { "SILPH_SCOPE" } },
     POKEMON_TOWER_7F = { stage = 4, requirements = { "SILPH_SCOPE" } },
     CELADON_CITY = { stage = 4 },
-    CELADON_GYM = { stage = 4 },
+    CELADON_GYM = {
+      stage = 4, requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    },
+    CELADON_DINER = { stage = 4 },
+    CELADON_MART_3F = { stage = 4 },
+    CELADON_MART_ROOF = { stage = 4 },
     CELADON_MANSION_ROOF_HOUSE = { stage = 4 },
+    MUSEUM_1F = { stage = 1 },
     MT_MOON_POKECENTER = { stage = 1 },
 
     ROUTE_12 = { stage = 5, requirements = { "POKE_FLUTE" } },
+    ROUTE_12_GATE_2F = { stage = 4 },
+    ROUTE_12_SUPER_ROD_HOUSE = {
+      stage = 5, requirements = { "POKE_FLUTE" },
+    },
     ROUTE_13 = { stage = 5, requirements = { "POKE_FLUTE" } },
     ROUTE_14 = { stage = 5 },
     ROUTE_15 = { stage = 5 },
     ROUTE_16 = { stage = 5, requirements = { "POKE_FLUTE" } },
+    ROUTE_16_FLY_HOUSE = {
+      stage = 5, requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    },
     ROUTE_17 = { stage = 5, requirements = { "POKE_FLUTE" } },
     ROUTE_18 = { stage = 5 },
     FUCHSIA_CITY = { stage = 5 },
     FUCHSIA_GYM = { stage = 5 },
+    FUCHSIA_GOOD_ROD_HOUSE = { stage = 5 },
+    WARDENS_HOUSE = { stage = 5 },
+    SAFARI_ZONE_SECRET_HOUSE = {
+      stage = 5, requirements = { "SAFARI_PASS" },
+    },
+    ROUTE_15_GATE_2F = { stage = 5 },
     FIGHTING_DOJO = {
       stage = 4,
       requirements = { "SAFFRON_ACCESS" },
     },
     SILPH_CO_7F = { stage = 7, requirements = { "SILPH_CO_ACCESS" } },
+    SILPH_CO_2F = { stage = 7, requirements = { "SILPH_CO_ACCESS" } },
+    SILPH_CO_11F = { stage = 7, requirements = { "SILPH_CO_ACCESS" } },
+    COPYCATS_HOUSE_2F = { stage = 7, requirements = { "SAFFRON_ACCESS" } },
+    MR_PSYCHICS_HOUSE = { stage = 7, requirements = { "SAFFRON_ACCESS" } },
     SAFFRON_GYM = { stage = 7, requirements = { "SAFFRON_ACCESS" } },
 
     ROUTE_19 = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
@@ -148,6 +188,8 @@ return function(StableSort)
     CINNABAR_GYM = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE",
       "SECRET_KEY" } },
     CINNABAR_LAB_FOSSIL_ROOM = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
+    CINNABAR_LAB_METRONOME_ROOM = { stage = 6,
+      requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POKEMON_MANSION_1F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POKEMON_MANSION_2F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
     POKEMON_MANSION_3F = { stage = 6, requirements = { "HM03_SURF", "SOUL_BADGE" } },
@@ -190,10 +232,104 @@ return function(StableSort)
     SUPER_ROD = { stage = 5, requirement = "SUPER_ROD" },
   }
 
+  -- Map access and item-check access are not always the same. These rules are
+  -- deliberately check-specific so an early part of a map does not make an
+  -- item behind Cut, Surf, or an NPC requirement look early as well. Rules may
+  -- identify a whole check kind or one vanilla source id/item. anyRequirements
+  -- represents alternative routes (for example Cut OR Surf).
+  local ITEM_CHECK_RULES = {
+    ROUTE_2 = {{
+      kind = "visible",
+      stage = Progression.STAGES.VERMILION,
+      requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    }},
+    ROUTE_2_GATE = {{
+      id = "hm_flash",
+      stage = Progression.STAGES.VERMILION,
+      requirements = {
+        "CASCADE_BADGE", "CAUGHT_10_POKEMON", "HM01_CUT",
+      },
+    }},
+    ROUTE_25 = {{
+      kind = "visible", original = "TM_SEISMIC_TOSS",
+      stage = Progression.STAGES.VERMILION,
+      requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    }},
+    VIRIDIAN_CITY = {{
+      id = "tm_dream_eater",
+      stage = Progression.STAGES.VERMILION,
+      anyRequirements = {
+        { "CASCADE_BADGE", "HM01_CUT" },
+        { "HM03_SURF", "SOUL_BADGE" },
+      },
+    }},
+    VERMILION_GYM = {{
+      kind = "scripted",
+      stage = Progression.STAGES.VERMILION,
+      anyRequirements = {
+        { "CASCADE_BADGE", "HM01_CUT" },
+        { "HM03_SURF", "SOUL_BADGE" },
+      },
+    }},
+    ROUTE_12 = {{
+      kind = "visible", original = "TM_PAY_DAY",
+      stage = Progression.STAGES.SURF,
+      requirements = { "HM03_SURF", "SOUL_BADGE" },
+    }},
+    SAFARI_ZONE_CENTER = {{
+      kind = "visible", original = "NUGGET",
+      stage = Progression.STAGES.SURF,
+      requirements = { "HM03_SURF", "SOUL_BADGE" },
+    }},
+    WARDENS_HOUSE = {{
+      id = "hm_strength",
+      stage = Progression.STAGES.FUCHSIA,
+      requirements = { "GOLD_TEETH" },
+    }},
+    BIKE_SHOP = {{
+      id = "bicycle",
+      stage = Progression.STAGES.CERULEAN,
+      requirements = { "BIKE_VOUCHER" },
+    }},
+    ROUTE_11_GATE_2F = {{
+      id = "itemfinder",
+      stage = Progression.STAGES.VERMILION,
+      requirements = { "CAUGHT_30_POKEMON" },
+    }},
+    ROUTE_15_GATE_2F = {{
+      id = "exp_all",
+      stage = Progression.STAGES.FUCHSIA,
+      requirements = { "CAUGHT_50_POKEMON" },
+    }},
+    ROUTE_16_FLY_HOUSE = {{
+      id = "hm_fly",
+      stage = Progression.STAGES.FUCHSIA,
+      requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    }},
+    MUSEUM_1F = {{
+      id = "old_amber",
+      stage = Progression.STAGES.VERMILION,
+      requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    }},
+    CELADON_GYM = {{
+      kind = "scripted",
+      stage = Progression.STAGES.VERMILION,
+      requirements = { "CASCADE_BADGE", "HM01_CUT" },
+    }},
+  }
+
   local function copyArray(values)
     local result = {}
     for index, value in ipairs(values or {}) do
       result[index] = value
+    end
+    return result
+  end
+
+  local function copyNestedArrays(groups)
+    local result = {}
+    for index, group in ipairs(groups or {}) do
+      result[index] = copyArray(group)
     end
     return result
   end
@@ -381,6 +517,39 @@ return function(StableSort)
       requirements = requirements,
       postgame = rule.postgame == true or stage > Progression.PRE_ELITE_FOUR_MAX,
     }
+  end
+
+  function Progression.itemAccess(row, version)
+    row = row or {}
+    local access = Progression.access(row.mapId, "walk", nil, version)
+    if not access.available then return access end
+
+    local mapRules = ITEM_CHECK_RULES[tostring(row.mapId or "")]
+    local rule
+    for _, candidate in ipairs(mapRules or {}) do
+      if (candidate.kind == nil or candidate.kind == row.kind)
+          and (candidate.id == nil or candidate.id == row.id)
+          and (candidate.original == nil
+            or candidate.original == row.original) then
+        rule = candidate
+        break
+      end
+    end
+    if not rule then return access end
+
+    access.stage = math.max(access.stage, rule.stage)
+    for _, requirement in ipairs(rule.requirements or {}) do
+      appendUnique(access.requirements, requirement)
+    end
+    access.requirements = StableSort.sort(
+      access.requirements, function(a, b) return a < b end)
+    access.anyRequirements = copyNestedArrays(rule.anyRequirements)
+    for _, group in ipairs(access.anyRequirements) do
+      table.sort(group)
+    end
+    access.stageName = Progression.stageName(access.stage)
+    access.postgame = access.stage > Progression.PRE_ELITE_FOUR_MAX
+    return access
   end
 
   function Progression.tradeAccess(record, version)

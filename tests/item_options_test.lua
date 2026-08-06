@@ -29,6 +29,7 @@ local items = {
   OAKS_PARCEL = { name = "OAK'S PARCEL", price = 0, keyItem = true },
   BOULDERBADGE = { name = "BOULDERBADGE", price = 0, keyItem = true },
   CASCADEBADGE = { name = "CASCADEBADGE", price = 0, keyItem = true },
+  FRESH_WATER = { name = "FRESH WATER", price = 200 },
   FLOOR_1F = { name = "1F", price = 0 },
   FLOOR_ROOF = { name = "ROOF", price = 0 },
   UNUSED_ITEM_1 = { name = "?????", price = 0 },
@@ -198,7 +199,7 @@ end
 local shops = Category.generate(sources, { non_key_items = "off", tms = "on",
   hms = "full_random", key_items = "full_random", shops = "on",
   shop_prices = "random" }, rng)
-local sawShop, sawTm, sawKey = false, false, false
+local sawShop, sawTm, sawKey, sawSaffronDrink = false, false, false, false
 for _, row in ipairs(shops.placements) do
   if row.kind == "shop" then
     sawShop = true
@@ -210,10 +211,44 @@ for _, row in ipairs(shops.placements) do
     assert(row.price == 1700, "random price is seeded and bounded")
     sawTm = sawTm or row.category == "tm"
     sawKey = sawKey or row.category == "key"
+    sawSaffronDrink = sawSaffronDrink
+      or row.talkKey == "vending" and row.item == "FRESH_WATER"
   end
 end
 assert(sawShop and sawTm and sawKey,
   "full-random shops include enabled TM and supported key-item pools")
+assert(sawSaffronDrink,
+  "progression safety preserves a vending drink for Saffron access")
+
+local CycleProgression = {
+  STAGES = Progression.STAGES,
+  access = Progression.access,
+  itemAccess = function(row)
+    return {
+      available = true, stage = Progression.STAGES.START,
+      requirements = row.mapId == "A" and { "S_S_TICKET" }
+        or { "OAKS_PARCEL" },
+    }
+  end,
+}
+local CycleCategory = loadFactory(
+  "src/item_category.lua", StableSort, CycleProgression, ItemFilter)
+local cycle = CycleCategory.generate({
+  items = {
+    OAKS_PARCEL = { name = "OAK'S PARCEL", keyItem = true },
+    S_S_TICKET = { name = "S.S. TICKET", keyItem = true },
+  },
+  maps = {
+    A = { objects = { { index = 1, item = "OAKS_PARCEL" } } },
+    B = { objects = { { index = 1, item = "S_S_TICKET" } } },
+  },
+}, {
+  non_key_items = "vanilla", tms = "vanilla", hms = "vanilla",
+  key_items = "shuffled", badges = "vanilla", hidden_items = "vanilla",
+  ensure_beatable = "on", shops = "vanilla",
+}, rng)
+assert(#cycle.placements == 0 and #cycle.warnings == 1,
+  "progression safety rejects a two-item dependency cycle")
 
 local catalog = {
   { id = "direct", mapId = "EARLY", item = "POTION", flag = "GOT",

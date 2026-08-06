@@ -1,8 +1,13 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
+<<<<<<< Updated upstream
 Mod version .......... 0.43.6
 Algorithm build ...... 1.15.0-dev
+=======
+Mod version .......... 0.46.3
+Algorithm build ...... 1.19.0-dev
+>>>>>>> Stashed changes
 Engine compatibility . API 2  (0.1.45 required for Yellow)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
@@ -58,7 +63,11 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
+<<<<<<< Updated upstream
       ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.43.6.zip
+=======
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.46.3.zip
+>>>>>>> Stashed changes
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -576,7 +585,11 @@ SEED-01 [P0] Manual seed produces a stable run code - PASSED
   EXPECT: SEED reads TEST A both times.
   EXPECT: run code is identical both times, in the form
           R1-XXXXXXXX-XXXXXXXX-XXXXXXXX.
+<<<<<<< Updated upstream
   EXPECT: ALGORITHM reads 1.15.0-dev.
+=======
+  EXPECT: ALGORITHM reads 1.19.0-dev.
+>>>>>>> Stashed changes
 
 SEED-02 [P0] Same seed, same everything, identical mappings - PASSED
   1. Do SEED-01 twice, exporting spoilers each time.
@@ -1794,7 +1807,11 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
+<<<<<<< Updated upstream
           compatibility block, and the archive file name all read 0.43.6.
+=======
+          compatibility block, and the archive file name all read 0.46.3.
+>>>>>>> Stashed changes
 
 REL-05 [P1] Unsupported mod API
   1. Install on an engine without mod API 2 if one is available.

@@ -170,12 +170,37 @@ end
 assert(compatibilityCount("CUT") == 2)
 assert(compatibilityCount("MEGA_DRAIN") == 2)
 
+<<<<<<< Updated upstream
 local game = { data = { pokemon = {}, moves = {} } }
 for _, entry in ipairs(species) do
   game.data.pokemon[entry.id] = {
     baseStats = entry.stats, evolutions = entry.evolutions, types = entry.types,
     level1Moves = entry.level1Moves, learnset = entry.learnset, tmhm = entry.tmhm,
   }
+=======
+local hmSafe = Mechanics.generate({ entries = species }, source, {
+  tmhm_compatibility = "shuffled", ensure_beatable = "on",
+}, streams("HM SAFETY"), { progressionSpecies = { "SOLO" } })
+local starterCanCut = false
+for _, move in ipairs(hmSafe.pokemonMechanics.SOLO.tmhm) do
+  starterCanCut = starterCanCut or move == "CUT"
+end
+assert(starterCanCut,
+  "progression safety makes a protected starter compatible with required HMs")
+
+local function makeGame()
+  local game = { data = { pokemon = {}, moves = {} } }
+  for _, entry in ipairs(species) do
+    game.data.pokemon[entry.id] = {
+      baseStats = clone(entry.stats), evolutions = clone(entry.evolutions),
+      types = clone(entry.types), level1Moves = clone(entry.level1Moves),
+      learnset = clone(entry.learnset), tmhm = clone(entry.tmhm),
+      externalField = { owner = "other-mod" },
+    }
+  end
+  for id, move in pairs(moves) do game.data.moves[id] = clone(move) end
+  return game
+>>>>>>> Stashed changes
 end
 for id, move in pairs(moves) do game.data.moves[id] = move end
 Runtime.capture(game)

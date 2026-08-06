@@ -9,6 +9,31 @@ return function(StableSort, Progression, ItemFilter)
     VOLCANOBADGE = true, EARTHBADGE = true,
   }
   local OPTIONAL_SOURCES = { dome_fossil = true, helix_fossil = true }
+  local REQUIREMENT_IDS = {
+    BOULDERBADGE = "BOULDER_BADGE",
+    CASCADEBADGE = "CASCADE_BADGE",
+    THUNDERBADGE = "THUNDER_BADGE",
+    RAINBOWBADGE = "RAINBOW_BADGE",
+    SOULBADGE = "SOUL_BADGE",
+    MARSHBADGE = "MARSH_BADGE",
+    VOLCANOBADGE = "VOLCANO_BADGE",
+    EARTHBADGE = "EARTH_BADGE",
+    HM_CUT = "HM01_CUT",
+    HM_FLY = "HM02_FLY",
+    HM_SURF = "HM03_SURF",
+    HM_STRENGTH = "HM04_STRENGTH",
+    HM_FLASH = "HM05_FLASH",
+  }
+  local PROGRESSION_ITEMS = {
+    OAKS_PARCEL = true, S_S_TICKET = true, POKE_FLUTE = true,
+    SILPH_SCOPE = true, LIFT_KEY = true, GOLD_TEETH = true,
+    CARD_KEY = true, SECRET_KEY = true, BIKE_VOUCHER = true,
+    BICYCLE = true, HM_CUT = true, HM_FLY = true, HM_SURF = true,
+    HM_STRENGTH = true, HM_FLASH = true,
+    BOULDERBADGE = true, CASCADEBADGE = true, THUNDERBADGE = true,
+    RAINBOWBADGE = true, SOULBADGE = true, MARSHBADGE = true,
+    VOLCANOBADGE = true, EARTHBADGE = true,
+  }
 
   local LEGACY_MODES = {
     non_key = { off = "vanilla", on = "shuffled" },
@@ -106,9 +131,33 @@ return function(StableSort, Progression, ItemFilter)
     return output
   end
 
-  local function stage(row, version)
-    local access = Progression.access(row.mapId, "walk", nil, version)
-    return access.available and access.stage or Progression.STAGES.POSTGAME
+  local function itemAccess(row, version)
+    if type(Progression.itemAccess) == "function" then
+      return Progression.itemAccess(row, version)
+    end
+    return Progression.access(row.mapId, "walk", nil, version)
+  end
+
+  local function requirementBlocks(itemId, requirements)
+    local requirementId = REQUIREMENT_IDS[itemId] or itemId
+    for _, requirement in ipairs(requirements or {}) do
+      if requirement == requirementId then return true end
+    end
+    return false
+  end
+
+  local function accessBlocks(itemId, access)
+    if requirementBlocks(itemId, access and access.requirements) then
+      return true
+    end
+    local alternatives = access and access.anyRequirements or {}
+    if #alternatives == 0 then return false end
+    -- An alternative gate blocks the item only when every route to the check
+    -- needs that same item. A later sphere pass handles multi-item cycles.
+    for _, requirements in ipairs(alternatives) do
+      if not requirementBlocks(itemId, requirements) then return false end
+    end
+    return true
   end
 
   local function requiredStage(itemId, fallback)
@@ -145,13 +194,22 @@ return function(StableSort, Progression, ItemFilter)
       return a.tie < b.tie
     end)
     for _, row in ipairs(destinations) do
-      available[#available + 1] = { row = row, stage = stage(row, version) }
+      local access = itemAccess(row, version)
+        available[#available + 1] = {
+        row = row,
+        stage = access.available and access.stage
+          or Progression.STAGES.POSTGAME,
+        requirements = access.requirements,
+        anyRequirements = access.anyRequirements,
+      }
     end
     local output = {}
     for _, item in ipairs(pending) do
       local choices, nonmatching = {}, {}
       for index, destination in ipairs(available) do
-        if not constrained or destination.stage <= item.required then
+          if not constrained
+            or destination.stage <= item.required
+              and not accessBlocks(item.id, destination) then
           choices[#choices + 1] = index
           if destination.row.original ~= item.id then
             nonmatching[#nonmatching + 1] = index
@@ -167,6 +225,55 @@ return function(StableSort, Progression, ItemFilter)
       output[#output + 1] = row
     end
     return output
+  end
+
+
+  local function dependencySafe(placements, version)
+    local providers, pending, collected = {}, {}, {}
+    for _, row in ipairs(placements or {}) do
+      if PROGRESSION_ITEMS[row.item] then
+        local requirement = REQUIREMENT_IDS[row.item] or row.item
+        providers[requirement] = providers[requirement] or {}
+        providers[requirement][#providers[requirement] + 1] = row.item
+        pending[#pending + 1] = row
+      end
+    end
+
+    local function groupSatisfied(requirements)
+      for _, requirement in ipairs(requirements or {}) do
+        for _, itemId in ipairs(providers[requirement] or {}) do
+          if not collected[itemId] then return false end
+        end
+      end
+      return true
+    end
+
+    local function reachable(row)
+      local access = itemAccess(row, version)
+      if not access.available or access.postgame then return false end
+      if not groupSatisfied(access.requirements) then return false end
+      local alternatives = access.anyRequirements or {}
+      if #alternatives == 0 then return true end
+      for _, group in ipairs(alternatives) do
+        if groupSatisfied(group) then return true end
+      end
+      return false
+    end
+
+    while #pending > 0 do
+      local nextPending, progressed = {}, false
+      for _, row in ipairs(pending) do
+        if reachable(row) then
+          collected[row.item] = true
+          progressed = true
+        else
+          nextPending[#nextPending + 1] = row
+        end
+      end
+      if not progressed then return false end
+      pending = nextPending
+    end
+    return true
   end
 
   local function closedShuffle(rows, rng, version, constrained)
@@ -199,7 +306,7 @@ return function(StableSort, Progression, ItemFilter)
     local attempts = math.max(8, math.min(64, #rows * 2))
     for _ = 1, attempts do
       local candidate = assignItems(items, rows, rng, version, constrained)
-      if candidate then
+       if candidate and dependencySafe(candidate, version) then
         local fixed = 0
         for _, row in ipairs(candidate) do
           if row.item == row.original then fixed = fixed + 1 end
@@ -218,7 +325,7 @@ return function(StableSort, Progression, ItemFilter)
     if row.kind == "hidden" and hidden ~= "mixed" then return false end
     if row.kind == "scripted" and OPTIONAL_SOURCES[row.id] then return false end
     if not constrained then return true end
-    local access = Progression.access(row.mapId, "walk", nil, version)
+    local access = itemAccess(row, version)
     return access.available and not access.postgame
   end
 
@@ -321,6 +428,20 @@ return function(StableSort, Progression, ItemFilter)
     }) do
       for slot, original in ipairs(special[3]) do
         addShop(special[1], nil, special[2], slot, original)
+      end
+    end
+    if safetyOn(settings) and sources.items
+        and sources.items.FRESH_WATER then
+      -- The Saffron guards accept any vending-machine drink. Preserve one
+      -- deterministic drink slot so randomized shops cannot remove every
+      -- route into Saffron City.
+      for _, row in ipairs(rows) do
+        if row.talkKey == "vending" and row.slot == 1 then
+          row.item = "FRESH_WATER"
+          row.category = category(row.item, sources.items)
+          row.price = selectedPrice(row.item)
+          break
+        end
       end
     end
     return rows
