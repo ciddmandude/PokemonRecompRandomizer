@@ -63,7 +63,7 @@ local Streams, StreamNames = buildStreamRegistry(STREAM_DEFINITIONS)
 
 return {
   MOD_ID = "pokemon_randomizer",
-  MOD_VERSION = "0.46.3",
+  MOD_VERSION = "0.46.4",
   MOD_API = 2,
 
   CONTRACT_VERSION = 1,

@@ -54,7 +54,7 @@ nil, Progression, ValidationCategory)
 
 assert(Constants.MOD_API == 2)
 assert(Constants.MOD_ID == "pokemon_randomizer")
-assert(Constants.MOD_VERSION == "0.46.3")
+assert(Constants.MOD_VERSION == "0.46.4")
 assert(Constants.SAVE_CHECKSUM_VERSION == "fnv1a32x4-save-v1")
 assert(Constants.OPTIONS_SCREEN_ID == "PokemonRandomizerOptions")
 assert(Constants.REVIEW_SCREEN_ID == "PokemonRandomizerReview")

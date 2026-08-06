@@ -94,12 +94,17 @@ original vanilla values. A complete plaintext spoiler, including settings, can
 be exported manually to
 `%APPDATA%\pokemon-love2d\pokemon_randomizer\spoilers`. The mod requests
 filesystem permission only for this explicit export and never creates a
-spoiler file automatically when a game starts.
+spoiler file automatically when a game starts. It also requests
+engine-internals permission so randomized vending purchases use the engine's
+canonical bag insertion behavior, including capacity changes contributed by
+other mods.
 
 ## Compatibility and limitations
 
 - Requires Gen1Recomp mod API 2.
 - Pokemon Yellow requires Gen1Recomp 0.1.45 or newer.
+- Gen1Recomp 0.1.50 or newer is required for randomized vending machines to
+  honor another mod's merged bag capacity.
 - Supports Red, Blue, and Yellow ROM imports.
 - Does not modify the user's ROM or Gen1Recomp installation.
 - Linked players should use matching randomizer versions, seeds, settings, and

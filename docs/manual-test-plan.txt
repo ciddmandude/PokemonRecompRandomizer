@@ -1,9 +1,9 @@
 ================================================================================
 POKEMON GEN 1 RECOMP RANDOMIZER - MANUAL TEST PLAN
 ================================================================================
-Mod version .......... 0.46.3
+Mod version .......... 0.46.4
 Algorithm build ...... 1.19.0-dev
-Engine compatibility . API 2  (0.1.45 required for Yellow)
+Engine compatibility . API 2  (0.1.45 for Yellow; 0.1.50 for modded bag capacity)
 Mod API .............. 2
 Run code format ...... R1-<seed8>-<settings8>-<pool8>
 Plan revision ........ 1
@@ -58,7 +58,7 @@ whether one-time events stay consistent, and whether the engine seams behave.
 
   From the repo root:
       ./tools/test.ps1                       # must be fully green first
-      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.46.3.zip
+      ./tools/package.ps1                    # writes dist/pokemon_randomizer-0.46.4.zip
 
   Install the produced zip through the engine's mod manager (F10), or extract it
   into the engine's mods directory. Do NOT test a hand-copied source tree: half
@@ -1514,6 +1514,17 @@ ITM-24 [P0] Safe MIXED excludes unreachable source checks
   EXPECT: reachable checks are randomized. Postgame or unknown checks stay
           vanilla and do not cause the entire mixed pool to fall back.
 
+ITM-25 [P0] Randomized vending honors merged bag capacity
+  1. Use Gen1Recomp 0.1.50 or newer and enable a second mod that increases
+     Data.constants.bagSize above 20.
+  2. Fill more than 20 distinct non-badge bag slots, set SHOPS = RANDOMIZED,
+     and buy a new item from a Celadon rooftop vending machine.
+  EXPECT: the purchase succeeds while below the merged capacity, appends the
+          item to bag order, and deducts the displayed price.
+  3. Fill the merged capacity and try another new item, then try buying an
+     existing stack that already contains 99 items.
+  EXPECT: both purchases show NO ROOM IN BAG, add nothing, and deduct no money.
+
 
 --------------------------------------------------------------------------------
 15. TRAINERS
@@ -1819,7 +1830,7 @@ REL-03 [P1] Payload contents
 
 REL-04 [P1] Version consistency
   EXPECT: manifest.json version, src/constants.lua MOD_VERSION, the README
-          compatibility block, and the archive file name all read 0.46.3.
+          compatibility block, and the archive file name all read 0.46.4.
 
 REL-05 [P1] Unsupported mod API
   1. Install on an engine without mod API 2 if one is available.

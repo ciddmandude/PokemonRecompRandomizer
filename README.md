@@ -3,7 +3,8 @@
 A deterministic, per-save randomizer for
 [Pokémon Gen 1 Recomp](https://github.com/bryanthaboi/gen1recomp).
 Red, Blue, and Yellow ROM imports are supported. Yellow support requires
-gen1recomp 0.1.45 or newer.
+gen1recomp 0.1.45 or newer. Gen1Recomp 0.1.50 or newer is required for
+randomized vending machines to honor another mod's merged bag capacity.
 
 ## Settings
 
@@ -219,13 +220,16 @@ validation rules, see the linked design documents above or the
 ## Compatibility
 
 - gen1recomp `0.1.45+` is required for Yellow
+- gen1recomp `0.1.50+` is required for modded bag capacity to affect
+  randomized vending machines
 - mod API: `2`
-- randomizer mod version: `0.46.3`
+- randomizer mod version: `0.46.4`
 - generator contract: `1`
 - algorithm build: `1.19.0-dev`
 - hash: `fnv1a32x4-v1`
 - PRNG: `xoshiro128ss-v1`
-- requested permissions: `filesystem` (spoiler export only)
+- requested permissions: `engine_internals` (canonical bag insertion for
+  randomized vending) and `filesystem` (manual spoiler export only)
 
 The engine validates the API and game-version range before executing the mod.
 The bootstrap also verifies the mod object's required API-2 surfaces. A failed
@@ -275,9 +279,11 @@ belong in the project’s release-artifact storage.
 ## Design guarantees
 
 - Gameplay hooks are registered only after deterministic generation exists.
-- The only requested permission is `filesystem`, used exclusively for
-  user-requested or opt-in plaintext spoiler-log export. No network or
-  engine-internals permission is requested.
+- `engine_internals` is used only to route randomized vending purchases
+  through the engine's canonical bag insertion logic, including merged bag
+  capacity, stack limits, badge handling, and acquisition order. `filesystem`
+  is used only for user-requested plaintext spoiler export. No network
+  permission is requested.
 - Generator request validation does not mutate its input.
 - Seed, hash, PRNG, sorting, and shuffle behavior is independent of platform
   bit libraries and table iteration order.

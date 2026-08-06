@@ -663,6 +663,11 @@ editable next-run option.
 
 `FR-22` New Game shall never export a spoiler file automatically. The in-game viewer and explicit file export shall be available only when the active run saved Enable Spoiler Log as `ON`; export failure shall leave the valid save intact and produce an attributed log message.
 
+`FR-23` Randomized Celadon vending purchases shall use the engine's canonical
+bag insertion operation. On Gen1Recomp 0.1.50 or newer they shall honor the
+merged `Data.constants.bagSize`, the 99-item stack limit, badge exclusion, and
+acquisition order. A rejected purchase shall not deduct money.
+
 ## 11. Non-functional requirements
 
 `NFR-01 Determinism` Generation results must be identical across supported Windows, macOS, and Linux builds and across LuaJIT/LÖVE environments supported by the engine.
@@ -675,7 +680,11 @@ editable next-run option.
 
 `NFR-05 Isolation` Errors must be logged against `pokemon_randomizer` and degrade to vanilla for the affected call or session.
 
-`NFR-06 Compatibility` The mod must declare supported engine and API ranges, fingerprint relevant merged content, and document known conflicts.
+`NFR-06 Compatibility` The mod must declare supported API and required
+permissions, fingerprint relevant merged content, and document known
+engine-version boundaries. `engine_internals` is limited to canonical bag
+insertion for randomized vending; `filesystem` is limited to explicit spoiler
+export.
 
 `NFR-07 Accessibility` Settings must be usable with keyboard, controller, and touch mappings supported by the base Options menu. Information must not depend on color alone.
 

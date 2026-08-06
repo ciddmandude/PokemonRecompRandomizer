@@ -134,15 +134,16 @@ if ($null -ne $manifest.game_version) {
 if ($manifest.entry -ne 'main.lua') {
   throw "manifest entry must be main.lua"
 }
-if (@($manifest.permissions).Count -ne 1 `
-    -or $manifest.permissions[0] -ne 'filesystem') {
-  throw "milestone 14 requires only the filesystem permission"
+if (@($manifest.permissions).Count -ne 2 `
+    -or $manifest.permissions[0] -ne 'engine_internals' `
+    -or $manifest.permissions[1] -ne 'filesystem') {
+  throw "permissions must be engine_internals and filesystem"
 }
 
 $constants = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src/constants.lua') `
   -Raw -Encoding UTF8
-if ($manifest.version -ne '0.46.3') {
-  throw "manifest version must be 0.46.3"
+if ($manifest.version -ne '0.46.4') {
+  throw "manifest version must be 0.46.4"
 }
 
 if (Test-Path -LiteralPath (Join-Path $ProjectRoot '.modkitignore')) {
@@ -158,8 +159,8 @@ $gitIgnore = if ($PSBoundParameters.ContainsKey(
 if ($gitIgnore -notmatch '(?m)^/dist/\*\.zip\r?$') {
   throw '.gitignore must exclude generated release ZIPs'
 }
-if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.46\.3"') {
-  throw "constants MOD_VERSION must match manifest version 0.46.3"
+if ($constants -notmatch 'MOD_VERSION\s*=\s*"0\.46\.4"') {
+  throw "constants MOD_VERSION must match manifest version 0.46.4"
 }
 if ($constants -notmatch 'MOD_API\s*=\s*2') {
   throw "constants MOD_API must match manifest api 2"

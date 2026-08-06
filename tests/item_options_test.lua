@@ -312,4 +312,117 @@ assert(game.save.inventory.BOULDERBADGE == nil
     and game.save.inventory.CASCADEBADGE == 1,
   "post-battle exchange replaces the Gym's vanilla badge")
 
+local bagData
+local TestBag = {}
+function TestBag.add(save, itemId, quantity, data)
+  bagData = data
+  local inventory = save.inventory or {}
+  save.inventory = inventory
+  local function badge(id) return string.find(id, "BADGE", 1, true) ~= nil end
+  local slots = 0
+  for id, count in pairs(inventory) do
+    if count > 0 and not badge(id) then slots = slots + 1 end
+  end
+  local capacity = data and data.constants and data.constants.bagSize or 20
+  quantity = quantity or 1
+  if not inventory[itemId] and not badge(itemId) and slots >= capacity then
+    return false
+  end
+  if not badge(itemId) and (inventory[itemId] or 0) + quantity > 99 then
+    return false
+  end
+  local isNew = not inventory[itemId]
+  inventory[itemId] = (inventory[itemId] or 0) + quantity
+  if isNew and not badge(itemId) then
+    save.bagOrder = save.bagOrder or {}
+    save.bagOrder[#save.bagOrder + 1] = itemId
+  end
+  return true
+end
+
+local VendingRuntime = loadFactory("src/item_runtime.lua", catalog, TestBag)
+local vendingRegistration, vendingList
+local vendingRun = { mappings = { fieldItems = {
+  { kind = "shop", mapId = "CELADON_MART_ROOF", talkKey = "vending",
+    slot = 1, item = "FRESH_WATER", price = 200 },
+} } }
+local vendingMod = {
+  content = {
+    commands = { get = function() return nil end },
+    map_scripts = {
+      get = function() return { talk = {} } end,
+      register = function(_, mapId, value)
+        if mapId == "CELADON_MART_ROOF" then vendingRegistration = value end
+      end,
+    },
+  },
+  ui = { ListMenu = { new = function(_, _, entries, options)
+    vendingList = { items = entries, opts = options }
+    return vendingList
+  end } },
+}
+VendingRuntime.install(vendingMod, function() return vendingRun end)
+
+local function openVending(gameState)
+  vendingRegistration.talk.TEXT_CELADONMARTROOF_VENDING_MACHINE1(
+    gameState, {}, {}, function() end)
+  vendingList.opts.onChoose(vendingList.items[1])
+end
+
+local inventory, bagOrder = {}, {}
+for index = 1, 20 do
+  local itemId = "ITEM_" .. index
+  inventory[itemId], bagOrder[index] = 1, itemId
+end
+local expandedBagGame = {
+  data = {
+    constants = { bagSize = 999 },
+    items = { FRESH_WATER = { name = "Fresh Water" } },
+  },
+  save = { money = 200, inventory = inventory, bagOrder = bagOrder },
+  stack = { push = function() end },
+}
+openVending(expandedBagGame)
+assert(expandedBagGame.save.inventory.FRESH_WATER == 1
+    and expandedBagGame.save.money == 0
+    and expandedBagGame.save.bagOrder[21] == "FRESH_WATER"
+    and bagData == expandedBagGame.data,
+  "randomized vending honors merged bag capacity and acquisition order")
+
+local fullBagGame = {
+  data = {
+    constants = { bagSize = 20 },
+    items = { FRESH_WATER = { name = "Fresh Water" } },
+  },
+  save = { money = 200, inventory = {}, bagOrder = {} },
+  stack = { push = function() end },
+}
+for index = 1, 20 do
+  local itemId = "FULL_" .. index
+  fullBagGame.save.inventory[itemId] = 1
+  fullBagGame.save.bagOrder[index] = itemId
+end
+openVending(fullBagGame)
+assert(fullBagGame.save.inventory.FRESH_WATER == nil
+    and fullBagGame.save.money == 200
+    and vendingList.footer == "No room in BAG!",
+  "a rejected vending purchase does not deduct money")
+
+local fullStackGame = {
+  data = {
+    constants = { bagSize = 20 },
+    items = { FRESH_WATER = { name = "Fresh Water" } },
+  },
+  save = {
+    money = 200, inventory = { FRESH_WATER = 99 },
+    bagOrder = { "FRESH_WATER" },
+  },
+  stack = { push = function() end },
+}
+openVending(fullStackGame)
+assert(fullStackGame.save.inventory.FRESH_WATER == 99
+    and fullStackGame.save.money == 200
+    and vendingList.footer == "No room in BAG!",
+  "a vending purchase respects the engine stack limit")
+
 io.write("item_options_test: ok\n")

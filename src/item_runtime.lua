@@ -1,6 +1,6 @@
 -- Projects saved item placements into live merged data and restores the
 -- post-mod baseline when saves are switched in one application session.
-return function(ItemSourceCatalog)
+return function(ItemSourceCatalog, EngineBag)
   local ItemRuntime, baseline, priceBaseline = {}, nil, nil
 
   local function findVisible(data, row)
@@ -294,6 +294,10 @@ return function(ItemSourceCatalog)
       if next(mapped) == nil and type(baseVending) == "function" then
         return baseVending(game, overworld, npc, done)
       end
+      -- Use the engine's canonical capacity, stack-limit, badge, and bag-order
+      -- behavior. The optional injection keeps the ROM-free test harness from
+      -- loading a private engine module.
+      local Bag = EngineBag or require("src.inventory.Bag")
       local entries = {}
       for slot, source in ipairs(vanilla) do
         local row = mapped[slot]
@@ -311,14 +315,10 @@ return function(ItemSourceCatalog)
             list.footer = "Not enough money!"
             return
           end
-          local inventory, distinct = game.save.inventory or {}, 0
-          game.save.inventory = inventory
-          for _, count in pairs(inventory) do if count and count > 0 then distinct = distinct + 1 end end
-          if not inventory[value.item] and distinct >= 20 then
+          if not Bag.add(game.save, value.item, 1, game.data) then
             list.footer = "No room in BAG!"
             return
           end
-          inventory[value.item] = (inventory[value.item] or 0) + 1
           game.save.money = game.save.money - value.price
           list.footer = "Item purchased!"
         end,
